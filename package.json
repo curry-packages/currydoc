@@ -1,0 +1,20 @@
+{
+    "name": "currydoc",
+    "version": "0.8.2",
+    "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
+    "synopsis": "A documentation generator for Curry",
+    "category": [ "Documentation", "Analysis" ],
+    "dependencies": {
+        "cass-analysis": ">= 0.0.1",
+        "cass"         : ">= 0.0.1"
+    },
+    "configModule": "CurryDoc.PackageConfig",
+    "executable": {
+        "name": "curry-doc",
+        "main": "CurryDoc.Main"
+    },
+    "source": {
+        "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/currydoc.git",
+        "tag": "$version"
+    }
+}
