@@ -122,6 +122,13 @@ createDir dir = do
   exdir <- doesDirectoryExist dir
   unless exdir $ system ("mkdir " ++ dir) >> done
 
+--- Recursively copies a directory structure.
+copyDirectory :: String -> String -> IO ()
+copyDirectory src dst = do
+  retCode <- system $ "cp -pR \"" ++ src ++ "\" \"" ++ dst ++ "\""
+  when (retCode /= 0) $
+    error $ "Copy failed with return code " ++ show retCode
+
 --------------------------------------------------------------------------
 --- The main function of the CurryDoc utility.
 --- @param withindex - True if the index pages should also be generated
@@ -209,7 +216,7 @@ getModInfo :: String -> IO (Category,String,String)
 getModInfo modname = do
   mmodsrc <- lookupModuleSourceInLoadPath modname
   case mmodsrc of
-    Nothing           -> error $ "Source code of module '"++modname++"' not found!"
+    Nothing -> error $ "Source code of module '"++modname++"' not found!"
     Just (_,progname) -> do
       (modcmts,_) <- readComments progname
       let (modcmt,catcmts) = splitComment modcmts
@@ -220,21 +227,21 @@ getModInfo modname = do
 prepareDocDir :: DocType -> String -> IO ()
 prepareDocDir HtmlDoc docdir = do
   createDir docdir
-  -- copy style sheet:
-  copyIncludeIfPresent docdir "currydoc.css"
+  -- copy style sheets etc:
+  copyDirectory (includeDir </> "bt3") (docdir </> "bt3")
 prepareDocDir TexDoc docdir = do
   createDir docdir
-  putStrLn $ "Copy macros into documentation directory \""++docdir++"\"..."
+  putStrLn $ "Copy macros into documentation directory '"++docdir++"'..."
   copyIncludeIfPresent docdir "currydoc.tex"
 prepareDocDir CDoc docdir = do
   createDir docdir
-  putStrLn ("Directory was succesfully created")
+  putStrLn "Directory was succesfully created"
 
 copyIncludeIfPresent :: String -> String -> IO ()
 copyIncludeIfPresent docdir inclfile = do
   existIDir <- doesDirectoryExist includeDir
   when existIDir $
-    system ("cp "++includeDir++"/"++inclfile++" "++docdir) >> done
+    system (unwords ["cp", includeDir </> inclfile, docdir]) >> done
 
 -- read and generate all analysis infos:
 readAnaInfo :: String -> IO AnaInfo
