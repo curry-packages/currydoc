@@ -32,13 +32,13 @@ import AbstractCurry.Files
 import Directory
 import Distribution
 import FileGoodies
-import FilePath ((</>), (<.>), dropFileName, takeFileName)
+import FilePath        ((</>), (<.>), dropFileName, takeFileName)
 import FlatCurry.Types
 import FlatCurry.Files
-import FlatCurry.Read(readFlatCurryWithImports)
+import FlatCurry.Read  (readFlatCurryWithImports)
 import Function
 import List
-import Maybe(fromJust)
+import Maybe           (fromJust)
 import System
 import Time
 
@@ -46,7 +46,8 @@ import Analysis.Deterministic
 import Analysis.TotallyDefined
 import Analysis.Indeterministic
 import Analysis.SolutionCompleteness
-import CASS.Server(initializeAnalysisSystem,analyzeInterface)
+import Analysis.Types (analysisName)
+import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
 
 import CurryDoc.AnaInfo
 import CurryDoc.Params
@@ -249,17 +250,20 @@ copyIncludeIfPresent docdir inclfile = do
 readAnaInfo :: String -> IO AnaInfo
 readAnaInfo modname = do
   initializeAnalysisSystem
-  nondet   <- analyzeInterface nondetAnalysis  modname >>= stopIfError
-  complete <- analyzeInterface patCompAnalysis modname >>= stopIfError
-  indet    <- analyzeInterface indetAnalysis   modname >>= stopIfError
-  solcomp  <- analyzeInterface solcompAnalysis modname >>= stopIfError
+  nondet   <- analyzeAndCheck nondetAnalysis 
+  complete <- analyzeAndCheck patCompAnalysis
+  indet    <- analyzeAndCheck indetAnalysis  
+  solcomp  <- analyzeAndCheck solcompAnalysis
   return (AnaInfo (\qn -> nondet qn == NDet) complete indet solcomp)
  where
-   stopIfError (Right err) = error ("Analysis error: "++err)
-   stopIfError (Left results) =
-     return (\qn -> maybe (error $ "No analysis result for function "++show qn)
-                          id
-                          (lookup qn results))
+   analyzeAndCheck ana =
+     analyzeInterface ana modname >>= either
+       (\results ->
+           return (\qn -> maybe (error $ "No '" ++ analysisName ana ++
+                                 "' analysis result for function " ++ show qn)
+                                id
+                                (lookup qn results)))
+       (\err -> error $ "Analysis error: " ++ err)
 
 -- generate documentation for a single module:
 makeDoc :: DocParams -> Bool -> String -> String -> IO ()
@@ -278,9 +282,10 @@ makeDocWithComments :: DocType -> DocParams -> Bool -> String -> AnaInfo
 makeDocWithComments HtmlDoc docparams recursive docdir anainfo modname
                     modcmts progcmts = do
   -- ensure that the AbstractCurry file for the module exists
-  loadpath <- getLoadPathForModule modname
-  modpath <- lookupFileInPath (abstractCurryFileName modname) [""] loadpath
-  unless (modpath /= Nothing) $ callFrontend ACY modname
+  Just (dir,_) <- lookupModuleSourceInLoadPath modname
+  let acyfile = dir </> abstractCurryFileName modname
+  exacy <- doesFileExist acyfile
+  unless exacy $ callFrontend ACY modname
   writeOutfile docparams recursive docdir modname
                (generateHtmlDocs docparams anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname

@@ -17,7 +17,7 @@ import AbstractCurry.Pretty
 import qualified FlatCurry.Types as FC
 import qualified FlatCurry.Goodies as FCG
 import FilePath
-import FileGoodies (lookupFileInPath)
+import FileGoodies     (getFileInPath)
 import HTML
 import Bootstrap3Style (bootstrapPage, glyphicon, homeIcon)
 import List
@@ -28,7 +28,7 @@ import Distribution
 import CategorizedHtmlList
 import Markdown
 import Maybe
-import Pretty(pretty,empty)
+import Pretty          (pretty, empty)
 
 import Analysis.TotallyDefined(Completeness(..))
 
@@ -46,8 +46,7 @@ generateHtmlDocs :: DocParams -> AnaInfo -> String -> String
                  -> [(SourceLine,String)] -> IO String
 generateHtmlDocs docparams anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
-             lookupFileInPath (abstractCurryFileName modname) [""] >>=
-             return . fromJust
+             getFileInPath (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
   (CurryProg _ imports types functions ops) <- readAbstractCurryFile acyname
   let
