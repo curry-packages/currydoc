@@ -17,24 +17,24 @@ import List
 import Markdown
 import Maybe
 
-import CurryDoc.Params
+import CurryDoc.Options
 import CurryDoc.Read
 
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
 -- are already analyzed.
-generateTexDocs :: DocParams -> AnaInfo -> String -> String
+generateTexDocs :: DocOptions -> AnaInfo -> String -> String
                 -> [(SourceLine,String)] -> IO String
-generateTexDocs docparams anainfo modname modcmts progcmts = do
+generateTexDocs docopts anainfo modname modcmts progcmts = do
   fcyname <- getFlatCurryFileInLoadPath modname
   putStrLn $ "Reading FlatCurry program \""++fcyname++"\"..."
   (Prog _ _ types functions _) <- readFlatCurryFile fcyname
-  let textypes = concatMap (genTexType docparams progcmts) types
-      texfuncs = concatMap (genTexFunc docparams progcmts anainfo) functions
+  let textypes = concatMap (genTexType docopts progcmts) types
+      texfuncs = concatMap (genTexFunc docopts progcmts anainfo) functions
       modcmt   = fst (splitComment modcmts)
   return $
      "\\currymodule{"++modname++"}\n" ++
-     htmlString2Tex docparams modcmt ++ "\n" ++
+     htmlString2Tex docopts modcmt ++ "\n" ++
      (if null textypes then ""
       else "\\currytypesstart\n" ++ textypes ++ "\\currytypesstop\n") ++
      (if null texfuncs then ""
@@ -43,9 +43,9 @@ generateTexDocs docparams anainfo modname modcmts progcmts = do
 --- Translate a documentation comment to LaTeX and use markdown translation
 --- if necessary. If the string contains HTML tags, these are also
 --- translated into LaTeX.
-htmlString2Tex :: DocParams -> String -> String
-htmlString2Tex docparams cmt =
-  if withMarkdown docparams
+htmlString2Tex :: DocOptions -> String -> String
+htmlString2Tex docopts cmt =
+  if withMarkdown docopts
   then markdownText2LaTeX (replaceIdLinks cmt)
   else showLatexExps (parseHtmlString (replaceIdLinks cmt))
 
@@ -69,25 +69,25 @@ replaceIdLinks str = case str of
               else "<code>"++s++"</code>"
 
 -- generate short HTML documentation for a function if it is exported:
-genTexFunc :: DocParams -> [(SourceLine,String)] -> _ -> FuncDecl -> String
-genTexFunc docparams progcmts _ (Func (_,fname) _ fvis ftype _) =
+genTexFunc :: DocOptions -> [(SourceLine,String)] -> _ -> FuncDecl -> String
+genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
   if fvis==Public
   then "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
          showTexType False ftype ++ "}}\n" ++
-         htmlString2Tex docparams
+         htmlString2Tex docopts
                (fst (splitComment (getFuncComment fname progcmts))) ++
        "\\curryfunctionstop\n"
   else ""
 
 --- generate TeX documentation for a datatype if it is exported:
-genTexType :: DocParams -> [(SourceLine,String)] -> TypeDecl -> String
-genTexType docparams progcmts (Type (_,tcons) tvis tvars constrs) =
+genTexType :: DocOptions -> [(SourceLine,String)] -> TypeDecl -> String
+genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
   if tvis==Public
   then
    let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
     in "\\currydatastart{" ++ tcons ++ "}\n" ++
-       htmlString2Tex docparams datacmt ++
+       htmlString2Tex docopts datacmt ++
        "\n\\currydatacons\n" ++
        concatMap (genHtmlCons (getCommentType "cons" conscmts)) constrs ++
        "\\currydatastop\n"
@@ -100,12 +100,12 @@ genTexType docparams progcmts (Type (_,tcons) tvis tvars constrs) =
                    tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ "}\n" ++
          (maybe ""
                 (\ (call,cmt) -> "{\\tt " ++ call ++ "}" ++
-                                 htmlString2Tex docparams cmt)
+                                 htmlString2Tex docopts cmt)
                 (getConsComment conscmts cname))
          ++ "\n"
     else ""
 
-genTexType docparams progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
+genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
   if tvis==Public
   then let (typecmt,_) = splitComment (getDataComment tcons progcmts) in
        "\\currytypesynstart{" ++ tcons ++ "}{" ++
@@ -113,7 +113,7 @@ genTexType docparams progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
         then "String = [Char]"
         else tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ " = " ++
                       showTexType False texp ) ++ "}\n" ++
-       htmlString2Tex docparams typecmt ++ "\\currytypesynstop\n\n"
+       htmlString2Tex docopts typecmt ++ "\\currytypesynstop\n\n"
   else ""
 
 -- Pretty printer for types in Curry syntax as TeX string.

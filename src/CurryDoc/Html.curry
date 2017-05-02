@@ -33,7 +33,7 @@ import Pretty          (pretty, empty)
 import Analysis.TotallyDefined(Completeness(..))
 
 import CurryDoc.AnaInfo
-import CurryDoc.Params
+import CurryDoc.Options
 import CurryDoc.Read
 import CurryDoc.Config
 
@@ -42,9 +42,9 @@ infixl 0 `withTitle`
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
 -- are already analyzed.
-generateHtmlDocs :: DocParams -> AnaInfo -> String -> String
+generateHtmlDocs :: DocOptions -> AnaInfo -> String -> String
                  -> [(SourceLine,String)] -> IO String
-generateHtmlDocs docparams anainfo modname modcmts progcmts = do
+generateHtmlDocs docopts anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
@@ -65,17 +65,17 @@ generateHtmlDocs docparams anainfo modname modcmts progcmts = do
         `addClass` "nav nav-sidebar"
       ]
     content =
-      genHtmlModule docparams modcmts ++
+      genHtmlModule docopts modcmts ++
       [ h2 [htxt "Summary of exported operations:"]
-      , borderedTable (map (genHtmlFuncShort docparams progcmts anainfo) expfuns)
+      , borderedTable (map (genHtmlFuncShort docopts progcmts anainfo) expfuns)
       ] ++
       ifNotNull exptypes (\tys ->
          [anchoredSection "exported_datatypes"
            (h2 [htxt "Exported datatypes:"] : hrule :
-           concatMap (genHtmlType docparams progcmts) tys)]) ++
+           concatMap (genHtmlType docopts progcmts) tys)]) ++
       [anchoredSection "exported_operations"
          (h2 [htxt "Exported operations:"] :
-          map (genHtmlFunc docparams modname progcmts
+          map (genHtmlFunc docopts modname progcmts
                  (attachProperties2Funcs propspecs progcmts) anainfo ops)
               expfuns)
       ]
@@ -195,7 +195,7 @@ attachProperties2Funcs props ((sourceline,_) : slines) =
 --- Translate a documentation comment to HTML and use markdown translation
 --- if necessary
 --- @return: either a paragraph (`<p>`) element or an empty list.
-docComment2HTML :: DocParams -> String -> [HtmlExp]
+docComment2HTML :: DocOptions -> String -> [HtmlExp]
 docComment2HTML opts cmt
   | null cmt          = []
   | withMarkdown opts = markdownText2HTML (replaceIdLinks cmt)
@@ -306,10 +306,10 @@ isSpecFunc fdecl =
    in any (`isPrefixOf` rfname) ["ceps'","erp'","tsop'"]
 
 --- generate HTML documentation for a module:
-genHtmlModule :: DocParams -> String -> [HtmlExp]
-genHtmlModule docparams modcmts =
+genHtmlModule :: DocOptions -> String -> [HtmlExp]
+genHtmlModule docopts modcmts =
   let (maincmt,avcmts) = splitComment modcmts
-   in docComment2HTML docparams maincmt ++
+   in docComment2HTML docopts maincmt ++
       map (\a->par [bold [htxt "Author: "], htxt a])
           (getCommentType "author" avcmts) ++
       map (\a->par [bold [htxt "Version: "], htxt a])
@@ -326,13 +326,13 @@ ifNotNull cmt genDoc
   | otherwise = genDoc cmt
 
 --- generate HTML documentation for a datatype if it is exported:
-genHtmlType :: DocParams -> [(SourceLine,String)] -> CTypeDecl -> [HtmlExp]
-genHtmlType docparams progcmts (CType (_,tcons) _ tvars constrs) =
+genHtmlType :: DocOptions -> [(SourceLine,String)] -> CTypeDecl -> [HtmlExp]
+genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
-      ++ docComment2HTML docparams datacmt
+      ++ docComment2HTML docopts datacmt
       ++ [par [explainCat "Constructors:"]]
-      ++ ulistOrEmpty (map (genHtmlCons docparams consfldcmts tcons tvars fldCons)
+      ++ ulistOrEmpty (map (genHtmlCons docopts consfldcmts tcons tvars fldCons)
                            (filter isExportedCons constrs))
       ++ [hrule]
  where
@@ -340,10 +340,10 @@ genHtmlType docparams progcmts (CType (_,tcons) _ tvars constrs) =
   fldCons   = [ (fn,cn) | f@(CField (_,fn) _ _) <- expFields
               , CRecord (_,cn) _ fs <- constrs, f `elem` fs
               ]
-genHtmlType docparams progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
+genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
   let (typecmt,_) = splitComment (getDataComment tcons progcmts)
    in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
-      ++ docComment2HTML docparams typecmt
+      ++ docComment2HTML docopts typecmt
       ++ [ par [explainCat "Type synonym:"
          , nbsp
          ,
@@ -354,13 +354,13 @@ genHtmlType docparams progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
                          " = " ++ showType tcmod False texp)]]
          , hrule
          ]
-genHtmlType docparams progcmts t@(CNewType (_,tcons) _ tvars constr) =
+genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in if isExportedCons constr
         then    [anchored tcons [style "typeheader" [htxt tcons]] ]
-             ++ docComment2HTML docparams datacmt
+             ++ docComment2HTML docopts datacmt
              ++ [par [explainCat "Constructor:"]]
-             ++ ulistOrEmpty [genHtmlCons docparams consfldcmts tcons tvars fldCons constr]
+             ++ ulistOrEmpty [genHtmlCons docopts consfldcmts tcons tvars fldCons constr]
              ++ [hrule]
         else []
  where
@@ -368,9 +368,9 @@ genHtmlType docparams progcmts t@(CNewType (_,tcons) _ tvars constr) =
   fldCons = map (\fn -> (fn,cn)) (getExportedFields [t])
 
 --- generate HTML documentation for a constructor if it is exported:
-genHtmlCons :: DocParams -> [(String,String)] -> String -> [CTVarIName]
+genHtmlCons :: DocOptions -> [(String,String)] -> String -> [CTVarIName]
              -> [(String,String)] -> CConsDecl -> [HtmlExp]
-genHtmlCons docparams consfldcmts tcons tvars _
+genHtmlCons docopts consfldcmts tcons tvars _
             (CCons (cmod,cname) _ argtypes) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
@@ -379,12 +379,12 @@ genHtmlCons docparams consfldcmts tcons tvars _
                                  argtypes ++
                        tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars)]] :
       maybe []
-            (\ (_,cmt) -> htxt " : " : removeTopPar (docComment2HTML docparams
+            (\ (_,cmt) -> htxt " : " : removeTopPar (docComment2HTML docopts
                                                     (removeDash cmt)))
             (getConsComment conscmts cname)
  where
   conscmts = getCommentType "cons" consfldcmts
-genHtmlCons docparams consfldcmts tcons tvars fldCons
+genHtmlCons docopts consfldcmts tcons tvars fldCons
             (CRecord (cmod,cname) _ fields) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
@@ -393,11 +393,11 @@ genHtmlCons docparams consfldcmts tcons tvars fldCons
                                  argtypes ++
                        tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars)]] :
       (maybe []
-            (\ (_,cmt) -> htxt " : " : removeTopPar (docComment2HTML docparams
+            (\ (_,cmt) -> htxt " : " : removeTopPar (docComment2HTML docopts
                                                     (removeDash cmt)))
             (getConsComment conscmts cname)) ++
       par [explainCat "Fields:"] :
-      ulistOrEmpty (map (genHtmlField docparams fldcmts cname fldCons)
+      ulistOrEmpty (map (genHtmlField docopts fldcmts cname fldCons)
                         (filter isExportedField fields))
  where
   argtypes = map (\(CField _ _ t) -> t) fields
@@ -405,9 +405,9 @@ genHtmlCons docparams consfldcmts tcons tvars fldCons
   fldcmts  = getCommentType "field" consfldcmts
 
 -- generate HTML documentation for record fields
-genHtmlField :: DocParams -> [String] -> String -> [(String,String)]
+genHtmlField :: DocOptions -> [String] -> String -> [(String,String)]
              -> CFieldDecl -> [HtmlExp]
-genHtmlField docparams fldcmts cname fldCons (CField (fmod,fname) _ ty)
+genHtmlField docopts fldcmts cname fldCons (CField (fmod,fname) _ ty)
   | withAnchor fname = [anchored (fname ++ "_FIELD") html]
   | otherwise        = html
  where
@@ -416,13 +416,13 @@ genHtmlField docparams fldcmts cname fldCons (CField (fmod,fname) _ ty)
                  , HtmlText (" :: " ++ showType fmod True ty)]
                  ] ++ maybe []
                             (\ (_,cmt) -> htxt " : " : removeTopPar
-                               (docComment2HTML docparams (removeDash cmt)))
+                               (docComment2HTML docopts (removeDash cmt)))
                             (getConsComment fldcmts fname)
 
 -- generate short HTML documentation for a function:
-genHtmlFuncShort :: DocParams -> [(SourceLine,String)] -> AnaInfo -> CFuncDecl
+genHtmlFuncShort :: DocOptions -> [(SourceLine,String)] -> AnaInfo -> CFuncDecl
                  -> [[HtmlExp]]
-genHtmlFuncShort docparams progcmts anainfo
+genHtmlFuncShort docopts progcmts anainfo
                  (CFunc (fmod,fname) _ _ ftype _) =
  [[code [opnameDoc
             [anchored (fname ++ "_SHORT")
@@ -432,21 +432,21 @@ genHtmlFuncShort docparams progcmts anainfo
      ++ genFuncPropIcons anainfo (fmod,fname) ++
   [breakline] ++
    removeTopPar
-      (docComment2HTML docparams
+      (docComment2HTML docopts
          (firstSentence (fst (splitComment
                                 (getFuncComment fname progcmts)))))]
-genHtmlFuncShort docparams progcmts anainfo (CmtFunc _ n a vis ftype rules) =
-  genHtmlFuncShort docparams progcmts anainfo (CFunc n a vis ftype rules)
+genHtmlFuncShort docopts progcmts anainfo (CmtFunc _ n a vis ftype rules) =
+  genHtmlFuncShort docopts progcmts anainfo (CFunc n a vis ftype rules)
 
 -- generate HTML documentation for a function:
-genHtmlFunc :: DocParams -> String -> [(SourceLine,String)]
+genHtmlFunc :: DocOptions -> String -> [(SourceLine,String)]
             -> [(String,[(FuncAttachment,String,[HtmlExp])])] -> AnaInfo
             -> [COpDecl] -> CFuncDecl -> HtmlExp
-genHtmlFunc docparams modname progcmts funcattachments anainfo ops
+genHtmlFunc docopts modname progcmts funcattachments anainfo ops
             (CmtFunc _ n a vis ftype rules) =
-  genHtmlFunc docparams modname progcmts funcattachments anainfo ops
+  genHtmlFunc docopts modname progcmts funcattachments anainfo ops
               (CFunc n a vis ftype rules)
-genHtmlFunc docparams modname progcmts funcattachments anainfo ops
+genHtmlFunc docopts modname progcmts funcattachments anainfo ops
             (CFunc (fmod,fname) _ _ ftype rules) =
   let (funcmt,paramcmts) = splitComment (getFuncComment fname progcmts)
    in anchoredDiv fname
@@ -456,7 +456,7 @@ genHtmlFunc docparams modname progcmts funcattachments anainfo ops
                   HtmlText (" :: "++ showType fmod False ftype)],
             nbsp, nbsp] ++
            genFuncPropIcons anainfo (fmod,fname)] ++
-         docComment2HTML docparams funcmt ++
+         docComment2HTML docopts funcmt ++
          genParamComment paramcmts ++
          -- show contracts and properties (if present):
          showAttachments "Precondition"  PreCond  ++
@@ -493,13 +493,13 @@ genHtmlFunc docparams modname progcmts funcattachments anainfo ops
           , dlist [([explainCat "Parameters:"],
                     [ulist (map (\ (parid,parcmt) ->
                            [code [htxt parid], htxt " : "] ++
-                           removeTopPar (docComment2HTML docparams
+                           removeTopPar (docComment2HTML docopts
                                                          (removeDash parcmt)))
                        parCmts)])]
           ])
       ++ ifNotNull ret (\retCmt -> [dlist (map (\rescmt ->
           ([explainCat "Returns:"],
-           removeTopPar (docComment2HTML docparams rescmt))) retCmt)])
+           removeTopPar (docComment2HTML docopts rescmt))) retCmt)])
 
   showCall f params =
     if isAlpha (head f) || length params /= 2
@@ -651,17 +651,22 @@ addFuncAnchors ancs (sl : sls) = let id1 = getFirstId sl in
 
 --------------------------------------------------------------------------
 -- generate the index page for the documentation directory:
-genMainIndexPage :: String -> [String] -> IO ()
-genMainIndexPage docdir modnames =
+genMainIndexPage :: DocOptions -> String -> [String] -> IO ()
+genMainIndexPage docopts docdir modnames =
  do putStrLn ("Writing index page to \""++docdir++"/index.html\"...")
     simplePage "Documentation of Curry modules"
-      (Just $
-       if length modnames == 1
-       then [htxt "Documentation of the Curry program ",
-             href (head modnames++".html") [htxt (head modnames++".curry")]]
-       else [htxt "Documentation of Curry programs"])
-      allConsFuncsMenu (indexPage modnames)
+               (Just pageTitle)
+               allConsFuncsMenu (indexPage modnames)
      >>= writeFile (docdir++"/index.html")
+ where
+  pageTitle =
+    if not (null (mainTitle docopts))
+      then [htxt (mainTitle docopts)]
+      else if length modnames == 1
+            then [htxt "Documentation of the Curry program ",
+                  href (head modnames ++ ".html")
+                       [htxt (head modnames ++ ".curry")]]
+            else [htxt "Documentation of Curry programs"]
 
 allConsFuncsMenu :: [[HtmlExp]]
 allConsFuncsMenu =
@@ -804,7 +809,7 @@ genHtmlLibCats = concatMap gen
 
 genHtmlLibCat :: [ModInfo] -> [HtmlExp]
 genHtmlLibCat category =
-  [dlist [(genHtmlName modname, docComment2HTML defaultCurryDocParams modcmt)
+  [dlist [(genHtmlName modname, docComment2HTML defaultCurryDocOptions modcmt)
   | (_,modname,modcmt) <- category ]
   ]
  where

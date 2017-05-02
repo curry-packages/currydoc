@@ -50,7 +50,7 @@ import Analysis.Types (analysisName)
 import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
 
 import CurryDoc.AnaInfo
-import CurryDoc.Params
+import CurryDoc.Options
 import CurryDoc.Read
 import CurryDoc.Html
 import CurryDoc.TeX
@@ -75,26 +75,27 @@ includeDir = packagePath </> "include"
 main :: IO ()
 main = do
   args <- getArgs
-  processArgs defaultCurryDocParams args
+  processArgs defaultCurryDocOptions args
 
-processArgs :: DocParams -> [String] -> IO ()
+processArgs :: DocOptions -> [String] -> IO ()
 processArgs params args = case args of
   -- no markdown
-  ("--nomarkdown":margs) -> processArgs (setMarkDown False  params) margs
+  ("--nomarkdown":margs) -> processArgs (params { withMarkdown = False }) margs
   -- documentation type
-  ("--html"      :margs) -> processArgs (setDocType HtmlDoc params) margs
-  ("--tex"       :margs) -> processArgs (setDocType TexDoc  params) margs
-  ("--cdoc"      :margs) -> processArgs (setDocType CDoc    params) margs
+  ("--title" : t :margs) -> processArgs params { mainTitle = t } margs
+  ("--html"      :margs) -> processArgs params { docType = HtmlDoc } margs
+  ("--tex"       :margs) -> processArgs params { docType = TexDoc  } margs
+  ("--cdoc"      :margs) -> processArgs params { docType = CDoc    } margs
   -- HTML without index
   ["--noindexhtml",docdir,modname] ->
-      makeCompleteDoc (setIndex False (setDocType HtmlDoc params))
+      makeCompleteDoc params { withIndex = False, docType = HtmlDoc }
                       True docdir (stripCurrySuffix modname)
   -- HTML index only
   ("--onlyindexhtml":docdir:modnames) ->
-                      makeIndexPages docdir (map stripCurrySuffix modnames)
+      makeIndexPages params docdir (map stripCurrySuffix modnames)
   ("--libsindexhtml":docdir:modnames) ->
-                      makeSystemLibsIndex docdir modnames
-  (('-':_):_) -> putStrLn usageMessage
+      makeSystemLibsIndex params docdir modnames
+  (('-':_):_) -> printUsageMessage
   -- module
   [modname] ->
       makeCompleteDoc params (docType params == HtmlDoc)
@@ -104,17 +105,20 @@ processArgs params args = case args of
   [docdir,modname] ->
       makeCompleteDoc params (docType params == HtmlDoc) docdir
                       (stripCurrySuffix modname)
-  _ -> putStrLn usageMessage
+  _ -> printUsageMessage
 
-usageMessage :: String
-usageMessage = unlines
- [ "ERROR: Illegal arguments for CurryDoc"
- , "Usage: curry-doc [--nomarkdown] [--html|--tex|--cdoc] [<doc directory>] <module_name>"
- , "       curry-doc [--nomarkdown] --noindexhtml <doc directory> <module_name>"
- , "       curry-doc --onlyindexhtml <doc directory> <module_names>"
- , "       curry-doc --libsindexhtml <doc directory> <module_names>"
- ]
-
+printUsageMessage :: IO ()
+printUsageMessage = do
+  args <- getArgs
+  putStrLn $ unlines
+   [ "ERROR: Illegal arguments for CurryDoc: " ++ unwords args
+   , ""
+   , "Usage:"
+   , "curry-doc [--title s] [--nomarkdown] [--html|--tex|--cdoc] [<doc_dir>] <module>"
+   , "curry-doc [--title s] [--nomarkdown] --noindexhtml <doc_dir> <module>"
+   , "curry-doc [--title s] --onlyindexhtml <doc_dir> <modules>"
+   , "curry-doc [--title s] --libsindexhtml <doc_dir> <modules>"
+   ]
 
 
 -- create directory if not existent:
@@ -137,11 +141,11 @@ copyDirectory src dst = do
 ---                    should be also generated (if necessary)
 --- @param docdir - the directory name containing all documentation files
 --- @param modname - the name of the main module to be documented
-makeCompleteDoc :: DocParams -> Bool -> String -> String -> IO ()
-makeCompleteDoc docparams recursive reldocdir modpath = do
+makeCompleteDoc :: DocOptions -> Bool -> String -> String -> IO ()
+makeCompleteDoc docopts recursive reldocdir modpath = do
   putStrLn greeting
   docdir <- makeAbsolute reldocdir
-  prepareDocDir (docType docparams) docdir
+  prepareDocDir (docType docopts) docdir
   lookupModuleSourceInLoadPath modpath >>=
    maybe (error $ "Source code of module '"++modpath++"' not found!")
     (\ (moddir,_) -> do
@@ -153,10 +157,10 @@ makeCompleteDoc docparams recursive reldocdir modpath = do
       callFrontend ACY modname
       -- when constructing CDOC the imported modules don't have to be read
       -- from the FlatCurry file
-      (alltypes,allfuns) <- getProg modname $ docType docparams
-      makeDocIfNecessary docparams recursive docdir modname
-      when (withIndex docparams) $ do
-        genMainIndexPage     docdir [modname]
+      (alltypes,allfuns) <- getProg modname $ docType docopts
+      makeDocIfNecessary docopts recursive docdir modname
+      when (withIndex docopts) $ do
+        genMainIndexPage     docopts docdir [modname]
         genFunctionIndexPage docdir allfuns
         genConsIndexPage     docdir alltypes
       -- change access rights to readable for everybody:
@@ -177,12 +181,12 @@ makeAbsolute f =
           return (curdir </> f)
 
 --- Generate only the index pages for a list of (already compiled!) modules:
-makeIndexPages :: String -> [String] -> IO ()
-makeIndexPages docdir modnames = do
+makeIndexPages :: DocOptions -> String -> [String] -> IO ()
+makeIndexPages docopts docdir modnames = do
   putStrLn greeting
   prepareDocDir HtmlDoc docdir
   (alltypes,allfuns) <- mapIO readTypesFuncs modnames >>= return . unzip
-  genMainIndexPage     docdir modnames
+  genMainIndexPage     docopts docdir modnames
   genFunctionIndexPage docdir (concat allfuns)
   genConsIndexPage     docdir (concat alltypes)
   -- change access rights to readable for everybody:
@@ -196,10 +200,10 @@ makeIndexPages docdir modnames = do
 
 --- Generate a system library index page categorizing the given
 --- (already compiled!) modules
-makeSystemLibsIndex :: String -> [String] -> IO ()
-makeSystemLibsIndex docdir modnames = do
+makeSystemLibsIndex :: DocOptions -> String -> [String] -> IO ()
+makeSystemLibsIndex docopts docdir modnames = do
   -- generate index pages (main index, function index, constructor index)
-  makeIndexPages docdir modnames
+  makeIndexPages docopts docdir modnames
   putStrLn ("Categorizing modules ...")
   modInfos <- mapIO getModInfo modnames
   putStrLn ("Grouping modules by categories ...")
@@ -266,42 +270,42 @@ readAnaInfo modname = do
        (\err -> error $ "Analysis error: " ++ err)
 
 -- generate documentation for a single module:
-makeDoc :: DocParams -> Bool -> String -> String -> IO ()
-makeDoc docparams recursive docdir modname = do
+makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
+makeDoc docopts recursive docdir modname = do
   Just (_,progname) <- lookupModuleSourceInLoadPath modname
   putStrLn ("Reading comments from file '"++progname++"'...")
   (modcmts,progcmts) <- readComments progname
   putStrLn ("Reading analysis information for module \""++modname++"\"...")
   anainfo <- readAnaInfo modname
-  makeDocWithComments (docType docparams) docparams recursive docdir
+  makeDocWithComments (docType docopts) docopts recursive docdir
                       anainfo modname modcmts progcmts
 
 
-makeDocWithComments :: DocType -> DocParams -> Bool -> String -> AnaInfo
+makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
                     -> String -> String -> [(SourceLine,String)] -> IO ()
-makeDocWithComments HtmlDoc docparams recursive docdir anainfo modname
+makeDocWithComments HtmlDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
   -- ensure that the AbstractCurry file for the module exists
   Just (dir,_) <- lookupModuleSourceInLoadPath modname
   let acyfile = dir </> abstractCurryFileName modname
   exacy <- doesFileExist acyfile
   unless exacy $ callFrontend ACY modname
-  writeOutfile docparams recursive docdir modname
-               (generateHtmlDocs docparams anainfo modname modcmts progcmts)
+  writeOutfile docopts recursive docdir modname
+               (generateHtmlDocs docopts anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname
-  writeOutfile (DocParams CDoc False False) False docdir modname
+  writeOutfile cdocFileOptions False docdir modname
                (generateCDoc modname modcmts progcmts anainfo)
 
 
-makeDocWithComments TexDoc docparams recursive docdir anainfo modname
+makeDocWithComments TexDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
-  writeOutfile docparams recursive docdir modname
-               (generateTexDocs docparams anainfo modname modcmts progcmts)
+  writeOutfile docopts recursive docdir modname
+               (generateTexDocs docopts anainfo modname modcmts progcmts)
 
 
-makeDocWithComments CDoc docparams recursive docdir anainfo modname
+makeDocWithComments CDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
-  writeOutfile docparams recursive docdir modname
+  writeOutfile docopts recursive docdir modname
                (generateCDoc modname modcmts progcmts anainfo)
 
 
@@ -309,21 +313,21 @@ makeDocWithComments CDoc docparams recursive docdir anainfo modname
 --- I.e., the documentation is generated if no previous documentation
 --- file exists or if the existing documentation file is older than
 --- the FlatCurry file.
-makeDocIfNecessary :: DocParams -> Bool -> String -> String -> IO ()
-makeDocIfNecessary docparams recursive docdir modname = do
+makeDocIfNecessary :: DocOptions -> Bool -> String -> String -> IO ()
+makeDocIfNecessary docopts recursive docdir modname = do
   let docfile = docdir </> modname ++
-                (if docType docparams == HtmlDoc then ".html" else ".tex")
+                (if docType docopts == HtmlDoc then ".html" else ".tex")
   docexists <- doesFileExist docfile
   if not docexists
-   then copyOrMakeDoc docparams recursive docdir modname
+   then copyOrMakeDoc docopts recursive docdir modname
    else do
      ctime  <- getFlatCurryFileInLoadPath modname >>= getModificationTime
      dftime <- getModificationTime docfile
      if compareClockTime ctime dftime == GT
-      then copyOrMakeDoc docparams recursive docdir modname
+      then copyOrMakeDoc docopts recursive docdir modname
       else when recursive $ do
              imports <- getImports modname
-             mapIO_ (makeDocIfNecessary docparams recursive docdir) imports
+             mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
 
 -- get imports of a module by reading the interface, if possible:
 getImports :: String -> IO [String]
@@ -337,17 +341,17 @@ getImports modname = do
                              mbfintfile
   return imports
 
-copyOrMakeDoc :: DocParams -> Bool -> String -> String -> IO ()
-copyOrMakeDoc docparams recursive docdir modname = do
-  hasCopied <- copyDocIfPossible docparams docdir modname
-  unless hasCopied $ makeDoc docparams recursive docdir modname
+copyOrMakeDoc :: DocOptions -> Bool -> String -> String -> IO ()
+copyOrMakeDoc docopts recursive docdir modname = do
+  hasCopied <- copyDocIfPossible docopts docdir modname
+  unless hasCopied $ makeDoc docopts recursive docdir modname
 
 --- Copy the documentation file from standard documentation directoy "CDOC"
 --- (used for documentation of system libraries) if possible.
 --- Returns true if the copy was possible.
-copyDocIfPossible :: DocParams -> String -> String -> IO Bool
-copyDocIfPossible docparams docdir modname =
-  if docType docparams == TexDoc
+copyDocIfPossible :: DocOptions -> String -> String -> IO Bool
+copyDocIfPossible docopts docdir modname =
+  if docType docopts == TexDoc
   then return False -- ignore copying for TeX docs
   else do
     mdir <- lookupModuleSourceInLoadPath modname >>= return . fst . fromJust
@@ -385,14 +389,14 @@ fileExtension TexDoc  = "tex"
 fileExtension CDoc    = "cdoc"
 
 -- harmonized writeFile function for all docType
-writeOutfile :: DocParams -> Bool -> String -> String -> IO String -> IO ()
-writeOutfile docparams recursive docdir modname generate = do
+writeOutfile :: DocOptions -> Bool -> String -> String -> IO String -> IO ()
+writeOutfile docopts recursive docdir modname generate = do
   doc     <- generate
   imports <- getImports modname
-  let outfile = docdir </> modname <.> fileExtension (docType docparams)
+  let outfile = docdir </> modname <.> fileExtension (docType docopts)
   putStrLn ("Writing documentation to \"" ++ outfile ++ "\"...")
   writeFile outfile doc
   when recursive $
-    mapIO_ (makeDocIfNecessary docparams recursive docdir) imports
+    mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
 
 -- -----------------------------------------------------------------------

@@ -8,7 +8,6 @@
 module CurryDoc.CDoc where
 
 import CurryDoc.AnaInfo
-import CurryDoc.Params
 import CurryDoc.Read
 import FlatCurry.Types
 import FlatCurry.Files
