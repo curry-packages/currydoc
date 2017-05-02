@@ -675,7 +675,7 @@ allConsFuncsMenu =
 
 indexPage :: [String] -> [HtmlExp]
 indexPage modnames =
-  (if length modnames == 1
+  (if null modnames
    then []
    else [ulist (map (\m->[href (m++".html") [htxt (m++".curry ")]])
                     (mergeSortBy leqStringIgnoreCase modnames))])
