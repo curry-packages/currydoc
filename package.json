@@ -8,6 +8,10 @@
         "cass-analysis": ">= 0.0.1",
         "cass"         : ">= 0.0.1"
     },
+    "compilerCompatibility": {
+        "pakcs": ">= 1.14.0, < 2.0.0",
+        "kics2": ">= 0.5.0, < 2.0.0"
+    },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
         "name": "curry-doc",
