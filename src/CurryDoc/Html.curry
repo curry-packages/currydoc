@@ -48,7 +48,8 @@ generateHtmlDocs docopts anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
-  (CurryProg _ imports types functions ops) <- readAbstractCurryFile acyname
+  (CurryProg _ imports _ _ _ types functions ops) <-
+                                                readAbstractCurryFile acyname
   let
     exptypes   = filter isExportedType types
     expfuns    = filter isExportedFun  functions
@@ -100,6 +101,7 @@ generateHtmlDocs docopts anainfo modname modcmts progcmts = do
 
 -- Datatype to classify the kind of information attached to a function:
 data FuncAttachment = Property | PreCond | PostCond | SpecFun
+ deriving Eq
 
 -- Associate the properties or contracts (first argument)
 -- to functions according to their positions and name in the source code
@@ -139,7 +141,7 @@ attachProperties2Funcs props ((sourceline,_) : slines) =
   showRulesWith formatrule fnsuff (CFunc qn@(mn,fn) ar _ ftype rules) =
     let stripSuffix = reverse . tail . dropWhile (/='\'') . reverse
      in map (formatrule fnsuff qn (mn,stripSuffix fn)
-              . etaExpand ar (length (argTypes ftype))) rules
+              . etaExpand ar (length (argTypes (typeOfQualType ftype)))) rules
 
   -- eta expand simple rules for more reasonable documentation
   etaExpand arity tarity rule = case rule of
@@ -280,13 +282,13 @@ getExportedFields :: [CTypeDecl] -> [String]
 getExportedFields = map fldName . filter isExportedField . concatMap getFields
                   . concatMap typeCons
  where
-  getFields (CCons   _ _ _ ) = []
-  getFields (CRecord _ _ fs) = fs
+  getFields (CCons   _ _ _ _ _ ) = []
+  getFields (CRecord _ _ _ _ fs) = fs
 
 -- Is a function definition a property?
 isProperty :: CFuncDecl -> Bool
 isProperty fdecl = fst (funcName fdecl) /= easyCheckModule
-                   && isPropType (funcType fdecl)
+                   && isPropType (typeOfQualType (funcType fdecl))
  where
   isPropType :: CTypeExpr -> Bool
   isPropType ct =  ct == baseType (easyCheckModule,"Prop") -- I/O test?
@@ -327,7 +329,7 @@ ifNotNull cmt genDoc
 
 --- generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> [(SourceLine,String)] -> CTypeDecl -> [HtmlExp]
-genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs) =
+genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs _) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
       ++ docComment2HTML docopts datacmt
@@ -336,9 +338,9 @@ genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs) =
                            (filter isExportedCons constrs))
       ++ [hrule]
  where
-  expFields = [f | CRecord _ _ fs <- constrs, f <- fs, isExportedField f]
+  expFields = [f | CRecord _ _ _ _ fs <- constrs, f <- fs, isExportedField f]
   fldCons   = [ (fn,cn) | f@(CField (_,fn) _ _) <- expFields
-              , CRecord (_,cn) _ fs <- constrs, f `elem` fs
+              , CRecord _ _ (_,cn) _ fs <- constrs, f `elem` fs
               ]
 genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
   let (typecmt,_) = splitComment (getDataComment tcons progcmts)
@@ -354,7 +356,7 @@ genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
                          " = " ++ showType tcmod False texp)]]
          , hrule
          ]
-genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr) =
+genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr _) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in if isExportedCons constr
         then    [anchored tcons [style "typeheader" [htxt tcons]] ]
@@ -371,7 +373,7 @@ genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr) =
 genHtmlCons :: DocOptions -> [(String,String)] -> String -> [CTVarIName]
              -> [(String,String)] -> CConsDecl -> [HtmlExp]
 genHtmlCons docopts consfldcmts tcons tvars _
-            (CCons (cmod,cname) _ argtypes) =
+            (CCons _ _ (cmod,cname) _ argtypes) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
@@ -385,7 +387,7 @@ genHtmlCons docopts consfldcmts tcons tvars _
  where
   conscmts = getCommentType "cons" consfldcmts
 genHtmlCons docopts consfldcmts tcons tvars fldCons
-            (CRecord (cmod,cname) _ fields) =
+            (CRecord _ _ (cmod,cname) _ fields) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
@@ -427,7 +429,7 @@ genHtmlFuncShort docopts progcmts anainfo
  [[code [opnameDoc
             [anchored (fname ++ "_SHORT")
                       [href ('#':fname) [htxt (showId fname)]]],
-         HtmlText (" :: " ++ showType fmod False ftype)],
+         HtmlText (" :: " ++ showQualType fmod ftype)],
      nbsp, nbsp]
      ++ genFuncPropIcons anainfo (fmod,fname) ++
   [breakline] ++
@@ -453,7 +455,7 @@ genHtmlFunc docopts modname progcmts funcattachments anainfo ops
        [borderedTable [[
          [par $
            [code [opnameDoc [showCodeHRef fname],
-                  HtmlText (" :: "++ showType fmod False ftype)],
+                  HtmlText (" :: "++ showQualType fmod ftype)],
             nbsp, nbsp] ++
            genFuncPropIcons anainfo (fmod,fname)] ++
          docComment2HTML docopts funcmt ++
@@ -464,7 +466,7 @@ genHtmlFunc docopts modname progcmts funcattachments anainfo ops
          showAttachments "Specification" SpecFun  ++
          showAttachments "Properties"    Property ++
          -- show further infos for this function, if present:
-         (if furtherInfos == []
+         (if null furtherInfos
           then []
           else [dlist [([explainCat "Further infos:"],
                         [ulist furtherInfos])]] )]]]
@@ -536,11 +538,12 @@ genFuncPropIcons anainfo fname =
 --- formatted (if not empty) as some HTML list.
 genFuncPropComments :: AnaInfo -> QName -> [CRule] -> [COpDecl] -> [[HtmlExp]]
 genFuncPropComments anainfo fname rules ops =
-   filter (/=[]) [genFixityInfo fname ops,
-                  completenessInfo,
-                  indeterminismInfo,
-                  opcompleteInfo,
-                  externalInfo rules]
+   filter (not . null)
+          [genFixityInfo fname ops,
+           completenessInfo,
+           indeterminismInfo,
+           opcompleteInfo,
+           externalInfo rules]
  where
    -- comment about the definitional completeness of a function:
    completenessInfo = let ci = getCompleteInfo anainfo fname in
@@ -584,16 +587,39 @@ genFixityInfo fname ops =
 
 
 --------------------------------------------------------------------------
--- Pretty printer for types in Curry syntax:
+-- Pretty printer for qualified types in Curry syntax:
+showQualType :: String -> CQualTypeExpr -> String
+showQualType mod (CQualType ctxt texp) =
+  unwords [showContext mod ctxt, showType mod False texp]
+
+showContext :: String -> CContext -> String
+showContext _ (CContext []) = ""
+showContext mod (CContext [clscon]) =
+  showConstraint mod clscon ++ " =>"
+showContext mod (CContext ctxt@(_:_:_)) =
+  brackets True (intercalate ", " (map (showConstraint mod) ctxt)) ++ " =>"
+
+--- Pretty-print a single class constraint.
+showConstraint :: String -> CConstraint -> String
+showConstraint mod (cn,texp) =
+  showTypeCons mod cn ++ " " ++ showType mod True texp
+
+-- Pretty printer for type expressions in Curry syntax:
 -- second argument is True iff brackets must be written around complex types
 showType :: String -> Bool -> CTypeExpr -> String
-showType _ _ (CTVar (i,_)) = [chr (97+i)] -- TODO: use name given in source program instead?
-showType mod nested (CFuncType t1 t2) =
-   brackets nested
-    (showType mod (isFunctionalType t1) t1 ++ " -&gt; " ++ showType mod False t2)
-showType mod nested (CTCons tc ts)
+showType mod nested texp = case texp of
+  CTVar (i,_) -> [chr (97+i)] -- TODO: use name given in source program instead?
+  CFuncType t1 t2 ->
+    brackets nested (showType mod (isFunctionalType t1) t1 ++ " -&gt; " ++
+                     showType mod False t2)
+  _ -> maybe (error "")
+             (\ (tc,ts) -> showTConsType mod nested tc ts)
+             (tconsArgsOfType texp)
+
+showTConsType :: String -> Bool -> QName -> [CTypeExpr] -> String
+showTConsType mod nested tc ts
  | ts==[]  = showTypeCons mod tc
- | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char") [])
+ | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
    = "String"
  | tc==("Prelude","[]")
    = "[" ++ showType mod False (head ts) ++ "]" -- list type

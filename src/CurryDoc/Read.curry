@@ -29,6 +29,7 @@ data SourceLine = Comment String  -- a comment for CurryDoc
                 | DataDef String  -- a definition of a datatype
                 | ModDef          -- a line containing a module definition
                 | OtherLine       -- a line not relevant for CurryDoc
+ deriving Eq
 
 --- This datatype is used to categorize Curry libraries
 --- @cons General   - a general library
@@ -41,6 +42,7 @@ data Category = General
               | Database
               | Web
               | Meta
+ deriving (Eq,Ord)
 
 type ModInfo = (Category, String, String)
 
@@ -189,7 +191,7 @@ getDataComment n ((def, cmt):fdcmts) = case def of
 
 
 -- get all comments of a particular type (e.g., "param", "cons"):
-getCommentType :: a -> [(a,b)] -> [b]
+getCommentType :: Eq a => a -> [(a,b)] -> [b]
 getCommentType ctype cmts = map snd (filter (\c -> fst c == ctype) cmts)
 
 
