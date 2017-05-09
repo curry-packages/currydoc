@@ -84,8 +84,10 @@ processArgs params args = case args of
   -- documentation type
   ("--title" : t :margs) -> processArgs params { mainTitle = t } margs
   ("--html"      :margs) -> processArgs params { docType = HtmlDoc } margs
-  ("--tex"       :margs) -> processArgs params { docType = TexDoc  } margs
-  ("--cdoc"      :margs) -> processArgs params { docType = CDoc    } margs
+  ("--tex"       :margs) ->
+    processArgs params { docType = TexDoc, withIndex = False } margs
+  ("--cdoc"      :margs) ->
+    processArgs params { docType = CDoc,   withIndex = False } margs
   -- HTML without index
   ["--noindexhtml",docdir,modname] ->
       makeCompleteDoc params { withIndex = False, docType = HtmlDoc }
