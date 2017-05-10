@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version June 2015
+--- @version May 2017
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -61,9 +61,12 @@ import CurryDoc.PackageConfig (packagePath)
 --------------------------------------------------------------------------
 -- Global definitions:
 
-greeting :: String
-greeting =
-  "CurryDoc (" ++ currydocVersion ++ ") - the Curry Documentation Tool\n"
+banner :: String
+banner = unlines [bannerLine,bannerText,bannerLine]
+ where
+ bannerText =
+  "CurryDoc (" ++ currydocVersion ++ ") - the Curry Documentation Tool"
+ bannerLine = take (length bannerText) (repeat '-')
 
 -- Directory where include files for generated documention (e.g., icons,
 -- css, tex includes) are stored:
@@ -78,36 +81,38 @@ main = do
   processArgs defaultCurryDocOptions args
 
 processArgs :: DocOptions -> [String] -> IO ()
-processArgs params args = case args of
-  -- no markdown
-  ("--nomarkdown":margs) -> processArgs (params { withMarkdown = False }) margs
-  -- documentation type
-  ("--title" : t :margs) -> processArgs params { mainTitle = t } margs
-  ("--html"      :margs) -> processArgs params { docType = HtmlDoc } margs
-  ("--tex"       :margs) ->
-    processArgs params { docType = TexDoc, withIndex = False } margs
-  ("--cdoc"      :margs) ->
-    processArgs params { docType = CDoc,   withIndex = False } margs
-  -- HTML without index
-  ["--noindexhtml",docdir,modname] ->
-      makeCompleteDoc params { withIndex = False, docType = HtmlDoc }
-                      True docdir (stripCurrySuffix modname)
-  -- HTML index only
-  ("--onlyindexhtml":docdir:modnames) ->
-      makeIndexPages params docdir (map stripCurrySuffix modnames)
-  ("--libsindexhtml":docdir:modnames) ->
-      makeSystemLibsIndex params docdir modnames
-  (('-':_):_) -> printUsageMessage
-  -- module
-  [modname] ->
-      makeCompleteDoc params (docType params == HtmlDoc)
-                      ("DOC_" ++ stripCurrySuffix (takeFileName modname))
-                      (stripCurrySuffix modname)
-  -- docdir + module
-  [docdir,modname] ->
-      makeCompleteDoc params (docType params == HtmlDoc) docdir
-                      (stripCurrySuffix modname)
-  _ -> printUsageMessage
+processArgs params args = do
+  putStrLn banner
+  case args of
+    -- no markdown
+    ("--nomarkdown":margs) -> processArgs params { withMarkdown = False } margs
+    -- documentation type
+    ("--title" : t :margs) -> processArgs params { mainTitle = t } margs
+    ("--html"      :margs) -> processArgs params { docType = HtmlDoc } margs
+    ("--tex"       :margs) ->
+      processArgs params { docType = TexDoc, withIndex = False } margs
+    ("--cdoc"      :margs) ->
+      processArgs params { docType = CDoc,   withIndex = False } margs
+    -- HTML without index
+    ["--noindexhtml",docdir,modname] ->
+        makeCompleteDoc params { withIndex = False, docType = HtmlDoc }
+                        True docdir (stripCurrySuffix modname)
+    -- HTML index only
+    ("--onlyindexhtml":docdir:modnames) ->
+        makeIndexPages params docdir (map stripCurrySuffix modnames)
+    ("--libsindexhtml":docdir:modnames) ->
+        makeSystemLibsIndex params docdir modnames
+    (('-':_):_) -> printUsageMessage
+    -- module
+    [modname] ->
+        makeCompleteDoc params (docType params == HtmlDoc)
+                        ("DOC_" ++ stripCurrySuffix (takeFileName modname))
+                        (stripCurrySuffix modname)
+    -- docdir + module
+    [docdir,modname] ->
+        makeCompleteDoc params (docType params == HtmlDoc) docdir
+                        (stripCurrySuffix modname)
+    _ -> printUsageMessage
 
 printUsageMessage :: IO ()
 printUsageMessage = do
@@ -145,7 +150,6 @@ copyDirectory src dst = do
 --- @param modname - the name of the main module to be documented
 makeCompleteDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeCompleteDoc docopts recursive reldocdir modpath = do
-  putStrLn greeting
   docdir <- makeAbsolute reldocdir
   prepareDocDir (docType docopts) docdir
   lookupModuleSourceInLoadPath modpath >>=
@@ -185,7 +189,6 @@ makeAbsolute f =
 --- Generate only the index pages for a list of (already compiled!) modules:
 makeIndexPages :: DocOptions -> String -> [String] -> IO ()
 makeIndexPages docopts docdir modnames = do
-  putStrLn greeting
   prepareDocDir HtmlDoc docdir
   (alltypes,allfuns) <- mapIO readTypesFuncs modnames >>= return . unzip
   genMainIndexPage     docopts docdir modnames

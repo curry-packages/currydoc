@@ -3,7 +3,7 @@
 --- the CurryDoc tool.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version April 2016
+--- @version May 2017
 ----------------------------------------------------------------------
 
 module CurryDoc.Config where
@@ -13,7 +13,7 @@ import CurryDoc.PackageConfig (packageVersion)
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of May 2, 2017"
+currydocVersion = "Version " ++ packageVersion ++ " of May 10, 2017"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
