@@ -226,9 +226,8 @@ splitCommentParams param paramcmt (l:ls) =
 -- auxiliaries:
 
 isFunctionType :: TypeExpr -> Bool
-isFunctionType (TVar _)       = False
-isFunctionType (FuncType _ _) = True
-isFunctionType (TCons _ _)    = False
+isFunctionType te = case te of FuncType _ _ -> True
+                               _            -> False
 
 -- skip leading blanks or CRs in a string:
 skipWhiteSpace :: String -> String

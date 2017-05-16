@@ -145,6 +145,11 @@ showTexType nested (TCons tc ts)
  | otherwise
    = brackets nested
       (snd tc ++ " " ++ concat (intersperse " " (map (showTexType True) ts)))
+showTexType nested (ForallType tvs te)
+ | null tvs  = showTexType nested te
+ | otherwise = brackets nested
+                 (unwords ("forall" : map (showTexType False . TVar) tvs) ++
+                  "." ++ showTexType False te)
 
 -- convert string into TeX:
 string2tex :: String -> String

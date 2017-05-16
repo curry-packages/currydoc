@@ -6,7 +6,8 @@
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
         "cass-analysis": ">= 2.0.0",
-        "cass"         : ">= 2.0.0"
+        "cass"         : ">= 2.0.0",
+        "html"         : ">= 2.0.0"
     },
     "compilerCompatibility": {
         "pakcs": ">= 2.0.0",

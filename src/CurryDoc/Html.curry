@@ -19,18 +19,18 @@ import qualified FlatCurry.Goodies as FCG
 import FilePath
 import FileGoodies     (getFileInPath)
 import HTML
-import Bootstrap3Style (bootstrapPage, glyphicon, homeIcon)
 import List
 import Char
 import Sort
 import Time
 import Distribution
-import CategorizedHtmlList
 import Markdown
 import Maybe
 import Pretty          (pretty, empty)
 
 import Analysis.TotallyDefined(Completeness(..))
+import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
+import HTML.CategorizedList
 
 import CurryDoc.AnaInfo
 import CurryDoc.Options
