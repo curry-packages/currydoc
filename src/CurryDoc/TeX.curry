@@ -11,7 +11,6 @@ import Char
 import Distribution
 import FlatCurry.Types
 import FlatCurry.Files
-import FlatCurry.Show (isClassContext)
 import HTML
 import HtmlParser
 import List
@@ -69,11 +68,10 @@ replaceIdLinks str = case str of
               then '\'' : s ++ ['\'']
               else "<code>"++s++"</code>"
 
--- generate short HTML documentation for a function if it is exported
--- and not an internal operation to implement type classes:
+-- generate short HTML documentation for a function if it is exported:
 genTexFunc :: DocOptions -> [(SourceLine,String)] -> _ -> FuncDecl -> String
 genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
-  if fvis==Public && not (classOperations fname)
+  if fvis==Public
   then "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
          showTexType False ftype ++ "}}\n" ++
@@ -81,15 +79,11 @@ genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
                (fst (splitComment (getFuncComment fname progcmts))) ++
        "\\curryfunctionstop\n"
   else ""
- where
-  classOperations fn = take 6 fn `elem` ["_impl#","_inst#"]
-                    || take 5 fn == "_def#" || take 7 fn == "_super#"
 
---- generate TeX documentation for a datatype if it is exported and
---- not a dictionary:
+--- generate TeX documentation for a datatype if it is exported:
 genTexType :: DocOptions -> [(SourceLine,String)] -> TypeDecl -> String
 genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
-  if tvis==Public && not (isDict tcons)
+  if tvis==Public
   then
    let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
     in "\\currydatastart{" ++ tcons ++ "}\n" ++
@@ -99,8 +93,6 @@ genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
        "\\currydatastop\n"
   else ""
  where
-  isDict fn = take 6 fn == "_Dict#"
-
   genHtmlCons conscmts (Cons (_,cname) _ cvis argtypes) =
     if cvis==Public
     then "\\curryconsstart{" ++ cname ++ "}{" ++
@@ -128,12 +120,9 @@ genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
 -- first argument is True iff brackets must be written around complex types
 showTexType :: Bool -> TypeExpr -> String
 showTexType _ (TVar i) = [chr (97+i)]
-showTexType nested (FuncType t1 t2) = brackets nested $
-  maybe (showTexType (isFunctionType t1) t1 ++ " $\\to$ " ++
-         showTexType False t2)
-        (\ (cn,ct) -> cn ++ " " ++ showTexType True ct ++ " $\\Rightarrow$ " ++
-                      showTexType False t2)
-        (isClassContext t1)
+showTexType nested (FuncType t1 t2) =
+   brackets nested
+    (showTexType (isFunctionType t1) t1 ++ " $\\to$ " ++ showTexType False t2)
 showTexType nested (TCons tc ts)
  | ts==[]  = snd tc
  | tc==("Prelude","[]") && (head ts == TCons ("Prelude","Char") [])
@@ -145,11 +134,6 @@ showTexType nested (TCons tc ts)
  | otherwise
    = brackets nested
       (snd tc ++ " " ++ concat (intersperse " " (map (showTexType True) ts)))
-showTexType nested (ForallType tvs te)
- | null tvs  = showTexType nested te
- | otherwise = brackets nested
-                 (unwords ("forall" : map (showTexType False . TVar) tvs) ++
-                  "." ++ showTexType False te)
 
 -- convert string into TeX:
 string2tex :: String -> String
