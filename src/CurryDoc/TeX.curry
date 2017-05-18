@@ -13,13 +13,13 @@ import FlatCurry.Types
 import FlatCurry.Files
 import FlatCurry.Show (isClassContext)
 import HTML
-import HtmlParser
 import List
-import Markdown
 import Maybe
 
 import CurryDoc.Options
 import CurryDoc.Read
+import HTML.Parser
+import Markdown
 
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
