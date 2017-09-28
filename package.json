@@ -5,11 +5,12 @@
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
-        "cass-analysis": ">= 0.0.1",
-        "cass"         : ">= 0.0.1",
-        "flatcurry"    : ">= 1.0.0",
-        "html"         : ">= 0.0.1",
-        "markdown"     : ">= 1.0.0"
+        "abstract-curry" : ">= 1.0.0",
+        "cass-analysis"  : ">= 0.0.1",
+        "cass"           : ">= 0.0.1",
+        "flatcurry"      : ">= 1.0.0",
+        "html"           : ">= 0.0.1",
+        "markdown"       : ">= 1.0.0"
     },
     "compilerCompatibility": {
         "pakcs": ">= 1.14.0, < 2.0.0",
