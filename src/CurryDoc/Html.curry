@@ -9,16 +9,8 @@
 
 module CurryDoc.Html where
 
-import AbstractCurry.Types
-import AbstractCurry.Files
-import AbstractCurry.Select
-import AbstractCurry.Build
-import AbstractCurry.Pretty
-import qualified FlatCurry.Types as FC
-import qualified FlatCurry.Goodies as FCG
 import FilePath
 import FileGoodies     (getFileInPath)
-import HTML
 import List
 import Char
 import Sort
@@ -28,7 +20,15 @@ import Markdown
 import Maybe
 import Pretty          (pretty, empty)
 
+import AbstractCurry.Types
+import AbstractCurry.Files
+import AbstractCurry.Select
+import AbstractCurry.Build
+import AbstractCurry.Pretty
 import Analysis.TotallyDefined(Completeness(..))
+import qualified FlatCurry.Types as FC
+import qualified FlatCurry.Goodies as FCG
+import HTML.Base
 import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
 
