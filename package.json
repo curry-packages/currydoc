@@ -9,7 +9,7 @@
         "cass-analysis"  : ">= 0.0.1",
         "cass"           : ">= 0.0.1",
         "flatcurry"      : ">= 1.0.0",
-        "html"           : ">= 0.0.1",
+        "html"           : ">= 1.1.0",
         "markdown"       : ">= 1.0.0"
     },
     "compilerCompatibility": {

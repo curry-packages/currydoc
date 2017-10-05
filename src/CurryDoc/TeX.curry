@@ -2,21 +2,22 @@
 --- Functions to generate documentation in TeX format.
 ---
 --- @author Michael Hanus
---- @version January 2015
+--- @version October 2017
 ----------------------------------------------------------------------
 
 module CurryDoc.TeX where
 
 import Char
 import Distribution
-import FlatCurry.Types
-import FlatCurry.Files
-import HTML
 import List
 import Maybe
 
 import CurryDoc.Options
 import CurryDoc.Read
+import FlatCurry.Types
+import FlatCurry.Files
+import HTML.Base
+import HTML.LaTeX  ( showLatexExps )
 import HTML.Parser
 import Markdown
 
