@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version May 2017
+--- @version November 2017
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -218,9 +218,9 @@ makeSystemLibsIndex docopts docdir modnames = do
  where
   fst3 (x,_,_)    = x
   snd3 (_,y,_)    = y
-  sortByCategory  = sortBy ((<=) `on` fst3)
+  sortByCategory  = sortBy  ((<=) `on` fst3)
   groupByCategory = groupBy ((==) `on` fst3)
-  sortByName      = sortBy ((<=) `on` snd3)
+  sortByName      = sortBy  ((<=) `on` snd3)
 
 getModInfo :: String -> IO (Category,String,String)
 getModInfo modname = do
@@ -228,7 +228,7 @@ getModInfo modname = do
   case mmodsrc of
     Nothing -> error $ "Source code of module '"++modname++"' not found!"
     Just (_,progname) -> do
-      (modcmts,_) <- readComments progname
+      modcmts <- readModuleComment progname
       let (modcmt,catcmts) = splitComment modcmts
           category         = readCategory $ getCommentType "category" catcmts
       return (category,modname,firstPassage modcmt)

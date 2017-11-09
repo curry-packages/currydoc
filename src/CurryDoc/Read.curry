@@ -2,22 +2,41 @@
 --- Some auxiliary operations of CurryDoc to read programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version April 2016
+--- @version November 2017
 ----------------------------------------------------------------------
 
 module CurryDoc.Read where
 
 import Char
-import FlatCurry.Types
+import IO
 import List(isSuffixOf)
 
+import FlatCurry.Types
+
 --------------------------------------------------------------------------
--- read the comments of a source file to be put in the HTML documentation
+--- Reads the module comment of a Curry source file.
+readModuleComment :: String -> IO String
+readModuleComment filename = openFile filename ReadMode >>= readHeader []
+ where
+  readHeader cs h = do
+    eof <- hIsEOF h
+    if eof then hClose h >> return ""  
+           else do l <- hGetLine h
+                   case classifyLine l of
+                     ModDef    -> hClose h >> return (unlines (reverse cs))
+                     FuncDef _ -> hClose h >> return "" -- no module header
+                     DataDef _ -> hClose h >> return "" -- no module header
+                     OtherLine -> readHeader cs h
+                     Comment c -> readHeader (c:cs) h
+
+--- Reads the comments of a source file to be put in the HTML documentation.
+--- Returns the module comment and the list of (Func/DataDef,comment) pairs.
 readComments :: String -> IO (String,[(SourceLine,String)])
 readComments filename = do
   prog <- readFile filename
   return (groupLines . filter (/=OtherLine) . map classifyLine . lines $ prog)
 
+--------------------------------------------------------------------------
 --- This datatype is used to classify all input lines.
 --- @cons Comment   - a comment for CurryDoc
 --- @cons FuncDef   - a definition of a function
