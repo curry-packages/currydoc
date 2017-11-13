@@ -29,6 +29,7 @@
 module CurryDoc.Main where
 
 import AbstractCurry.Files
+import Char            (toUpper)
 import Directory
 import Distribution
 import FileGoodies
@@ -158,9 +159,9 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       let modname = takeFileName modpath
       setCurrentDirectory moddir
       -- parsing source program:
-      callFrontend FCY modname
+      callFrontendWithTarget FCY modname
       -- generate abstract curry representation
-      callFrontend ACY modname
+      callFrontendWithTarget ACY modname
       -- when constructing CDOC the imported modules don't have to be read
       -- from the FlatCurry file
       (alltypes,allfuns) <- getProg modname $ docType docopts
@@ -259,9 +260,9 @@ copyIncludeIfPresent docdir inclfile = do
 readAnaInfo :: String -> IO AnaInfo
 readAnaInfo modname = do
   initializeAnalysisSystem
-  nondet   <- analyzeAndCheck nondetAnalysis 
+  nondet   <- analyzeAndCheck nondetAnalysis
   complete <- analyzeAndCheck patCompAnalysis
-  indet    <- analyzeAndCheck indetAnalysis  
+  indet    <- analyzeAndCheck indetAnalysis
   solcomp  <- analyzeAndCheck solcompAnalysis
   return (AnaInfo (\qn -> nondet qn == NDet) complete indet solcomp)
  where
@@ -294,7 +295,7 @@ makeDocWithComments HtmlDoc docopts recursive docdir anainfo modname
   Just (dir,_) <- lookupModuleSourceInLoadPath modname
   let acyfile = dir </> abstractCurryFileName modname
   exacy <- doesFileExist acyfile
-  unless exacy $ callFrontend ACY modname
+  unless exacy $ callFrontendWithTarget ACY modname
   writeOutfile docopts recursive docdir modname
                (generateHtmlDocs docopts anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname
@@ -403,5 +404,12 @@ writeOutfile docopts recursive docdir modname generate = do
   writeFile outfile doc
   when recursive $
     mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
+
+callFrontendWithTarget :: FrontendTarget -> String -> IO ()
+callFrontendWithTarget t mp =
+  callFrontendWithParams t (setDefinitions defs defaultParams) mp
+ where
+  defs = [( "__" ++ map toUpper curryCompiler ++ "__"
+          , curryCompilerMajorVersion * 100 + curryCompilerMinorVersion )]
 
 -- -----------------------------------------------------------------------

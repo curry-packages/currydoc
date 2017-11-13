@@ -80,7 +80,7 @@ generateHtmlDocs docopts anainfo modname modcmts progcmts = do
                  (attachProperties2Funcs propspecs progcmts) anainfo ops)
               expfuns)
       ]
-  mainPage title [htmltitle] (lefttopmenu types functions) rightTopMenu 
+  mainPage title [htmltitle] (lefttopmenu types functions) rightTopMenu
            navigation content
  where
   title = "Module " ++ modname
@@ -296,8 +296,8 @@ isProperty fdecl = fst (funcName fdecl) /= easyCheckModule
                 || resultType ct == baseType (easyCheckModule,"Prop")
                 || resultType ct == baseType (propModule,"Prop")
 
-  easyCheckModule = "Test.EasyCheck" 
-  propModule      = "Test.Prop" 
+  easyCheckModule = "Test.EasyCheck"
+  propModule      = "Test.Prop"
 
 -- Is a function definition part of a specification, i.e.,
 -- a full specification (suffix 'spec), a precondition (suffix 'pre),
@@ -644,10 +644,15 @@ showTypeCons mod (mtc,tc) =
 -- translate source file into HTML file with syntax coloring
 translateSource2ColoredHtml :: String -> String -> IO ()
 translateSource2ColoredHtml docdir modname = do
-    let output = docdir </> modname++"_curry.html"         
-    putStrLn ("Writing source file as HTML to \""++output++"\"...") 
-    callFrontendWithParams HTML
-      (setQuiet True (setHtmlDir docdir defaultParams)) modname
+    let output = docdir </> modname++"_curry.html"
+    putStrLn ("Writing source file as HTML to \""++output++"\"...")
+    params <- return $ setQuiet True
+                     $ setHtmlDir docdir
+                     $ setDefinitions defs defaultParams
+    callFrontendWithParams HTML params modname
+ where
+  defs = [( "__" ++ map toUpper curryCompiler ++ "__"
+          , curryCompilerMajorVersion * 100 + curryCompilerMinorVersion )]
 
 -- translate source file into HTML file with anchors for each function:
 translateSource2AnchoredHtml :: String -> String -> IO ()
@@ -706,7 +711,7 @@ indexPage modnames =
    else [ulist (map (\m->[href (m++".html") [htxt (m++".curry ")]])
                     (mergeSortBy leqStringIgnoreCase modnames))])
   ++ [explainIcons]
-                    
+
 -- Paragraph to explain the meaning of the icons:
 explainIcons :: HtmlExp
 explainIcons =
@@ -741,7 +746,7 @@ genFunctionIndexPage docdir funs = do
 
 htmlFuncIndex :: [QName] -> [HtmlExp]
 htmlFuncIndex qnames = categorizeByItemKey (map showModNameRef qnames)
-   
+
 showModNameRef :: QName -> (String,[HtmlExp])
 showModNameRef (modname,name) =
   (name,
