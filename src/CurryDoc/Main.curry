@@ -29,7 +29,6 @@
 module CurryDoc.Main where
 
 import AbstractCurry.Files
-import Char            (toUpper)
 import Directory
 import Distribution
 import FileGoodies
@@ -159,9 +158,9 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       let modname = takeFileName modpath
       setCurrentDirectory moddir
       -- parsing source program:
-      callFrontendWithTarget FCY modname
+      callFrontend FCY modname
       -- generate abstract curry representation
-      callFrontendWithTarget ACY modname
+      callFrontend ACY modname
       -- when constructing CDOC the imported modules don't have to be read
       -- from the FlatCurry file
       (alltypes,allfuns) <- getProg modname $ docType docopts
@@ -295,7 +294,7 @@ makeDocWithComments HtmlDoc docopts recursive docdir anainfo modname
   Just (dir,_) <- lookupModuleSourceInLoadPath modname
   let acyfile = dir </> abstractCurryFileName modname
   exacy <- doesFileExist acyfile
-  unless exacy $ callFrontendWithTarget ACY modname
+  unless exacy $ callFrontend ACY modname
   writeOutfile docopts recursive docdir modname
                (generateHtmlDocs docopts anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname
@@ -404,12 +403,5 @@ writeOutfile docopts recursive docdir modname generate = do
   writeFile outfile doc
   when recursive $
     mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
-
-callFrontendWithTarget :: FrontendTarget -> String -> IO ()
-callFrontendWithTarget t mp =
-  callFrontendWithParams t (setDefinitions defs defaultParams) mp
- where
-  defs = [( "__" ++ map toUpper curryCompiler ++ "__"
-          , curryCompilerMajorVersion * 100 + curryCompilerMinorVersion )]
 
 -- -----------------------------------------------------------------------

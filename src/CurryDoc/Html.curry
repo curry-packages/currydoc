@@ -646,13 +646,8 @@ translateSource2ColoredHtml :: String -> String -> IO ()
 translateSource2ColoredHtml docdir modname = do
     let output = docdir </> modname++"_curry.html"
     putStrLn ("Writing source file as HTML to \""++output++"\"...")
-    params <- return $ setQuiet True
-                     $ setHtmlDir docdir
-                     $ setDefinitions defs defaultParams
-    callFrontendWithParams HTML params modname
- where
-  defs = [( "__" ++ map toUpper curryCompiler ++ "__"
-          , curryCompilerMajorVersion * 100 + curryCompilerMinorVersion )]
+    callFrontendWithParams HTML
+      (setQuiet True (setHtmlDir docdir defaultParams)) modname
 
 -- translate source file into HTML file with anchors for each function:
 translateSource2AnchoredHtml :: String -> String -> IO ()
