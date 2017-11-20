@@ -18,7 +18,6 @@ import Time
 import Distribution
 import Markdown
 import Maybe
-import Pretty          (pretty, empty)
 
 import AbstractCurry.Types
 import AbstractCurry.Files
@@ -31,6 +30,7 @@ import qualified FlatCurry.Goodies as FCG
 import HTML.Base
 import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
+import Text.Pretty            (showWidth, empty)
 
 import CurryDoc.AnaInfo
 import CurryDoc.Options
@@ -183,8 +183,8 @@ attachProperties2Funcs props ((sourceline,_) : slines) =
    _ -> -- we don't put must effort to format complex specifications:
         (SpecFun, fnspec, [code [htxt $ prettyRule qp rule]])
 
-  prettyWith ppfun = pretty 78 . ppfun prettyOpts
-  prettyRule qn rl = pretty 78 (ppCRule prettyOpts qn rl)
+  prettyWith ppfun = showWidth 78 . ppfun prettyOpts
+  prettyRule qn rl = showWidth 78 (ppCRule prettyOpts qn rl)
   prettyOpts       = setNoQualification defaultOptions
 
   safeTail xs = if null xs then xs else tail xs
