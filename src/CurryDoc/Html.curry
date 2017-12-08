@@ -612,7 +612,10 @@ showType mod nested texp = case texp of
   CFuncType t1 t2 ->
     brackets nested (showType mod (isFunctionalType t1) t1 ++ " -&gt; " ++
                      showType mod False t2)
-  _ -> maybe (error "")
+  CTCons tc -> showTConsType mod nested tc []
+  CTApply t1 t2 ->
+       maybe (brackets nested $
+                showType mod True t1 ++ " " ++ showType mod True t2)
              (\ (tc,ts) -> showTConsType mod nested tc ts)
              (tconsArgsOfType texp)
 
