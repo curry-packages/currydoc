@@ -155,7 +155,7 @@ printUsageMessage = do
 createDir :: String -> IO ()
 createDir dir = do
   exdir <- doesDirectoryExist dir
-  unless exdir $ system ("mkdir " ++ dir) >> done
+  unless exdir $ system ("mkdir -p " ++ dir) >> done
 
 --- Recursively copies a directory structure.
 copyDirectory :: String -> String -> IO ()
