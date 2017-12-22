@@ -79,11 +79,11 @@ includeDir = packagePath </> "include"
 main :: IO ()
 main = do
   args <- getArgs
+  putStrLn banner
   processArgs defaultCurryDocOptions args
 
 processArgs :: DocOptions -> [String] -> IO ()
 processArgs opts args = do
-  putStrLn banner
   case args of
     -- no markdown
     ("--nomarkdown" : margs) -> processArgs opts { withMarkdown = False } margs
@@ -129,7 +129,6 @@ processArgs opts args = do
 processOpts :: DocOptions -> IO DocOptions
 processOpts opts = do
   modurls <- generateModuleDocMapping (useDirURL opts)
-  putStr (unlines (map show modurls))
   return $ opts { docMods = map fst modurls
                 , docURL  = \m -> maybe m (\b -> b </> m) (lookup m modurls) }
 
