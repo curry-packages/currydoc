@@ -44,7 +44,7 @@ infixl 0 `withTitle`
 -- are already analyzed.
 generateHtmlDocs :: DocOptions -> AnaInfo -> String -> String
                  -> [(SourceLine,String)] -> IO String
-generateHtmlDocs docopts anainfo modname modcmts progcmts = do
+generateHtmlDocs opts anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
@@ -62,21 +62,21 @@ generateHtmlDocs docopts anainfo modname modcmts progcmts = do
                            (getExportedFields types)
                            (map fName       expfuns)
       , anchored "imported_modules" [bold [htxt "Imported modules:"]]
-      , ulist (map (\i -> [href (getLastName i++".html") [htxt i]]) imports)
+      , ulist (map (\i -> [href (docURL opts i ++ ".html") [htxt i]]) imports)
         `addClass` "nav nav-sidebar"
       ]
     content =
-      genHtmlModule docopts modcmts ++
+      genHtmlModule opts modcmts ++
       [ h2 [htxt "Summary of exported operations:"]
-      , borderedTable (map (genHtmlFuncShort docopts progcmts anainfo) expfuns)
+      , borderedTable (map (genHtmlFuncShort opts progcmts anainfo) expfuns)
       ] ++
       ifNotNull exptypes (\tys ->
          [anchoredSection "exported_datatypes"
            (h2 [htxt "Exported datatypes:"] : hrule :
-           concatMap (genHtmlType docopts progcmts) tys)]) ++
+           concatMap (genHtmlType opts progcmts) tys)]) ++
       [anchoredSection "exported_operations"
          (h2 [htxt "Exported operations:"] :
-          map (genHtmlFunc docopts modname progcmts
+          map (genHtmlFunc opts modname progcmts
                  (attachProperties2Funcs propspecs progcmts) anainfo ops)
               expfuns)
       ]
@@ -733,23 +733,23 @@ explainIcons =
 
 --------------------------------------------------------------------------
 -- generate the function index page for the documentation directory:
-genFunctionIndexPage :: String -> [FC.FuncDecl] -> IO ()
-genFunctionIndexPage docdir funs = do
+genFunctionIndexPage :: DocOptions -> String -> [FC.FuncDecl] -> IO ()
+genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
   simplePage "Index to all operations" Nothing allConsFuncsMenu
-             (htmlFuncIndex (sortNames expfuns))
+             (htmlFuncIndex opts (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
    expfuns = map FCG.funcName $ filter ((== FC.Public) . FCG.funcVisibility) funs
 
-htmlFuncIndex :: [QName] -> [HtmlExp]
-htmlFuncIndex qnames = categorizeByItemKey (map showModNameRef qnames)
+htmlFuncIndex :: DocOptions -> [QName] -> [HtmlExp]
+htmlFuncIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
-showModNameRef :: QName -> (String,[HtmlExp])
-showModNameRef (modname,name) =
+showModNameRef :: DocOptions -> QName -> (String,[HtmlExp])
+showModNameRef opts (modname,name) =
   (name,
-   [href (modname++".html#"++name) [htxt name], nbsp, nbsp,
-    htxt "(", href (getLastName modname++".html") [htxt modname], htxt ")"]
+   [href (docURL opts modname ++ ".html#"++name) [htxt name], nbsp, nbsp,
+    htxt "(", href (docURL opts modname ++ ".html") [htxt modname], htxt ")"]
   )
 
 sortNames :: [(a,String)] -> [(a,String)]
@@ -758,11 +758,11 @@ sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
 
 --------------------------------------------------------------------------
 -- generate the constructor index page for the documentation directory:
-genConsIndexPage :: String -> [FC.TypeDecl] -> IO ()
-genConsIndexPage docdir types = do
+genConsIndexPage :: DocOptions ->  String -> [FC.TypeDecl] -> IO ()
+genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
   simplePage "Index to all constructors" Nothing allConsFuncsMenu
-             (htmlConsIndex (sortNames expcons))
+             (htmlConsIndex opts (sortNames expcons))
     >>= writeFile (docdir++"/cindex.html")
  where
    consDecls (FC.Type    _ _ _ cs) = cs
@@ -770,8 +770,8 @@ genConsIndexPage docdir types = do
    expcons = map FCG.consName $ filter ((== FC.Public) . FCG.consVisibility) $
      concatMap consDecls types
 
-htmlConsIndex :: [QName] -> [HtmlExp]
-htmlConsIndex qnames = categorizeByItemKey (map showModNameRef qnames)
+htmlConsIndex :: DocOptions ->  [QName] -> [HtmlExp]
+htmlConsIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
 --------------------------------------------------------------------------
 -- generate the index page categorizing all system libraries of PAKCS/KICS2
