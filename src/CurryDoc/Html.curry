@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version April 2016
+--- @version December 2017
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -693,14 +693,13 @@ genMainIndexPage docopts docdir modnames =
                allConsFuncsMenu (indexPage modnames)
      >>= writeFile (docdir++"/index.html")
  where
-  pageTitle =
-    if not (null (mainTitle docopts))
-      then [htxt (mainTitle docopts)]
-      else if length modnames == 1
-            then [htxt "Documentation of the Curry program ",
-                  href (head modnames ++ ".html")
-                       [htxt (head modnames ++ ".curry")]]
-            else [htxt "Documentation of Curry programs"]
+  pageTitle = if not (null (mainTitle docopts))
+                then [htxt (mainTitle docopts)]
+                else if length modnames == 1
+                      then [htxt "Documentation of the Curry program ",
+                            href (head modnames ++ ".html")
+                                 [htxt (head modnames)]]
+                      else [htxt "Documentation of Curry programs"]
 
 allConsFuncsMenu :: [[HtmlExp]]
 allConsFuncsMenu =
@@ -711,7 +710,8 @@ indexPage :: [String] -> [HtmlExp]
 indexPage modnames =
   (if null modnames
    then []
-   else [ulist (map (\m->[href (m++".html") [htxt (m++".curry ")]])
+   else [h2 [htxt "Modules:"],
+         ulist (map (\m->[href (m++".html") [htxt m]])
                     (mergeSortBy leqStringIgnoreCase modnames))])
   ++ [explainIcons]
 
