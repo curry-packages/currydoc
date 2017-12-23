@@ -200,30 +200,34 @@ attachProperties2Funcs props ((sourceline,_) : slines) =
 docComment2HTML :: DocOptions -> String -> [HtmlExp]
 docComment2HTML opts cmt
   | null cmt          = []
-  | withMarkdown opts = markdownText2HTML (replaceIdLinks cmt)
-  | otherwise         = [par [HtmlText (replaceIdLinks cmt)]]
+  | withMarkdown opts = markdownText2HTML (replaceIdLinks opts cmt)
+  | otherwise         = [par [HtmlText (replaceIdLinks opts cmt)]]
 
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by HTML hyperrefences:
-replaceIdLinks :: String -> String
-replaceIdLinks str = case str of
+replaceIdLinks :: DocOptions -> String -> String
+replaceIdLinks opts str = case str of
   [] -> []
-  ('\\':'\'':cs) -> '\'' : replaceIdLinks cs
+  ('\\':'\'':cs) -> '\'' : replaceIdLinks opts cs
   (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else c : replaceIdLinks cs
+                       else c : replaceIdLinks opts cs
  where
   tryReplaceIdLink ltxt [] = '\'' : reverse ltxt
   tryReplaceIdLink ltxt (c:cs)
-   | isSpace c = '\'' : reverse ltxt ++ c : replaceIdLinks cs -- no space in id
-   | c == '\'' = checkId (reverse ltxt) ++ replaceIdLinks cs
-   | otherwise = tryReplaceIdLink (c:ltxt) cs
+   | isSpace c
+   = '\'' : reverse ltxt ++ c : replaceIdLinks opts cs -- no space in id
+   | c == '\''
+   = checkId (reverse ltxt) ++ replaceIdLinks opts cs
+   | otherwise
+   = tryReplaceIdLink (c:ltxt) cs
 
   checkId s =
     if ' ' `elem` s
     then '\'' : s ++ ['\'']
     else let (md,dotfun) = break (=='.') s
           in "<code><a href=\"" ++
-             (if null dotfun then '#':s else md++".html#"++tail dotfun) ++
+             (if null dotfun then '#':s
+                             else docURL opts md ++ ".html#" ++ tail dotfun) ++
              "\">"++s++"</a></code>"
 
 -- generate HTML index for all exported names:
@@ -353,7 +357,7 @@ genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
             then code [htxt "String = [Char]"]
             else code [HtmlText
                         (tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars ++
-                         " = " ++ showType tcmod False texp)]]
+                         " = " ++ showType docopts tcmod False texp)]]
          , hrule
          ]
 genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr _) =
@@ -377,7 +381,7 @@ genHtmlCons docopts consfldcmts tcons tvars _
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
-                       concatMap (\t -> " "++showType cmod True t++" -> ")
+                       concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                                  argtypes ++
                        tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars)]] :
       maybe []
@@ -391,7 +395,8 @@ genHtmlCons docopts consfldcmts tcons tvars fldCons
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
-                       concatMap (\t -> " "++showType cmod True t++" -> ")
+                       concatMap (\t -> " " ++ showType docopts cmod True t ++
+                                        " -> ")
                                  argtypes ++
                        tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars)]] :
       (maybe []
@@ -415,7 +420,7 @@ genHtmlField docopts fldcmts cname fldCons (CField (fmod,fname) _ ty)
  where
   withAnchor f = maybe False (== cname) (lookup f fldCons)
   html         = [ code [opnameDoc [htxt fname]
-                 , HtmlText (" :: " ++ showType fmod True ty)]
+                 , HtmlText (" :: " ++ showType docopts fmod True ty)]
                  ] ++ maybe []
                             (\ (_,cmt) -> htxt " : " : removeTopPar
                                (docComment2HTML docopts (removeDash cmt)))
@@ -429,7 +434,7 @@ genHtmlFuncShort docopts progcmts anainfo
  [[code [opnameDoc
             [anchored (fname ++ "_SHORT")
                       [href ('#':fname) [htxt (showId fname)]]],
-         HtmlText (" :: " ++ showQualType fmod ftype)],
+         HtmlText (" :: " ++ showQualType docopts fmod ftype)],
      nbsp, nbsp]
      ++ genFuncPropIcons anainfo (fmod,fname) ++
   [breakline] ++
@@ -455,7 +460,7 @@ genHtmlFunc docopts modname progcmts funcattachments anainfo ops
        [borderedTable [[
          [par $
            [code [opnameDoc [showCodeHRef fname],
-                  HtmlText (" :: "++ showQualType fmod ftype)],
+                  HtmlText (" :: "++ showQualType docopts fmod ftype)],
             nbsp, nbsp] ++
            genFuncPropIcons anainfo (fmod,fname)] ++
          docComment2HTML docopts funcmt ++
@@ -588,59 +593,59 @@ genFixityInfo fname ops =
 
 --------------------------------------------------------------------------
 -- Pretty printer for qualified types in Curry syntax:
-showQualType :: String -> CQualTypeExpr -> String
-showQualType mod (CQualType ctxt texp) =
-  unwords [showContext mod ctxt, showType mod False texp]
+showQualType :: DocOptions -> String -> CQualTypeExpr -> String
+showQualType opts mod (CQualType ctxt texp) =
+  unwords [showContext opts mod ctxt, showType opts mod False texp]
 
-showContext :: String -> CContext -> String
-showContext _ (CContext []) = ""
-showContext mod (CContext [clscon]) =
-  showConstraint mod clscon ++ " =>"
-showContext mod (CContext ctxt@(_:_:_)) =
-  brackets True (intercalate ", " (map (showConstraint mod) ctxt)) ++ " =>"
+showContext :: DocOptions -> String -> CContext -> String
+showContext _ _ (CContext []) = ""
+showContext opts mod (CContext [clscon]) =
+  showConstraint opts mod clscon ++ " =>"
+showContext opts mod (CContext ctxt@(_:_:_)) =
+  brackets True (intercalate ", " (map (showConstraint opts mod) ctxt)) ++ " =>"
 
 --- Pretty-print a single class constraint.
-showConstraint :: String -> CConstraint -> String
-showConstraint mod (cn,texp) =
-  showTypeCons mod cn ++ " " ++ showType mod True texp
+showConstraint :: DocOptions -> String -> CConstraint -> String
+showConstraint opts mod (cn,texp) =
+  showTypeCons opts mod cn ++ " " ++ showType opts mod True texp
 
 -- Pretty printer for type expressions in Curry syntax:
 -- second argument is True iff brackets must be written around complex types
-showType :: String -> Bool -> CTypeExpr -> String
-showType mod nested texp = case texp of
+showType :: DocOptions -> String -> Bool -> CTypeExpr -> String
+showType opts mod nested texp = case texp of
   CTVar (i,_) -> [chr (97+i)] -- TODO: use name given in source program instead?
   CFuncType t1 t2 ->
-    brackets nested (showType mod (isFunctionalType t1) t1 ++ " -&gt; " ++
-                     showType mod False t2)
-  CTCons tc -> showTConsType mod nested tc []
+    brackets nested (showType opts mod (isFunctionalType t1) t1 ++ " -&gt; " ++
+                     showType opts mod False t2)
+  CTCons tc -> showTConsType opts mod nested tc []
   CTApply t1 t2 ->
        maybe (brackets nested $
-                showType mod True t1 ++ " " ++ showType mod True t2)
-             (\ (tc,ts) -> showTConsType mod nested tc ts)
+                showType opts mod True t1 ++ " " ++ showType opts mod True t2)
+             (\ (tc,ts) -> showTConsType opts mod nested tc ts)
              (tconsArgsOfType texp)
 
-showTConsType :: String -> Bool -> QName -> [CTypeExpr] -> String
-showTConsType mod nested tc ts
- | ts==[]  = showTypeCons mod tc
+showTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
+showTConsType opts mod nested tc ts
+ | ts==[]  = showTypeCons opts mod tc
  | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
    = "String"
  | tc==("Prelude","[]")
-   = "[" ++ showType mod False (head ts) ++ "]" -- list type
+   = "[" ++ showType opts mod False (head ts) ++ "]" -- list type
  | take 2 (snd tc) == "(,"                      -- tuple type
-   = "(" ++ concat (intersperse "," (map (showType mod False) ts)) ++ ")"
+   = "(" ++ concat (intersperse "," (map (showType opts mod False) ts)) ++ ")"
  | otherwise
    = brackets nested
-      (showTypeCons mod tc ++ " " ++
-       concat (intersperse " " (map (showType mod True) ts)))
+      (showTypeCons opts mod tc ++ " " ++
+       concat (intersperse " " (map (showType opts mod True) ts)))
 
-showTypeCons :: String -> QName -> String
-showTypeCons mod (mtc,tc) =
+showTypeCons :: DocOptions -> String -> QName -> String
+showTypeCons opts mod (mtc,tc) =
   if mtc == "Prelude"
   then tc --"<a href=\"Prelude.html#"++tc++"\">"++tc++"</a>"
   else
     if mod == mtc
     then "<a href=\"#"++tc++"\">"++tc++"</a>"
-    else "<a href=\""++mtc++".html#"++tc++"\">"++tc++"</a>"
+    else "<a href=\""++docURL opts mtc++".html#"++tc++"\">"++tc++"</a>"
 
 
 --------------------------------------------------------------------------
