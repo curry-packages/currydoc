@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version November 2017
+--- @version May 2018
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -50,6 +50,7 @@ import Analysis.Types (analysisName)
 import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
 
 import CurryDoc.AnaInfo
+import CurryDoc.Files   ( generateModuleDocMapping )
 import CurryDoc.Options
 import CurryDoc.Read
 import CurryDoc.Html
@@ -78,41 +79,58 @@ includeDir = packagePath </> "include"
 main :: IO ()
 main = do
   args <- getArgs
+  putStrLn banner
   processArgs defaultCurryDocOptions args
 
 processArgs :: DocOptions -> [String] -> IO ()
-processArgs params args = do
-  putStrLn banner
+processArgs opts args = do
   case args of
     -- no markdown
-    ("--nomarkdown":margs) -> processArgs params { withMarkdown = False } margs
+    ("--nomarkdown" : margs) -> processArgs opts { withMarkdown = False } margs
     -- documentation type
-    ("--title" : t :margs) -> processArgs params { mainTitle = t } margs
-    ("--html"      :margs) -> processArgs params { docType = HtmlDoc } margs
-    ("--tex"       :margs) ->
-      processArgs params { docType = TexDoc, withIndex = False } margs
-    ("--cdoc"      :margs) ->
-      processArgs params { docType = CDoc,   withIndex = False } margs
+    ("--title" : t : margs) -> processArgs opts { mainTitle = t } margs
+    ("--use"   : t : margs) ->
+       let (src,url) = break (=='@') t
+       in if null url
+            then error "URL missing in --use option!"
+            else processArgs opts { useDirURL = useDirURL opts ++
+                                                    [(src,tail url)] } margs
+    ("--html"      : margs) -> processArgs opts { docType = HtmlDoc } margs
+    ("--tex"       : margs) ->
+      processArgs opts { docType = TexDoc, withIndex = False } margs
+    ("--cdoc"      : margs) ->
+      processArgs opts { docType = CDoc,   withIndex = False } margs
     -- HTML without index
-    ["--noindexhtml",docdir,modname] ->
-        makeCompleteDoc params { withIndex = False, docType = HtmlDoc }
-                        True docdir (stripCurrySuffix modname)
+    ["--noindexhtml",docdir,modname] -> do
+        opts' <- processOpts opts { withIndex = False, docType = HtmlDoc }
+        makeCompleteDoc opts' True docdir (stripCurrySuffix modname)
     -- HTML index only
-    ("--onlyindexhtml":docdir:modnames) ->
-        makeIndexPages params docdir (map stripCurrySuffix modnames)
-    ("--libsindexhtml":docdir:modnames) ->
-        makeSystemLibsIndex params docdir modnames
+    ("--onlyindexhtml":docdir:modnames) -> do
+        opts' <- processOpts opts
+        makeIndexPages opts' docdir (map stripCurrySuffix modnames)
+    ("--libsindexhtml":docdir:modnames) -> do
+        opts' <- processOpts opts
+        makeSystemLibsIndex opts' docdir modnames
     (('-':_):_) -> printUsageMessage
     -- module
-    [modname] ->
-        makeCompleteDoc params (docType params == HtmlDoc)
+    [modname] -> do
+        opts' <- processOpts opts
+        makeCompleteDoc opts' (docType opts == HtmlDoc)
                         ("DOC_" ++ stripCurrySuffix (takeFileName modname))
                         (stripCurrySuffix modname)
     -- docdir + module
-    [docdir,modname] ->
-        makeCompleteDoc params (docType params == HtmlDoc) docdir
+    [docdir,modname] -> do
+        opts' <- processOpts opts
+        makeCompleteDoc opts' (docType opts == HtmlDoc) docdir
                         (stripCurrySuffix modname)
     _ -> printUsageMessage
+
+-- Process the original user options into the form required by CurryDoc.
+processOpts :: DocOptions -> IO DocOptions
+processOpts opts = do
+  modurls <- generateModuleDocMapping (useDirURL opts)
+  return $ opts { docMods = map fst modurls
+                , docURL  = \m -> maybe m (\b -> b </> m) (lookup m modurls) }
 
 printUsageMessage :: IO ()
 printUsageMessage = do
@@ -121,10 +139,16 @@ printUsageMessage = do
    [ "ERROR: Illegal arguments for CurryDoc: " ++ unwords args
    , ""
    , "Usage:"
-   , "curry-doc [--title s] [--nomarkdown] [--html|--tex|--cdoc] [<doc_dir>] <module>"
-   , "curry-doc [--title s] [--nomarkdown] --noindexhtml <doc_dir> <module>"
-   , "curry-doc [--title s] --onlyindexhtml <doc_dir> <modules>"
-   , "curry-doc [--title s] --libsindexhtml <doc_dir> <modules>"
+   , "curry-doc <options> [--html|--tex|--cdoc] [<doc_dir>] <module>"
+   , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
+   , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
+   , "curry-doc <options> --libsindexhtml <doc_dir> <modules>"
+   , ""
+   , "where <options> can be:"
+   , "  --title s    : Title of the main HTML documentation page"
+   , "  --use dir@url: use for all Curry programs in <dir> the documentation"
+   , "                 already stored at <url>"
+   , "  --nomarkdown : do not process markdown code in comments"
    ]
 
 
@@ -132,7 +156,7 @@ printUsageMessage = do
 createDir :: String -> IO ()
 createDir dir = do
   exdir <- doesDirectoryExist dir
-  unless exdir $ system ("mkdir " ++ dir) >> done
+  unless exdir $ system ("mkdir -p " ++ dir) >> done
 
 --- Recursively copies a directory structure.
 copyDirectory :: String -> String -> IO ()
@@ -143,7 +167,7 @@ copyDirectory src dst = do
 
 --------------------------------------------------------------------------
 --- The main function of the CurryDoc utility.
---- @param withindex - True if the index pages should also be generated
+--- @param docopts   - the options for CurryDoc
 --- @param recursive - True if the documentation for the imported modules
 ---                    should be also generated (if necessary)
 --- @param docdir - the directory name containing all documentation files
@@ -167,8 +191,8 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       makeDocIfNecessary docopts recursive docdir modname
       when (withIndex docopts) $ do
         genMainIndexPage     docopts docdir [modname]
-        genFunctionIndexPage docdir allfuns
-        genConsIndexPage     docdir alltypes
+        genFunctionIndexPage docopts docdir allfuns
+        genConsIndexPage     docopts docdir alltypes
       -- change access rights to readable for everybody:
       system ("chmod -R go+rX "++docdir)
       putStrLn ("Documentation files written into directory "++docdir) )
@@ -192,8 +216,8 @@ makeIndexPages docopts docdir modnames = do
   prepareDocDir HtmlDoc docdir
   (alltypes,allfuns) <- mapIO readTypesFuncs modnames >>= return . unzip
   genMainIndexPage     docopts docdir modnames
-  genFunctionIndexPage docdir (concat allfuns)
-  genConsIndexPage     docdir (concat alltypes)
+  genFunctionIndexPage docopts docdir (concat allfuns)
+  genConsIndexPage     docopts docdir (concat alltypes)
   -- change access rights to readable for everybody:
   system ("chmod -R go+rX "++docdir)
   done
@@ -259,9 +283,9 @@ copyIncludeIfPresent docdir inclfile = do
 readAnaInfo :: String -> IO AnaInfo
 readAnaInfo modname = do
   initializeAnalysisSystem
-  nondet   <- analyzeAndCheck nondetAnalysis 
+  nondet   <- analyzeAndCheck nondetAnalysis
   complete <- analyzeAndCheck patCompAnalysis
-  indet    <- analyzeAndCheck indetAnalysis  
+  indet    <- analyzeAndCheck indetAnalysis
   solcomp  <- analyzeAndCheck solcompAnalysis
   return (AnaInfo (\qn -> nondet qn == NDet) complete indet solcomp)
  where
@@ -298,9 +322,10 @@ makeDocWithComments HtmlDoc docopts recursive docdir anainfo modname
   writeOutfile docopts recursive docdir modname
                (generateHtmlDocs docopts anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname
-  writeOutfile cdocFileOptions False docdir modname
+  writeOutfile docopts { docType = CDoc, withIndex = False
+                       , withMarkdown = False }
+               False docdir modname
                (generateCDoc modname modcmts progcmts anainfo)
-
 
 makeDocWithComments TexDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
@@ -319,7 +344,8 @@ makeDocWithComments CDoc docopts recursive docdir anainfo modname
 --- file exists or if the existing documentation file is older than
 --- the FlatCurry file.
 makeDocIfNecessary :: DocOptions -> Bool -> String -> String -> IO ()
-makeDocIfNecessary docopts recursive docdir modname = do
+makeDocIfNecessary docopts recursive docdir modname =
+ when (modname `notElem` docMods docopts) $ do
   let docfile = docdir </> modname ++
                 (if docType docopts == HtmlDoc then ".html" else ".tex")
   docexists <- doesFileExist docfile
