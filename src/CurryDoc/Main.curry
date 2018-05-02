@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2017
+--- @version May 2018
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -139,15 +139,16 @@ printUsageMessage = do
    [ "ERROR: Illegal arguments for CurryDoc: " ++ unwords args
    , ""
    , "Usage:"
-   , "curry-doc [--title s] [--nomarkdown] [--html|--tex|--cdoc] [<doc_dir>] <module>"
-   , "curry-doc [--title s] [--nomarkdown] --noindexhtml <doc_dir> <module>"
-   , "curry-doc [--title s] --onlyindexhtml <doc_dir> <modules>"
-   , "curry-doc [--title s] --libsindexhtml <doc_dir> <modules>"
+   , "curry-doc <options> [--html|--tex|--cdoc] [<doc_dir>] <module>"
+   , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
+   , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
+   , "curry-doc <options> --libsindexhtml <doc_dir> <modules>"
    , ""
    , "where <options> can be:"
    , "  --title s    : Title of the main HTML documentation page"
    , "  --use dir@url: use for all Curry programs in <dir> the documentation"
    , "                 already stored at <url>"
+   , "  --nomarkdown : do not process markdown code in comments"
    ]
 
 
