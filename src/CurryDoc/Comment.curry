@@ -13,6 +13,7 @@ data Comment = NestedComment String
 data CDocComment = Pre  { comment :: Comment }
                  | Post { comment :: Comment }
                  | None { comment :: Comment }
+  deriving Show
 
 isPre, isPost, isNone :: CDocComment -> Bool
 isPre  Pre  {} = True
@@ -45,16 +46,42 @@ readASTFile :: String -> IO (Module ())
 readASTFile s = readFile s >>= (return . read)
 
 associateCurryDoc :: [(Span, Comment)] -> Module a -> ([CommentedDecl], [Comment])
-associateCurryDoc []       _                     = []
+associateCurryDoc []       _                       = ([], [])
 associateCurryDoc xs@(_:_) (Module spi _ _ _ _ ds) =
-  let (rest, result) = associateCurryDocModule spi xs'
+  let (rest, result) = associateCurryDocModule spi sp xs'
   in  (merge $ associateCurryDocDecls rest ds Nothing, result)
-  where xs' = map (\(sp,c) -> (sp, classifyComment c)) xs
+  where xs' = map (\(sp',c) -> (sp', classifyComment c)) xs
+        sp = case ds of
+          (d:_) -> getSrcSpan d
+          _     -> NoSpan
 
-associateCurryDocModule :: SpanInfo
-                        -> [(Span, Comment)]
-                        -> ([(Span, Comment)], [Comment])
-associateCurryDocModule _ c = (c, []) --TODO
+associateCurryDocModule :: SpanInfo                           -- ^ module SpanInfo
+                        -> Span                               -- ^ first decl span
+                        -> [(Span, CDocComment)]              -- ^ to be matched
+                        -> ([(Span, CDocComment)], [Comment]) -- ^ (rest, matched)
+associateCurryDocModule spi@(SpanInfo _ (spm : _)) sp (c:cs) =
+  case c of
+    (sp', Pre  c') | vertDist sp' spm >= 0 ->
+      let (match, next)   = getToMatch spm sp' cs isPre
+          (rest, matched) = associateCurryDocModule spi sp next
+      in (rest, c' : ((map (comment . snd) match) ++ matched))
+                   | otherwise             ->
+      let (rest, matched) = associateCurryDocModule spi sp cs
+      in (c:rest, matched)
+
+    (sp', Post c') | vertDist sp' sp  >= 1
+                       || isNoSpan sp      ->
+      let (match, next)   = getToMatch sp sp' cs isPost
+          (rest, matched) = associateCurryDocModule spi sp next
+      in (rest, c' : ((map (comment . snd) match) ++ matched))
+                   | otherwise             ->
+      (c:cs, [])
+
+    (_  , None _)                          ->
+      associateCurryDocModule spi sp cs
+associateCurryDocModule (SpanInfo _ []) _ (c:cs) = (c:cs, [])
+associateCurryDocModule NoSpanInfo      _ (c:cs) = (c:cs, [])
+associateCurryDocModule _               _ []     = ([]  , [])
 
 associateCurryDocDecls :: [(Span, CDocComment)]
                        -> [Decl a]
@@ -94,7 +121,8 @@ getToMatch :: Span                  -- ^ until
            -> ([(Span, CDocComment)], [(Span, CDocComment)])
 getToMatch _    _    []             _ = ([], [])
 getToMatch stop last ((sp, c) : cs) p =
-  if vertDist sp stop >= 0 && (p c || (isNone c && vertDist last sp <= 1))
+  if (vertDist sp stop >= 0 || isNoSpan stop)           -- pos is ok
+       && (p c || (isNone c && vertDist last sp <= 1))  -- CDocType is ok
     then add (sp, c) (getToMatch stop sp cs p)
     else ([], (sp, c) : cs)
   where add x (xs, rest) = (x:xs, rest)

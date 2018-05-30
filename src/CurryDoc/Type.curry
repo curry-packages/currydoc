@@ -1,3 +1,5 @@
+-- | An implementation of the curry AST from curry-frontend without some types
+-- that cannot be in shortAST files
 module CurryDoc.Type where
 
 import CurryDoc.SpanInfo

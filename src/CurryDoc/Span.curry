@@ -6,6 +6,14 @@ data Span = Span Position Position
           | NoSpan
   deriving (Eq, Show, Read)
 
+isSpan :: Span -> Bool
+isSpan (Span _ _) = True
+isSpan NoSpan     = False
+
+isNoSpan :: Span -> Bool
+isNoSpan (Span _ _) = False
+isNoSpan NoSpan     = True
+
 vertDist :: Span -> Span -> Int
 vertDist NoSpan       NoSpan       = 0
 vertDist NoSpan       (Span _  _ ) = 0
