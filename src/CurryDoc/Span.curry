@@ -24,3 +24,9 @@ vertDist (Span _  e1) (Span s2 e2) =
       | otherwise -> if e1 < e2
                        then 0 -- they overlap
                        else x
+
+isAfter :: Span -> Span -> Bool
+isAfter NoSpan     NoSpan     = False
+isAfter (Span _ _) NoSpan     = False
+isAfter NoSpan     (Span _ _) = False
+isAfter (Span s _) (Span _ e) = s >= e

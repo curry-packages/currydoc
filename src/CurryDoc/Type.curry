@@ -179,6 +179,10 @@ instance HasSpanInfo (Decl a) where
   getSpanInfo (ClassDecl        spi _ _ _ _) = spi
   getSpanInfo (InstanceDecl     spi _ _ _ _) = spi
 
+instance HasSpanInfo (NewConstrDecl a) where
+  getSpanInfo (NewConstrDecl spi _ _) = spi
+  getSpanInfo (NewRecordDecl spi _ _) = spi
+
 {-
 instance Functor Module where
   fmap f (Module spi ps mid ex im ds) =
