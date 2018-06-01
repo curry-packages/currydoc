@@ -91,6 +91,7 @@ data TypeExpr
 data QualTypeExpr = QualTypeExpr SpanInfo Context TypeExpr
     deriving (Eq, Read, Show)
 
+-- | Context
 type Context = [Constraint]
 
 data Constraint = Constraint SpanInfo QualIdent TypeExpr
@@ -152,16 +153,16 @@ data Extension
   | UnknownExtension Position String
   deriving (Eq, Read, Show)
 
--- | LOL
+-- | KnownExtension
 data KnownExtension
   = AnonFreeVars
-  | CPP
+  |   {- | CPP-} CPP
   | ExistentialQuantification
   | FunctionalPatterns
   | NegativeLiterals
-  | NoImplicitPrelude -- ^ mad?
+  | NoImplicitPrelude
   deriving (Eq, Read, Show)
-  -- ^ bro?
+
 
 data Tool = KICS2 | PAKCS | CYMAKE | FRONTEND | UnknownTool String
   deriving (Eq, Read, Show)
@@ -179,9 +180,32 @@ instance HasSpanInfo (Decl a) where
   getSpanInfo (ClassDecl        spi _ _ _ _) = spi
   getSpanInfo (InstanceDecl     spi _ _ _ _) = spi
 
-instance HasSpanInfo (NewConstrDecl a) where
+instance HasSpanInfo NewConstrDecl where
   getSpanInfo (NewConstrDecl spi _ _) = spi
   getSpanInfo (NewRecordDecl spi _ _) = spi
+
+instance HasSpanInfo ConstrDecl where
+  getSpanInfo (ConstrDecl spi _ _ _ _  ) = spi
+  getSpanInfo (ConOpDecl  spi _ _ _ _ _) = spi
+  getSpanInfo (RecordDecl spi _ _ _ _  ) = spi
+
+-- | HasSpanInfo TypeExpr
+instance HasSpanInfo TypeExpr where
+  -- | First
+  getSpanInfo (ArrowType spi _ _) = spi
+  getSpanInfo (ApplyType spi _ _) = spi
+  getSpanInfo (ConstructorType spi _) = spi
+  getSpanInfo (VariableType spi _) = spi
+  getSpanInfo (TupleType spi _) = spi
+  getSpanInfo (ListType spi _) = spi
+  getSpanInfo (ParenType spi _) = spi
+  -- ^ Last
+
+getConstrName   :: ConstrDecl -- ^ ConstrDecl
+  {- | Ident -} -> Ident
+getConstrName (ConstrDecl _ _ _   idt _) = idt
+getConstrName (ConOpDecl  _ _ _ _ idt _) = idt
+getConstrName (RecordDecl _ _ _   idt _) = idt
 
 {-
 instance Functor Module where

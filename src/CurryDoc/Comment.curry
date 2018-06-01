@@ -38,6 +38,7 @@ data CommentedDecl
   | CommentedInstanceDecl QualIdent InstanceType [Comment] [CommentedDecl]
   | CommentedFunctionDecl Ident [Comment]
   | CommentedTypeSig [Ident] [Comment] [(TypeExpr, [Comment])]
+  | UnsupportedDecl [Comment]
   deriving Show
 
 
@@ -50,7 +51,7 @@ readASTFile s = readFile s >>= (return . read)
 associateCurryDoc :: [(Span, Comment)] -> Module a -> ([CommentedDecl], [Comment])
 associateCurryDoc []       _                       = ([], [])
 associateCurryDoc xs@(_:_) (Module spi _ _ _ _ ds) =
-  let (rest, result) = associateCurryDocHeader spi sp xs'
+  let (result, rest) = associateCurryDocHeader spi sp xs'
   in  (merge $ associateCurryDocDecls rest ds Nothing, result)
   where xs' = map (\(sp',c) -> (sp', classifyComment c)) xs
         sp = case ds of
@@ -60,31 +61,33 @@ associateCurryDoc xs@(_:_) (Module spi _ _ _ _ ds) =
 associateCurryDocHeader :: SpanInfo                           -- ^ module SpanInfo
                         -> Span                               -- ^ first decl span
                         -> [(Span, CDocComment)]              -- ^ to be matched
-                        -> ([(Span, CDocComment)], [Comment]) -- ^ (rest, matched)
+                        -> ([Comment], [(Span, CDocComment)]) -- ^ (matched, rest)
 associateCurryDocHeader spi@(SpanInfo _ (spm : ss)) sp (c:cs) =
   case c of
-    (sp', Pre  c') | vertDist sp' spm >= 0 ->
-      let (match, next)   = getToMatch spm sp' cs isPre
-          (rest, matched) = associateCurryDocHeader spi sp next
-      in (rest, c' : ((map (comment . snd) match) ++ matched))
-                   | otherwise             ->
-      let (rest, matched) = associateCurryDocHeader spi sp cs
-      in (c:rest, matched)
+    (sp', Pre  c')
+      | vertDist sp' spm >= 0 ->
+        let (match, next)   = getToMatch spm sp' cs isPre
+            (matched, rest) = associateCurryDocHeader spi sp next
+        in (c' : ((map (comment . snd) match) ++ matched), rest)
+      | otherwise             ->
+        let (matched, rest) = associateCurryDocHeader spi sp cs
+        in (matched, c:rest)
 
-    (sp', Post c') | (vertDist sp' sp  >= 1
-                       || isNoSpan sp) &&
-                     isAfter sp' (last ss) ->
-      let (match, next)   = getToMatch sp sp' cs isPost
-          (rest, matched) = associateCurryDocHeader spi sp next
-      in (rest, c' : ((map (comment . snd) match) ++ matched))
-                   | otherwise             ->
-      (c:cs, [])
+    (sp', Post c')
+      | (vertDist sp' sp  >= 1
+          || isNoSpan sp) &&
+        isAfter sp' (last ss) ->
+          let (match, next)   = getToMatch sp sp' cs isPost
+              (matched, rest) = associateCurryDocHeader spi sp next
+          in (c' : ((map (comment . snd) match) ++ matched), rest)
+      | otherwise             ->
+          ([], c:cs)
 
-    (_  , None _)                          ->
-      associateCurryDocHeader spi sp cs
-associateCurryDocHeader (SpanInfo _ []) _ (c:cs) = (c:cs, [])
-associateCurryDocHeader NoSpanInfo      _ (c:cs) = (c:cs, [])
-associateCurryDocHeader _               _ []     = ([]  , [])
+    (_  , None _)             ->
+          associateCurryDocHeader spi sp cs
+associateCurryDocHeader (SpanInfo _ []) _ (c:cs) = ([], c:cs)
+associateCurryDocHeader NoSpanInfo      _ (c:cs) = ([], c:cs)
+associateCurryDocHeader _               _ []     = ([], [])
 
 associateCurryDocDecls :: [(Span, CDocComment)]
                        -> [Decl a]
@@ -124,7 +127,7 @@ getToMatch :: Span                  -- ^ until
            -> ([(Span, CDocComment)], [(Span, CDocComment)])
 getToMatch _    _    []             _ = ([], [])
 getToMatch stop last ((sp, c) : cs) p =
-  if (vertDist sp stop >= 0 || isNoSpan stop)           -- pos is ok
+  if (sp `isBefore` stop || isNoSpan stop)           -- pos is ok
        && (p c || (isNone c && vertDist last sp <= 1))  -- CDocType is ok
     then add (sp, c) (getToMatch stop sp cs p)
     else ([], (sp, c) : cs)
@@ -135,9 +138,9 @@ matchLast :: [(Span, CDocComment)]
           -> [CommentedDecl]
 matchLast []                  (Just _) = []
 matchLast _                   Nothing  = []
-matchLast ((sp, Post c) : cs) (Just d) =
-  let (match, next) = getToMatch (getSrcSpan d) sp cs isPre
-  in  associateCurryDocDeclPre ((sp, Post c) : match) d
+matchLast ((sp, Post c) : cs) (Just d) = 
+  let (match, next) = getToMatch (getSrcSpan d) sp cs isPost
+  in  associateCurryDocDeclPost ((sp, Post c) : match) d
         : matchLast next (Just d)
 matchLast ((_ , None _) : cs) (Just d) = matchLast cs (Just d)
 matchLast ((_ , Pre  _) : cs) (Just d) = matchLast cs (Just d)
@@ -146,45 +149,155 @@ associateCurryDocDeclPre :: [(Span, CDocComment)]
                          -> Decl a
                          -> CommentedDecl
 associateCurryDocDeclPre xs d@(FunctionDecl _ _ f _) =
-  let (match, _) = getToMatch d (fst (first xs)) xs isPre
-  CommentedFunctionDecl f match []
+  let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
+  in  CommentedFunctionDecl f (map (comment . snd) match)
+associateCurryDocDeclPre xs d@(TypeDecl _ f _ _  ) =
+  let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
+  in  CommentedTypeDecl f (map (comment . snd) match)
 associateCurryDocDeclPre xs (ClassDecl spi _ f _ ds) =
-  let (rest, result) = associateCurryDocHeader spi sp xs
+  let (result, rest) = associateCurryDocHeader spi sp xs
   in  CommentedClassDecl f result (associateCurryDocDecls rest ds Nothing)
   where sp = case ds of
           (d:_) -> getSrcSpan d
           _     -> NoSpan
 associateCurryDocDeclPre xs (InstanceDecl spi _ f ty ds) =
-  let (rest, result) = associateCurryDocHeader spi sp xs
+  let (result, rest) = associateCurryDocHeader spi sp xs
   in  CommentedInstanceDecl f ty result (associateCurryDocDecls rest ds Nothing)
   where sp = case ds of
           (d:_) -> getSrcSpan d
           _     -> NoSpan
-associateCurryDocDeclPre xs d@(TypeDecl _ f _ _  ) =
-  let (match, _) = getToMatch d (fst (first xs)) xs isPre
-  CommentedTypeDecl f match []
-associateCurryDocDeclPre xs (NewtypeDecl _ f _ c _) =
-  let (match, rest) = getToMatch (getSrcSpan c) (fst (first xs)) xs isPre
-  in CommentedNewtypeDecl f match rest
+associateCurryDocDeclPre xs d@(NewtypeDecl _ f _ c _) =
+  let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
+      (cons,  _   ) = getToMatch (getSrcSpan c) NoSpan rest isPre
+  in CommentedNewtypeDecl f (map (comment . snd) match)
+                            (map (comment . snd) cons)
 associateCurryDocDeclPre xs d@(DataDecl _ f _ [] _) =
-  let (match, _) = getToMatch d (fst (first xs)) xs isPre
-  CommentedDataDecl f match []
-associateCurryDocDeclPre xs d@(DataDecl _ f _ (c:cs) _) =
-  let (match, rest) = getToMatch d (fst (first xs)) xs isPre
-  CommentedDataDecl f match (matchConstructorsPre (c:cs) rest)
-associateCurryDocDeclPre xs d@(TypeSig _ f _ (QualTypeExpr _ _ ty) _) =
-  let (match, rest) = getToMatch d (fst (first xs)) xs isPre
-  CommentedTypeSig f match (matchArgumentsPre ty rest)
+  let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
+  in  CommentedDataDecl f (map (comment . snd) match) []
+associateCurryDocDeclPre xs d@(DataDecl spi f _ (c:cs) _) =
+  let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
+      sp = case spi of
+        SpanInfo _ (_:sp':_)   -> sp' -- throw away everything until '='
+        _                      -> error ("Comment.associateCurryDocDeclPre: "
+                                         ++ show spi)
+  in CommentedDataDecl f (map (comment . snd) match)
+                         (matchConstructorsPre (c:cs) (skipUntilAfter sp rest))
+associateCurryDocDeclPre xs d@(TypeSig _ fs
+  (QualTypeExpr (SpanInfo _ (s:ss)) _ ty)) =
+  let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
+      sp = last (s:ss) -- throw away everything until '=>'
+  in  CommentedTypeSig fs (map (comment . snd) match)
+                          (matchArgumentsPre ty (skipUntilAfter sp rest))
+associateCurryDocDeclPre xs d@(TypeSig spi fs
+  (QualTypeExpr (SpanInfo _ []) _ ty)) =
+   let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
+       sp = case spi of
+         SpanInfo _ [sp']   -> sp' -- throw away everything until '::'
+         _                  -> error ("Comment.associateCurryDocDeclPre: "
+                                       ++ show spi)
+   in  CommentedTypeSig fs (map (comment . snd) match)
+                           (matchArgumentsPre ty (skipUntilAfter sp rest))
+associateCurryDocDeclPre xs (ExternalDecl _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre xs (ExternalDataDecl _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
+  error "associateCurryDocDeclPre: NoSpanInfo in QualTypeExpr"
 
--- TODO data  Y {-| lol -} a =  Z should be invalid
+matchArgumentsPre :: TypeExpr -> [(Span, CDocComment)] -> [(TypeExpr, [Comment])]
+matchArgumentsPre ty cs = case ty of
+  ArrowType _ ty1 ty2 ->
+    let (match, rest) = getToMatch (getSrcSpan ty) NoSpan cs isPre
+    in  (ty1, map (comment . snd) match)
+          : matchArgumentsPre ty2 (skipUntilAfter (getSrcSpan ty1) rest)
+  _                   ->
+    let (match, _) = getToMatch (getSrcSpan ty) NoSpan cs isPre
+    in  [(ty , map (comment . snd) match)]
 
-matchArgumentsPre = error "undefined"
-matchConstructorsPre = error "undefined"
+matchConstructorsPre :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment])]
+matchConstructorsPre []       _  = []
+matchConstructorsPre (cn:cns) cs =
+  let sp            = getSrcSpan cn
+      (match, rest) = getToMatch sp NoSpan cs isPre
+  in  (getConstrName cn, map (comment . snd) match)
+        : matchConstructorsPre cns (skipUntilAfter sp rest)
 
 associateCurryDocDeclPost :: [(Span, CDocComment)]
                           -> Decl a
                           -> CommentedDecl
-associateCurryDocDeclPost = error "undefined"
+associateCurryDocDeclPost xs d@(FunctionDecl _ _ f _) =
+   CommentedFunctionDecl f  (map (comment . snd)
+                                (skipUntilAfter (getSrcSpan d) xs))
+associateCurryDocDeclPost xs d@(TypeDecl _ f _ _) =
+  CommentedTypeDecl f  (map (comment . snd) (skipUntilAfter (getSrcSpan d) xs))
+associateCurryDocDeclPost xs (ClassDecl spi _ f _ ds) =
+  let (result, rest) = associateCurryDocHeader spi sp xs
+  in  CommentedClassDecl f result (associateCurryDocDecls rest ds Nothing)
+  where sp = case ds of
+          (d:_) -> getSrcSpan d
+          _     -> NoSpan
+associateCurryDocDeclPost xs (InstanceDecl spi _ f ty ds) =
+  let (result, rest) = associateCurryDocHeader spi sp xs
+  in  CommentedInstanceDecl f ty result (associateCurryDocDecls rest ds Nothing)
+  where sp = case ds of
+          (d:_) -> getSrcSpan d
+          _     -> NoSpan
+associateCurryDocDeclPost xs (NewtypeDecl _ f _ c []) = --no deriving
+  CommentedNewtypeDecl f [] (map (comment . snd)
+                                 (skipUntilAfter (getSrcSpan c) xs))
+associateCurryDocDeclPost xs (NewtypeDecl spi f _ c (_:_)) =
+  let SpanInfo sp ss = spi -- otherwise something is wrong
+      (match, rest) = getToMatch (last ss) NoSpan
+                        (skipUntilAfter (getSrcSpan c) xs) isPost
+  in CommentedNewtypeDecl f (map (comment . snd) (skipUntilAfter sp rest))
+                            (map (comment . snd) match)
+associateCurryDocDeclPost xs d@(DataDecl _ f _ [] _) = -- cannot have deriving
+  CommentedDataDecl f (map (comment . snd) (skipUntilAfter (getSrcSpan d) xs)) []
+associateCurryDocDeclPost xs d@(DataDecl _ f _ (c:cs) []) = -- no deriving
+  CommentedDataDecl f [] (matchConstructorsPost (c:cs)
+                            (skipUntilAfter (getSrcSpan d) xs))
+associateCurryDocDeclPost xs (DataDecl spi f _ (c:cs) (_:_)) =
+  let SpanInfo sp ss = spi -- otherwise something is wrong
+      (declC, consC) = partition ((`isAfter` sp) . fst) xs
+      spDeriving     = ss !! (length cs + 2)
+  in CommentedDataDecl f (map (comment . snd) declC)
+                         (matchConstructorsPost (c:cs)
+                               (filter ((`isBefore` spDeriving) . fst) consC))
+associateCurryDocDeclPost xs (TypeSig _ fs (QualTypeExpr _ _ ty)) =
+  CommentedTypeSig fs [] (matchArgumentsPost ty xs)
+associateCurryDocDeclPost xs (ExternalDecl _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (ExternalDataDecl _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (InfixDecl _ _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (DefaultDecl _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+
+matchArgumentsPost :: TypeExpr -> [(Span, CDocComment)] -> [(TypeExpr, [Comment])]
+matchArgumentsPost ty cs = case ty of
+  ArrowType spi ty1 ty2 ->
+    let SpanInfo _ [sp] = spi -- arrow span
+        (match, rest) = getToMatch sp NoSpan
+                          (skipUntilAfter (getSrcSpan ty1) cs) isPost
+    in  (ty1, map (comment . snd) match)
+          : matchArgumentsPost ty2 rest
+  _                     ->
+    [(ty , map (comment . snd) (skipUntilAfter (getSrcSpan ty) cs))]
+
+matchConstructorsPost :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment])]
+matchConstructorsPost []           _  = []
+matchConstructorsPost [c]          cs = [(getConstrName c, map (comment . snd) cs)]
+matchConstructorsPost (cn:cn':cns) cs =
+  let stop          = getSrcSpan cn'
+      cs'           = skipUntilAfter (getSrcSpan cn) cs
+      (match, rest) = getToMatch stop NoSpan cs' isPost
+  in  (getConstrName cn, map (comment . snd) match)
+        : matchConstructorsPost (cn':cns) rest
 
 -- relies on the fact that for subsequent entries of the same decl,
 -- all comments in the first are before the comments of the second and vice versa
@@ -197,9 +310,9 @@ merge (x1:x2:xs) = case (x1, x2) of
    (CommentedDataDecl f1 ys1 cs1, CommentedDataDecl f2 ys2 cs2)
      | f1 == f2 -> merge (CommentedDataDecl f1 (ys1 ++ ys2)
                                                (zipWith zipF cs1 cs2) : xs)
-   (CommentedNewtypeDecl f1 ys1 (c, cc1), CommentedNewtypeDecl f2 ys2 (_, cc2))
+   (CommentedNewtypeDecl f1 ys1 cc1, CommentedNewtypeDecl f2 ys2 cc2)
      | f1 == f2 -> merge (CommentedNewtypeDecl f1 (ys1 ++ ys2)
-                                                  (c, (cc1 ++ cc2)) : xs)
+                                                  (cc1 ++ cc2) : xs)
    (CommentedFunctionDecl f1 ys1, CommentedFunctionDecl f2 ys2)
      | f1 == f2 -> merge (CommentedFunctionDecl f1 (ys1 ++ ys2) : xs)
    (CommentedTypeSig f1 ys1 ps1, CommentedTypeSig f2 ys2 ps2)
@@ -218,6 +331,8 @@ merge (x1:x2:xs) = case (x1, x2) of
                            | otherwise = error ("Comment.merge.zipF: " ++ show a
                                                    ++ ", " ++ show c)
 
+skipUntilAfter :: Span -> [(Span, a)] -> [(Span, a)]
+skipUntilAfter sp = filter (( `isAfter` sp) . fst)
 
 classifyComment :: Comment -> CDocComment
 classifyComment c@(NestedComment s) | "{- |" `isPrefixOf` s = Pre  c

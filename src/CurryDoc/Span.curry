@@ -30,3 +30,9 @@ isAfter NoSpan     NoSpan     = False
 isAfter (Span _ _) NoSpan     = False
 isAfter NoSpan     (Span _ _) = False
 isAfter (Span s _) (Span _ e) = s >= e
+
+isBefore :: Span -> Span -> Bool
+isBefore NoSpan     NoSpan     = False
+isBefore (Span _ _) NoSpan     = False
+isBefore NoSpan     (Span _ _) = False
+isBefore (Span _ e) (Span s _) = e <= s
