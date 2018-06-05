@@ -1,6 +1,6 @@
 {
     "name": "currydoc",
-    "version": "2.0.0",
+    "version": "0.8.3",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
@@ -14,8 +14,8 @@
         "wl-pprint"     : ">= 0.0.1"
     },
     "compilerCompatibility": {
-        "pakcs": ">= 2.0.0",
-        "kics2": ">= 2.0.0"
+        "pakcs": ">= 1.14.0, < 2.0.0",
+        "kics2": ">= 0.5.0,  < 2.0.0"
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {

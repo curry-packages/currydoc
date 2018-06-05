@@ -7,7 +7,6 @@ module CurryDoc.Options
 --------------------------------------------------------------------------
 --- The kind of documentations which can be generated.
 data DocType = HtmlDoc | TexDoc | CDoc
- deriving Eq
 
 --- The options for the documentation generator.
 --- docType - the target format of the documentation

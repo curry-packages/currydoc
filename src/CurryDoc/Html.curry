@@ -48,8 +48,7 @@ generateHtmlDocs opts anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
-  (CurryProg _ imports _ _ _ types functions ops) <-
-                                                readAbstractCurryFile acyname
+  (CurryProg _ imports types functions ops) <- readAbstractCurryFile acyname
   let
     exptypes   = filter isExportedType types
     expfuns    = filter isExportedFun  functions
@@ -101,7 +100,6 @@ generateHtmlDocs opts anainfo modname modcmts progcmts = do
 
 -- Datatype to classify the kind of information attached to a function:
 data FuncAttachment = Property | PreCond | PostCond | SpecFun
- deriving Eq
 
 -- Associate the properties or contracts (first argument)
 -- to functions according to their positions and name in the source code
@@ -141,7 +139,7 @@ attachProperties2Funcs props ((sourceline,_) : slines) =
   showRulesWith formatrule fnsuff (CFunc qn@(mn,fn) ar _ ftype rules) =
     let stripSuffix = reverse . tail . dropWhile (/='\'') . reverse
      in map (formatrule fnsuff qn (mn,stripSuffix fn)
-              . etaExpand ar (length (argTypes (typeOfQualType ftype)))) rules
+              . etaExpand ar (length (argTypes ftype))) rules
 
   -- eta expand simple rules for more reasonable documentation
   etaExpand arity tarity rule = case rule of
@@ -286,13 +284,13 @@ getExportedFields :: [CTypeDecl] -> [String]
 getExportedFields = map fldName . filter isExportedField . concatMap getFields
                   . concatMap typeCons
  where
-  getFields (CCons   _ _ _ _ _ ) = []
-  getFields (CRecord _ _ _ _ fs) = fs
+  getFields (CCons   _ _ _ ) = []
+  getFields (CRecord _ _ fs) = fs
 
 -- Is a function definition a property?
 isProperty :: CFuncDecl -> Bool
 isProperty fdecl = fst (funcName fdecl) /= easyCheckModule
-                   && isPropType (typeOfQualType (funcType fdecl))
+                   && isPropType (funcType fdecl)
  where
   isPropType :: CTypeExpr -> Bool
   isPropType ct =  ct == baseType (easyCheckModule,"Prop") -- I/O test?
@@ -333,7 +331,7 @@ ifNotNull cmt genDoc
 
 --- generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> [(SourceLine,String)] -> CTypeDecl -> [HtmlExp]
-genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs _) =
+genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
       ++ docComment2HTML docopts datacmt
@@ -342,9 +340,9 @@ genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs _) =
                            (filter isExportedCons constrs))
       ++ [hrule]
  where
-  expFields = [f | CRecord _ _ _ _ fs <- constrs, f <- fs, isExportedField f]
+  expFields = [f | CRecord _ _ fs <- constrs, f <- fs, isExportedField f]
   fldCons   = [ (fn,cn) | f@(CField (_,fn) _ _) <- expFields
-              , CRecord _ _ (_,cn) _ fs <- constrs, f `elem` fs
+              , CRecord (_,cn) _ fs <- constrs, f `elem` fs
               ]
 genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
   let (typecmt,_) = splitComment (getDataComment tcons progcmts)
@@ -360,7 +358,7 @@ genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
                          " = " ++ showType docopts tcmod False texp)]]
          , hrule
          ]
-genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr _) =
+genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
    in if isExportedCons constr
         then    [anchored tcons [style "typeheader" [htxt tcons]] ]
@@ -377,7 +375,7 @@ genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr _) =
 genHtmlCons :: DocOptions -> [(String,String)] -> String -> [CTVarIName]
              -> [(String,String)] -> CConsDecl -> [HtmlExp]
 genHtmlCons docopts consfldcmts tcons tvars _
-            (CCons _ _ (cmod,cname) _ argtypes) =
+            (CCons (cmod,cname) _ argtypes) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
@@ -391,7 +389,7 @@ genHtmlCons docopts consfldcmts tcons tvars _
  where
   conscmts = getCommentType "cons" consfldcmts
 genHtmlCons docopts consfldcmts tcons tvars fldCons
-            (CRecord _ _ (cmod,cname) _ fields) =
+            (CRecord (cmod,cname) _ fields) =
     anchored (cname ++ "_CONS")
       [code [opnameDoc [htxt cname],
              HtmlText (" :: " ++
