@@ -6,6 +6,7 @@ import CurryDoc.Type
 import CurryDoc.Ident
 
 import List
+import Maybe (listToMaybe)
 
 data Comment = NestedComment String
              | LineComment   String
@@ -32,8 +33,8 @@ isNone None {} = True
 
 data CommentedDecl
   = CommentedTypeDecl Ident [Comment]
-  | CommentedDataDecl Ident [Comment] [(Ident, [Comment])]
-  | CommentedNewtypeDecl Ident [Comment] [Comment]
+  | CommentedDataDecl Ident [Comment] [(Ident, [Comment], [([Ident], [Comment])])]
+  | CommentedNewtypeDecl Ident [Comment] Ident [Comment] (Maybe ([Ident], [Comment]))
   | CommentedClassDecl Ident [Comment] [CommentedDecl]
   | CommentedInstanceDecl QualIdent InstanceType [Comment] [CommentedDecl]
   | CommentedFunctionDecl Ident [Comment]
@@ -138,7 +139,7 @@ matchLast :: [(Span, CDocComment)]
           -> [CommentedDecl]
 matchLast []                  (Just _) = []
 matchLast _                   Nothing  = []
-matchLast ((sp, Post c) : cs) (Just d) = 
+matchLast ((sp, Post c) : cs) (Just d) =
   let (match, next) = getToMatch (getSrcSpan d) sp cs isPost
   in  associateCurryDocDeclPost ((sp, Post c) : match) d
         : matchLast next (Just d)
@@ -167,10 +168,16 @@ associateCurryDocDeclPre xs (InstanceDecl spi _ f ty ds) =
           (d:_) -> getSrcSpan d
           _     -> NoSpan
 associateCurryDocDeclPre xs d@(NewtypeDecl _ f _ c _) =
-  let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
-      (cons,  _   ) = getToMatch (getSrcSpan c) NoSpan rest isPre
-  in CommentedNewtypeDecl f (map (comment . snd) match)
-                            (map (comment . snd) cons)
+  let (match, rest ) = getToMatch (getSrcSpan d) NoSpan xs isPre
+      (cons,  rest') = getToMatch (getSrcSpan c) NoSpan rest isPre
+      field          = listToMaybe (case c of
+        NewConstrDecl _ _ _         -> []
+        NewRecordDecl spi _ (idt, ty) ->
+          let SpanInfo _ (sp:_) = spi -- sp = '{'
+          in matchFieldsPre [FieldDecl NoSpanInfo [idt] ty]
+                            (skipUntilAfter sp rest'))
+  in CommentedNewtypeDecl f (map (comment . snd) match) (getNewtypeConstrName c)
+                            (map (comment . snd) cons) field
 associateCurryDocDeclPre xs d@(DataDecl _ f _ [] _) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
   in  CommentedDataDecl f (map (comment . snd) match) []
@@ -218,13 +225,25 @@ matchArgumentsPre ty cs = case ty of
     let (match, _) = getToMatch (getSrcSpan ty) NoSpan cs isPre
     in  [(ty , map (comment . snd) match)]
 
-matchConstructorsPre :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment])]
+matchConstructorsPre :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment], [([Ident], [Comment])])]
 matchConstructorsPre []       _  = []
 matchConstructorsPre (cn:cns) cs =
-  let sp            = getSrcSpan cn
-      (match, rest) = getToMatch sp NoSpan cs isPre
-  in  (getConstrName cn, map (comment . snd) match)
-        : matchConstructorsPre cns (skipUntilAfter sp rest)
+  let stop          = getSrcSpan cn
+      (match, rest) = getToMatch stop NoSpan cs isPre
+      fields        = case cn of
+        RecordDecl spi _ _ _ fs ->
+          let SpanInfo _ (sp:_) = spi
+          in matchFieldsPre fs (skipUntilAfter sp cs)
+        _                       -> []
+  in  (getConstrName cn, map (comment . snd) match, fields)
+        : matchConstructorsPre cns (skipUntilAfter stop rest)
+
+matchFieldsPre :: [FieldDecl] -> [(Span, CDocComment)] -> [([Ident], [Comment])]
+matchFieldsPre []                            _  = []
+matchFieldsPre (f@(FieldDecl _ idts _) : fs) cs =
+  let (match, rest) = getToMatch (getSrcSpan f) NoSpan cs isPre
+  in (idts, map (comment . snd) match)
+       : matchFieldsPre fs (skipUntilAfter (getSrcSpan f) rest)
 
 associateCurryDocDeclPost :: [(Span, CDocComment)]
                           -> Decl a
@@ -247,19 +266,32 @@ associateCurryDocDeclPost xs (InstanceDecl spi _ f ty ds) =
           (d:_) -> getSrcSpan d
           _     -> NoSpan
 associateCurryDocDeclPost xs (NewtypeDecl _ f _ c []) = --no deriving
-  CommentedNewtypeDecl f [] (map (comment . snd)
-                                 (skipUntilAfter (getSrcSpan c) xs))
+  let field = listToMaybe (case c of
+        NewConstrDecl _ _ _           -> []
+        NewRecordDecl spi _ (idt, ty) ->
+          let SpanInfo _ ss = spi
+          in matchFieldsPost (last ss) [FieldDecl NoSpanInfo [idt] ty]
+                             (skipUntilAfter (getSrcSpan ty) xs))
+  in CommentedNewtypeDecl f [] (getNewtypeConstrName c)
+                               (map (comment . snd)
+                                    (skipUntilAfter (getSrcSpan c) xs)) field
 associateCurryDocDeclPost xs (NewtypeDecl spi f _ c (_:_)) =
   let SpanInfo sp ss = spi -- otherwise something is wrong
-      (match, rest) = getToMatch (last ss) NoSpan
-                        (skipUntilAfter (getSrcSpan c) xs) isPost
+      field          = listToMaybe (case c of
+        NewConstrDecl _ _ _           -> []
+        NewRecordDecl spiR _ (idt, ty) ->
+          let SpanInfo _ ssR = spiR
+          in matchFieldsPost (last ssR) [FieldDecl NoSpanInfo [idt] ty]
+                             (skipUntilAfter (getSrcSpan ty) xs))
+      (match, rest)  = getToMatch (last ss) NoSpan
+                         (skipUntilAfter (getSrcSpan c) xs) isPost
   in CommentedNewtypeDecl f (map (comment . snd) (skipUntilAfter sp rest))
-                            (map (comment . snd) match)
+                            (getNewtypeConstrName c)
+                            (map (comment . snd) match) field
 associateCurryDocDeclPost xs d@(DataDecl _ f _ [] _) = -- cannot have deriving
   CommentedDataDecl f (map (comment . snd) (skipUntilAfter (getSrcSpan d) xs)) []
 associateCurryDocDeclPost xs d@(DataDecl _ f _ (c:cs) []) = -- no deriving
-  CommentedDataDecl f [] (matchConstructorsPost (c:cs)
-                            (skipUntilAfter (getSrcSpan d) xs))
+  CommentedDataDecl f [] (matchConstructorsPost (c:cs) xs)
 associateCurryDocDeclPost xs (DataDecl spi f _ (c:cs) (_:_)) =
   let SpanInfo sp ss = spi -- otherwise something is wrong
       (declC, consC) = partition ((`isAfter` sp) . fst) xs
@@ -289,15 +321,42 @@ matchArgumentsPost ty cs = case ty of
   _                     ->
     [(ty , map (comment . snd) (skipUntilAfter (getSrcSpan ty) cs))]
 
-matchConstructorsPost :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment])]
+matchConstructorsPost :: [ConstrDecl] -> [(Span, CDocComment)] -> [(Ident, [Comment], [([Ident], [Comment])])]
 matchConstructorsPost []           _  = []
-matchConstructorsPost [c]          cs = [(getConstrName c, map (comment . snd) cs)]
+matchConstructorsPost [c]          cs = case c of
+  RecordDecl spi _ _ f fs ->
+    let SpanInfo spR (sp:ss) = spi
+    in  [(f, map (comment . snd) (skipUntilAfter spR cs),
+                 matchFieldsPost (last ss) fs (skipUntilAfter sp cs))]
+  _                       ->
+    [(getConstrName c, map (comment . snd)
+                           (skipUntilAfter (getSrcSpan c) cs), [])]
 matchConstructorsPost (cn:cn':cns) cs =
   let stop          = getSrcSpan cn'
       cs'           = skipUntilAfter (getSrcSpan cn) cs
       (match, rest) = getToMatch stop NoSpan cs' isPost
-  in  (getConstrName cn, map (comment . snd) match)
+      fields        = case cn of
+        RecordDecl spi _ _ _ fs ->
+          let SpanInfo _ (sp:ss) = spi
+          in  matchFieldsPost (last ss) fs (skipUntilAfter sp cs)
+        _                       -> []
+  in  (getConstrName cn, map (comment . snd) match, fields)
         : matchConstructorsPost (cn':cns) rest
+
+matchFieldsPost :: Span -- ^ Until
+                -> [FieldDecl]
+                -> [(Span, CDocComment)]
+                -> [([Ident], [Comment])]
+matchFieldsPost _  []                                  _  = []
+matchFieldsPost sp [f@(FieldDecl _ idts _)]            cs =
+  let (match, _) = getToMatch sp NoSpan (skipUntilAfter (getSrcSpan f) cs) isPost
+  in  [(idts, map (comment . snd) match)]
+matchFieldsPost sp (f1@(FieldDecl _ idts _) : f2 : fs) cs =
+  let (match, rest) = getToMatch (getSrcSpan f2) NoSpan
+                                 (skipUntilAfter (getSrcSpan f1) cs) isPost
+  in (idts, map (comment . snd) match)
+        : matchFieldsPost sp (f2:fs) (skipUntilAfter (getSrcSpan f2) rest)
+
 
 -- relies on the fact that for subsequent entries of the same decl,
 -- all comments in the first are before the comments of the second and vice versa
@@ -309,27 +368,36 @@ merge (x1:x2:xs) = case (x1, x2) of
      | f1 == f2 -> merge (CommentedTypeDecl f1 (ys1 ++ ys2) : xs)
    (CommentedDataDecl f1 ys1 cs1, CommentedDataDecl f2 ys2 cs2)
      | f1 == f2 -> merge (CommentedDataDecl f1 (ys1 ++ ys2)
-                                               (zipWith zipF cs1 cs2) : xs)
-   (CommentedNewtypeDecl f1 ys1 cc1, CommentedNewtypeDecl f2 ys2 cc2)
-     | f1 == f2 -> merge (CommentedNewtypeDecl f1 (ys1 ++ ys2)
-                                                  (cc1 ++ cc2) : xs)
+                                            (zipWith zipCons cs1 cs2) : xs)
+   (CommentedNewtypeDecl f1 ys1 cn cc1 m1, CommentedNewtypeDecl f2 ys2 _ cc2 m2)
+     | f1 == f2 -> merge (CommentedNewtypeDecl f1 (ys1 ++ ys2) cn
+                                               (cc1 ++ cc2) (mMaybe m1 m2) : xs)
    (CommentedFunctionDecl f1 ys1, CommentedFunctionDecl f2 ys2)
      | f1 == f2 -> merge (CommentedFunctionDecl f1 (ys1 ++ ys2) : xs)
    (CommentedTypeSig f1 ys1 ps1, CommentedTypeSig f2 ys2 ps2)
      | f1 == f2 -> merge (CommentedTypeSig f1 (ys1 ++ ys2)
-                                              (zipWith zipF ps1 ps2) : xs)
+                                              (zipWith zipPair ps1 ps2) : xs)
    (CommentedClassDecl f1 ys1 ds1, CommentedClassDecl f2 ys2 ds2)
      | f1 == f2 -> merge (CommentedClassDecl f1 (ys1 ++ ys2)
                                                 (merge (ds1 ++ ds2)) : xs)
    (CommentedInstanceDecl f1 ty1 ys1 ds1, CommentedInstanceDecl f2 ty2 ys2 ds2)
      | ty1 == ty2 &&
        f1 == f2 -> merge (CommentedInstanceDecl f1 ty1 (ys1 ++ ys2)
-                                                       (merge (ds1 ++ ds2)) : xs)
+                                                (merge (ds1 ++ ds2)) : xs)
    _ -> x1 : merge (x2 : xs)
 
-  where zipF (a, b) (c, d) | a == c    = (a, b ++ d)
-                           | otherwise = error ("Comment.merge.zipF: " ++ show a
-                                                   ++ ", " ++ show c)
+  where zipCons (a1, b1, c1) (a2, b2, c2)
+          | a1 == a2  = (a1, b1 ++ b2, zipWith zipPair c1 c2)
+          | otherwise = error ("Comment.merge.zipCons: " ++ show a1
+                                 ++ ", " ++ show a2)
+        zipPair (a1, b1) (a2, b2)
+          | a1 == a2  = (a1, b1 ++ b2)
+          | otherwise = error ("Comment.merge.zipPair: " ++ show a1
+                                 ++ ", " ++ show a2)
+        mMaybe Nothing       Nothing       = Nothing
+        mMaybe (Just x)      Nothing       = Just x
+        mMaybe Nothing       (Just y)      = Just y
+        mMaybe (Just (f, x)) (Just (_, y)) = Just (f, x ++ y)
 
 skipUntilAfter :: Span -> [(Span, a)] -> [(Span, a)]
 skipUntilAfter sp = filter (( `isAfter` sp) . fst)

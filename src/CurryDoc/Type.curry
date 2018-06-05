@@ -163,6 +163,11 @@ data KnownExtension
   | NoImplicitPrelude
   deriving (Eq, Read, Show)
 
+data Test = Test { a, b :: KnownExtension, -- ^ a and b
+                   {- | c  -} c :: KnownExtension} -- ^ constr
+
+newtype Test2 = Test2 { {- | startNew -}lmao :: Extension -- ^ endNew
+                      }
 
 data Tool = KICS2 | PAKCS | CYMAKE | FRONTEND | UnknownTool String
   deriving (Eq, Read, Show)
@@ -189,6 +194,9 @@ instance HasSpanInfo ConstrDecl where
   getSpanInfo (ConOpDecl  spi _ _ _ _ _) = spi
   getSpanInfo (RecordDecl spi _ _ _ _  ) = spi
 
+instance HasSpanInfo FieldDecl where
+  getSpanInfo (FieldDecl spi _ _) = spi
+
 -- | HasSpanInfo TypeExpr
 instance HasSpanInfo TypeExpr where
   -- | First
@@ -206,6 +214,11 @@ getConstrName   :: ConstrDecl -- ^ ConstrDecl
 getConstrName (ConstrDecl _ _ _   idt _) = idt
 getConstrName (ConOpDecl  _ _ _ _ idt _) = idt
 getConstrName (RecordDecl _ _ _   idt _) = idt
+
+getNewtypeConstrName :: NewConstrDecl -- ^ NewConstrDecl
+       {- | Ident -} -> Ident
+getNewtypeConstrName (NewConstrDecl _ idt _) = idt
+getNewtypeConstrName (NewRecordDecl _ idt _) = idt
 
 {-
 instance Functor Module where
