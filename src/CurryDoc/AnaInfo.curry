@@ -5,9 +5,13 @@
 --- @version April 2016
 ----------------------------------------------------------------------
 
-module CurryDoc.AnaInfo where
+module CurryDoc.AnaInfo
+  (AnaInfo(..), getNondetInfo, getCompleteInfo, getIndetInfo,
+   getOpCompleteInfo, getFunctionInfo,
+   AnalysisInfo(..)) where
 
 import FlatCurry.Types
+import AbstractCurry.Types (CFixity)
 import Analysis.TotallyDefined(Completeness(..))
 
 -----------------------------------------------------------------------
@@ -34,8 +38,27 @@ getOpCompleteInfo (AnaInfo _ _ _ oci) = oci
 -- Translate a standard analysis result into functional form:
 getFunctionInfo :: [(QName,a)] -> QName -> a
 getFunctionInfo [] n = error ("No analysis result for function "++show n)
-getFunctionInfo ((fn,fi):fnis) n = if fn == n then fi
-                                              else getFunctionInfo fnis n
+getFunctionInfo ((fn,fi):fnis) n = if fn =~= n then fi
+                                               else getFunctionInfo fnis n
 
+(=~=) :: QName -> QName -> Bool
+(   ""   , x) =~= (   ""   , y) = x == y
+(   ""   , x) =~= (   (_:_), y) = x == y
+(   (_:_), x) =~= (   ""   , y) = x == y
+(xs@(_:_), x) =~= (ys@(_:_), y) = (xs, x) == (ys, y)
 
 --------------------------------------------------------------------------
+
+data AnalysisInfo = AnalysisInfo { nondet, indet, opComplete, ext :: Bool,
+                                   complete :: Completeness,
+                                   precedence :: Maybe (CFixity, Int)
+                                 }
+                  | NoAnalysisInfo
+                  | PrecedenceInfo { precedence :: Maybe (CFixity, Int)}
+  deriving Show
+
+
+-- TODO
+
+instance Show Completeness where
+  show _ = ""

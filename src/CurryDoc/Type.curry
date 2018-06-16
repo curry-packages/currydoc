@@ -6,6 +6,8 @@ import CurryDoc.SpanInfo
 import CurryDoc.Ident
 import CurryDoc.Position
 
+import Distribution
+
 data Module a = Module SpanInfo [ModulePragma] ModuleIdent (Maybe ExportSpec)
                        [ImportDecl] [Decl a]
     deriving (Eq, Read, Show)
@@ -209,64 +211,9 @@ instance HasSpanInfo TypeExpr where
   getSpanInfo (ParenType spi _) = spi
   -- ^ Last
 
-getConstrName   :: ConstrDecl -- ^ ConstrDecl
-  {- | Ident -} -> Ident
-getConstrName (ConstrDecl _ _ _   idt _) = idt
-getConstrName (ConOpDecl  _ _ _ _ idt _) = idt
-getConstrName (RecordDecl _ _ _   idt _) = idt
+readASTFile :: String -> IO (Module ())
+readASTFile s = readFile s >>= (return . read)
 
-getNewtypeConstrName :: NewConstrDecl -- ^ NewConstrDecl
-       {- | Ident -} -> Ident
-getNewtypeConstrName (NewConstrDecl _ idt _) = idt
-getNewtypeConstrName (NewRecordDecl _ idt _) = idt
-
-{-
-instance Functor Module where
-  fmap f (Module spi ps mid ex im ds) =
-    Module spi ps mid ex im (map (fmap f) ds)
-
-instance Functor Decl where
-  fmap f (FunctionDecl spi a idt eqs) =
-    FunctionDecl spi (f a) idt (map (fmap f) eqs)
-  fmap f (ExternalDecl spi vs) = ExternalDecl spi (map (fmap f) vs)
-  fmap f (ClassDecl spi cx cls tyv ds) =
-    ClassDecl spi cx cls tyv (map (fmap f) ds)
-  fmap f (InstanceDecl spi cx cls ty ds) =
-    InstanceDecl spi cx cls ty (map (fmap f) ds)
-  fmap f d = d
-
-instance Functor Lhs where
-  fmap f (FunLhs spi f ps) = FunLhs spi f (map (fmap f) ps)
-  fmap f (OpLhs spi p1 f p2) = OpLhs spi (fmap f p1) f (fmap f p2)
-  fmap f (ApLhs spi lhs ps) = ApLhs spi (fmap f lhs) (map (fmap f) ps)
-
-instance Functor Rhs where
-  fmap f (SimpleRhs spi e ds) = SimpleRhs spi (fmap f e) (map (fmap f) ds)
-  fmap f (GuardedRhs spi cs ds) =
-    GuardedRhs spi (map (fmap f) cs) (map (fmap f) ds)
-
-instance Functor CondExpr where
-  fmap f (CondExpr spi e1 e2) = CondExpr spi (fmap f e1) (fmap f e2)
-
-instance Functor Expression where
-  fmap f (Variable spi a qid) = Variable spi (f a) qid
-
-instance Functor Field where
-  fmap f (Field spi qid a) = Field spi qid (f a)
-
-instance Functor Var where
-  fmap f (Var a idt) = Var (f a) idt
-
-instance HasSpanInfo (Decl a) where
-    getSpanInfo (InfixDecl        spi _ _ _  ) = spi
-    getSpanInfo (DataDecl         spi _ _ _ _) = spi
-    getSpanInfo (ExternalDataDecl spi _ _    ) = spi
-    getSpanInfo (NewtypeDecl      spi _ _ _ _) = spi
-    getSpanInfo (TypeDecl         spi _ _ _  ) = spi
-    getSpanInfo (TypeSig          spi _ _    ) = spi
-    getSpanInfo (FunctionDecl     spi _ _ _  ) = spi
-    getSpanInfo (ExternalDecl     spi _      ) = spi
-    getSpanInfo (DefaultDecl      spi _      ) = spi
-    getSpanInfo (ClassDecl        spi _ _ _ _) = spi
-    getSpanInfo (InstanceDecl     spi _ _ _ _) = spi
--}
+readShortAST :: String -> IO (Module ())
+readShortAST modl = do ss <- readFile (".curry/" ++ modNameToPath modl ++ ".sast")
+                       return (read ss :: Module ())
