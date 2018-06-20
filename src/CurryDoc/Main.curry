@@ -29,6 +29,7 @@
 module CurryDoc.Main where
 
 import AbstractCurry.Files
+import AbstractCurry.Types
 import Directory
 import Distribution
 import FileGoodies
@@ -55,6 +56,8 @@ import CurryDoc.Options
 import CurryDoc.Read
 import CurryDoc.Html
 import CurryDoc.TeX
+import CurryDoc.Type
+import CurryDoc.Comment
 import CurryDoc.CDoc
 import CurryDoc.Config
 import CurryDoc.PackageConfig (packagePath)
@@ -185,9 +188,13 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       callFrontend FCY modname
       -- generate abstract curry representation
       callFrontend ACY modname
+      -- generate short ast representation
+      callFrontend SAST modname
+      -- generate comment stream
+      callFrontend COMMS modname
       -- when constructing CDOC the imported modules don't have to be read
       -- from the FlatCurry file
-      (alltypes,allfuns) <- getProg modname $ docType docopts
+      (alltypes,allfuns) <- readTypesFuncsWithImports modname
       makeDocIfNecessary docopts recursive docdir modname
       when (withIndex docopts) $ do
         genMainIndexPage     docopts docdir [modname]
@@ -199,7 +206,7 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
  where
   getProg modname HtmlDoc = readTypesFuncsWithImports modname
   getProg modname TexDoc  = readTypesFuncsWithImports modname
-  getProg modname CDoc    = do (Prog _ _ types funs _) <- readFlatCurry modname
+  getProg modname CDoc    = do (Prog _ _ types funs _) <- readFlatCurry modname -- TODO reactivate
                                return (types,funs)
 
 --- Transform a file path into an absolute file path:
@@ -291,34 +298,34 @@ readAnaInfo modname = do
  where
    analyzeAndCheck ana =
      analyzeInterface ana modname >>= either
-       (\results ->
-           return (\qn -> maybe (error $ "No '" ++ analysisName ana ++
-                                 "' analysis result for function " ++ show qn)
-                                id
-                                (lookup qn results)))
+       (\results -> return (\q -> getFunctionInfo results q))
        (\err -> error $ "Analysis error: " ++ err)
 
 -- generate documentation for a single module:
 makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeDoc docopts recursive docdir modname = do
-  Just (_,progname) <- lookupModuleSourceInLoadPath modname
-  putStrLn ("Reading comments from file '"++progname++"'...")
-  (modcmts,progcmts) <- readComments progname
+  putStrLn ("Reading abstract curry for module \""++modname++"\"...")
+  acyname <- getLoadPathForModule modname >>=
+             getFileInPath (abstractCurryFileName modname) [""]
+  acy@(CurryProg _ _ _ _ _ _ funs ops) <- readAbstractCurryFile acyname
+  putStrLn ("Reading comments for module \""++modname++"\"...")
+  comments <- readComments modname
+  putStrLn ("Reading short-ast for module \""++modname++"\"...")
+  prog <- readShortAST modname
+  putStrLn ("Computing Comment matchings for module \""++modname++"\"...")
+  let (declsC, moduleC) = associateCurryDoc comments prog
   putStrLn ("Reading analysis information for module \""++modname++"\"...")
   anainfo <- readAnaInfo modname
-  makeDocWithComments (docType docopts) docopts recursive docdir
-                      anainfo modname modcmts progcmts
+  let fullDecls = addAbstractCurryProg acy (cleanup declsC)
+  let withAnaInfo = addAnaInfoToCommentDecls anainfo ops funs fullDecls
+  print withAnaInfo
 
-
-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
+{-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
                     -> String -> String -> [(SourceLine,String)] -> IO ()
 makeDocWithComments HtmlDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
   -- ensure that the AbstractCurry file for the module exists
   Just (dir,_) <- lookupModuleSourceInLoadPath modname
-  let acyfile = dir </> abstractCurryFileName modname
-  exacy <- doesFileExist acyfile
-  unless exacy $ callFrontend ACY modname
   writeOutfile docopts recursive docdir modname
                (generateHtmlDocs docopts anainfo modname modcmts progcmts)
   translateSource2ColoredHtml docdir modname
@@ -336,7 +343,7 @@ makeDocWithComments TexDoc docopts recursive docdir anainfo modname
 makeDocWithComments CDoc docopts recursive docdir anainfo modname
                     modcmts progcmts = do
   writeOutfile docopts recursive docdir modname
-               (generateCDoc modname modcmts progcmts anainfo)
+               (generateCDoc modname modcmts progcmts anainfo)-}
 
 
 --- Generates the documentation for a module if it is necessary.
