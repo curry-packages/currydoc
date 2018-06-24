@@ -1,19 +1,32 @@
-module CurryDoc.Comment
-  (readComments, readCommentFile, associateCurryDoc,
-   cleanup, addAnaInfoToCommentDecls, addAbstractCurryProg) where
+module CurryDoc.Info.Comments
+  (readComments, associateCurryDoc,
+   isCommentedTypeSig, isCommentedInstanceDecl,
+   splitNestedComment, commentString,
+   Comment(..),
+   CommentedDecl(..),
+   CommentedConstr(..), CommentedNewtypeConstr(..),
+   CommentedField) where
 
-import CurryDoc.Span
-import CurryDoc.SpanInfo
-import CurryDoc.Type
-import CurryDoc.Ident
-import CurryDoc.AnaInfo
+import CurryDoc.Data.Span
+import CurryDoc.Data.SpanInfo
+import CurryDoc.Data.Type
+import CurryDoc.Data.AnaInfo
+import CurryDoc.Info.Goodies
 
 import AbstractCurry.Types
+import AbstractCurry.Select
 
-import List
-import Maybe (listToMaybe, mapMaybe)
-import Char (isSpace)
-import Distribution
+import Char            (isSpace)
+import Maybe           (listToMaybe, mapMaybe)
+import List            (partition, init, last, isPrefixOf)
+import Directory       (doesFileExist)
+import FileGoodies     (getFileInPath, lookupFileInPath)
+import FilePath        (takeFileName, (</>), (<.>))
+import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
+                       , setQuiet, inCurrySubdir, stripCurrySuffix
+                       , callFrontend, callFrontendWithParams
+                       , lookupModuleSourceInLoadPath, getLoadPathForModule
+                       )
 
 data Comment = NestedComment String
              | LineComment   String
@@ -23,20 +36,6 @@ data CDocComment = Pre  { comment :: Comment }
                  | Post { comment :: Comment }
                  | None { comment :: Comment }
   deriving Show
-
-isPre, isPost, isNone :: CDocComment -> Bool
-isPre  Pre  {} = True
-isPre  Post {} = False
-isPre  None {} = False
-
-isPost Pre  {} = False
-isPost Post {} = True
-isPost None {} = False
-
-isNone Pre  {} = False
-isNone Post {} = False
-isNone None {} = True
-
 
 data CommentedDecl
   = CommentedTypeDecl QName [CTVarIName] CTypeExpr [Comment]
@@ -62,18 +61,51 @@ data CommentedNewtypeConstr
   | CommentedNewRecord QName [Comment] CTypeExpr (Maybe CommentedField) AnalysisInfo
   deriving Show
 
-readCommentFile :: String -> IO [(Span, Comment)]
-readCommentFile s = readFile s >>= (return . read)
-
+-- Reads the comments from a specified module
 readComments :: String -> IO [(Span, Comment)]
-readComments modl = do ss <- readFile (".curry/" ++ modNameToPath modl ++ ".cycom")
-                       return $ read ss
+readComments progname =
+   readCommentsWithParseOptions progname (setQuiet True defaultParams)
 
+readCommentsWithParseOptions :: String -> FrontendParams -> IO [(Span, Comment)]
+readCommentsWithParseOptions progname options = do
+  mbsrc <- lookupModuleSourceInLoadPath progname
+  case mbsrc of
+    Nothing -> do -- no source file, try to find Comments file in load path:
+      loadpath <- getLoadPathForModule progname
+      filename <- getFileInPath (commentsFileName (takeFileName progname)) [""]
+                                loadpath
+      readCommentsFile filename
+    Just (dir,_) -> do
+      callFrontendWithParams COMMS options progname
+      readCommentsFile (commentsFileName (dir </> takeFileName progname))
+
+commentsFileName :: String -> String
+commentsFileName prog = inCurrySubdir (stripCurrySuffix prog) <.> "cycom"
+
+readCommentsFile :: String -> IO [(Span, Comment)]
+readCommentsFile filename = do
+  filecontents <- readCommentsFileRaw filename
+  return (read filecontents)
+
+readCommentsFileRaw :: String -> IO String
+readCommentsFileRaw filename = do
+  extfcy <- doesFileExist filename
+  if extfcy
+   then readFile filename
+   else do let subdirfilename = inCurrySubdir filename
+           exdirtfcy <- doesFileExist subdirfilename
+           if exdirtfcy
+            then readFile subdirfilename
+            else error ("EXISTENCE ERROR: Comment file '" ++ filename ++
+                        "' does not exist")
+
+-- Associates given comments with declarations from given module
+-- based on the source code positions
 associateCurryDoc :: [(Span, Comment)] -> Module a -> ([CommentedDecl], [Comment])
 associateCurryDoc []       _                       = ([], [])
 associateCurryDoc xs@(_:_) (Module spi _ _ _ _ ds) =
   let (result, rest) = associateCurryDocHeader spi sp xs'
-  in  (merge $ associateCurryDocDecls rest ds Nothing, result)
+  in  (cleanup $ merge $ associateCurryDocDecls rest ds Nothing, result)
   where xs' = map (\(sp',c) -> (sp', classifyComment c)) xs
         sp = case ds of
           (d:_) -> getSrcSpan d
@@ -492,86 +524,49 @@ skipUntilAfter sp = filter (( `isAfter` sp) . fst)
 -------------------------------------------------------------------------------
 -- utility for matching and conversions while matching
 
+isPre, isPost, isNone :: CDocComment -> Bool
+isPre  Pre  {} = True
+isPre  Post {} = False
+isPre  None {} = False
+
+isPost Pre  {} = False
+isPost Post {} = True
+isPost None {} = False
+
+isNone Pre  {} = False
+isNone Post {} = False
+isNone None {} = True
+
 classifyComment :: Comment -> CDocComment
 classifyComment (NestedComment s)
-  | "{- |" `isPrefixOf` s = Pre  $ NestedComment $ dropWhile isSpace $ drop 4 s
-  | "{- ^" `isPrefixOf` s = Post $ NestedComment $ dropWhile isSpace $ drop 4 s
-  | otherwise             = None $ NestedComment $ dropWhile isSpace          s
+  | "{- |" `isPrefixOf` s = Pre  $ NestedComment $ dropLast2 $ drop 4 s
+  | "{- ^" `isPrefixOf` s = Post $ NestedComment $ dropLast2 $ drop 4 s
+  | otherwise             = None $ NestedComment $ dropLast2 $ drop 2 s
+  where dropLast2 = init . init
 classifyComment (LineComment   s)
-  | "-- |" `isPrefixOf` s = Pre  $ LineComment   $ dropWhile isSpace $ drop 4 s
-  | "---"  `isPrefixOf` s = Pre  $ LineComment   $ dropWhile isSpace $ drop 3 s
-  | "-- ^" `isPrefixOf` s = Post $ LineComment   $ dropWhile isSpace $ drop 4 s
-  | otherwise             = None $ LineComment   $ dropWhile isSpace          s
+  | "---"      ==       s = Pre  $ LineComment               $ drop 3 s
+  | "--- " `isPrefixOf` s = Pre  $ LineComment               $ drop 4 s
+  | "-- |" `isPrefixOf` s = Pre  $ LineComment               $ drop 4 s
+  | "-- ^" `isPrefixOf` s = Post $ LineComment               $ drop 4 s
+  | otherwise             = None $ LineComment               $ drop 2 s
 
-identToQName :: Ident ->  QName
-identToQName (Ident _ s _) = ("", s)
+commentString :: Comment -> String
+commentString (LineComment   s) = s
+commentString (NestedComment s) = s
 
-qIdentToQName :: QualIdent -> QName
-qIdentToQName (QualIdent _ Nothing   idt) = identToQName idt
-qIdentToQName (QualIdent _ (Just mi) idt) = (intercalate "." ms, n)
-  where (_, n) = identToQName idt
-        ModuleIdent _ ms = mi
+splitNestedComment :: Comment -> [Comment]
+splitNestedComment c@(LineComment   _) = [c]
+splitNestedComment   (NestedComment s) = map LineComment $ lines s
 
-(=~=) :: QName -> QName -> Bool
-(   ""   , x) =~= (   ""   , y) = x == y
-(   ""   , x) =~= (   (_:_), y) = x == y
-(   (_:_), x) =~= (   ""   , y) = x == y
-(xs@(_:_), x) =~= (ys@(_:_), y) = (xs, x) == (ys, y)
-
-typeExprToCType :: TypeExpr -> CTypeExpr
-typeExprToCType (ParenType       _ t1   ) = typeExprToCType t1 -- TODO: is this ok?
-typeExprToCType (VariableType    _ n    ) = CTVar (tvIName n)
-typeExprToCType (ApplyType       _ t1 t2) =
-  CTApply (typeExprToCType t1) (typeExprToCType t2)
-typeExprToCType (ArrowType       _ t1 t2) =
-  CFuncType (typeExprToCType t1) (typeExprToCType t2)
-typeExprToCType (ConstructorType _ qid  ) = CTCons (qIdentToQName qid)
-typeExprToCType (ListType        _ t1   ) =
-  CTApply (CTCons ("", "[]")) (typeExprToCType t1)
-typeExprToCType (TupleType       _ tys  ) =
-  foldl (\b a -> CTApply b (typeExprToCType a))
-        (CTCons ("", "(" ++ replicate (length tys - 1) ',' ++ ")")) tys
-
-tvIName :: Ident -> CTVarIName
-tvIName n = (0, snd $ identToQName n)
-
-(=~~=) :: CTypeExpr -> CTypeExpr -> Bool
-a =~~= b = case (a,b) of
-  (CTVar (_, n1), CTVar (_, n2)) -> n1 == n2
-  _                              -> a  == b
-
-contextToCContext :: Context -> CContext
-contextToCContext cs = CContext (map constraintToCConstraint cs)
-
-constraintToCConstraint :: Constraint -> CConstraint
-constraintToCConstraint (Constraint _ qid ty) =
-  (qIdentToQName qid, typeExprToCType ty)
-
-getConstrName   :: ConstrDecl -- ^ ConstrDecl
-  {- | Ident -} -> QName
-getConstrName (ConstrDecl _ _ _   idt _) = identToQName idt
-getConstrName (ConOpDecl  _ _ _ _ idt _) = identToQName idt
-getConstrName (RecordDecl _ _ _   idt _) = identToQName idt
-
-getNewtypeConstrName :: NewConstrDecl -- ^ NewConstrDecl
-       {- | Ident -} -> QName
-getNewtypeConstrName (NewConstrDecl _ idt _) = identToQName idt
-getNewtypeConstrName (NewRecordDecl _ idt _) = identToQName idt
+isCommentedInstanceDecl :: CommentedDecl -> Bool
+isCommentedInstanceDecl d = case d of
+  CommentedInstanceDecl _ _ _ _ _ -> True
+  _                               -> False
 
 isCommentedTypeSig :: CommentedDecl -> Bool
 isCommentedTypeSig d = case d of
   CommentedTypeSig _ _ _ _ -> True
   _                        -> False
-
-cFieldType :: CFieldDecl -> CTypeExpr
-cFieldType (CField _ _ ty) = ty
-
-fieldType :: FieldDecl -> CTypeExpr
-fieldType (FieldDecl _ _ ty) = typeExprToCType ty
-
-isPublicField :: CFieldDecl -> Bool
-isPublicField (CField _ Public  _ ) = True
-isPublicField (CField _ Private _ ) = False
 
 -------------------------------------------------------------------------------
 -- Splitting of TypeSigs with multiple idents and field decls inside DataDecls
@@ -601,264 +596,3 @@ cleanupConstr c = case c of
 
 cleanupField :: CommentedField -> [CommentedField]
 cleanupField (ns, cs, ty) = map (\n -> ([n], cs, ty)) ns
-
--------------------------------------------------------------------------------
--- Remove unexported entities and
--- add exported entities that did not have any comments
-
-addAbstractCurryProg :: CurryProg -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) ds =
-  let withcls  = addAbstractCurryClassesInfo cls ds
-      withins  = addAbstractCurryInstInfo inst ds
-      withtyp  = addAbstractCurryDataInfo typ ds
-      withfun  = addAbstractCurryFunInfo func ds
-      --typesigs = filter isCommentedTypeSig ds
-  in withcls ++ withins ++ withtyp ++ withfun
-
-addAbstractCurryClassesInfo :: [CClassDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryClassesInfo []                               _   = []
-addAbstractCurryClassesInfo (CClass n Public  cx vn ds : cs) cds =
-  maybe (CommentedClassDecl n cx vn [] (addAbstractCurryFunInfo ds []))
-    id (lookupClass n cds) : addAbstractCurryClassesInfo cs cds
-addAbstractCurryClassesInfo (CClass _ Private _  _  _  : cs) cds =
-  addAbstractCurryClassesInfo cs cds
-
-lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupClass _ []     = Nothing
-lookupClass n (d:ds) = case d of
-  CommentedClassDecl n' _ _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupClass n ds
-
-addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryInstInfo []                          _   = []
-addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
-  maybe (CommentedInstanceDecl n cx ty [] (addAbstractCurryFunInfo ds []))
-    id (lookupInstance n ty cds) : addAbstractCurryInstInfo is cds
-
-lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
-lookupInstance _ _  []     = Nothing
-lookupInstance n ty (d:ds) = case d of
-  CommentedInstanceDecl n' _ ty' _ _
-    | n =~= n' && ty =~~= ty' -> Just d
-  _                           -> lookupInstance n ty ds
-
-addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryFunInfo []                                 _   = []
-addAbstractCurryFunInfo (CFunc     n _ Public  qty _ : ds) cds =
-  maybe (CommentedFunctionDecl n [] (Just qty) NoAnalysisInfo)
-    (setType qty) (lookupFunc n cds) : addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CmtFunc _ n _ Public  qty _ : ds) cds =
-  maybe (CommentedFunctionDecl n [] (Just qty) NoAnalysisInfo)
-    (setType qty) (lookupFunc n cds) : addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CFunc     _ _ Private _   _ : ds) cds =
-  addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CmtFunc _ _ _ Private _   _ : ds) cds =
-  addAbstractCurryFunInfo ds cds
-
-setType :: CQualTypeExpr -> CommentedDecl -> CommentedDecl
-setType qty f = case f of
-  (CommentedFunctionDecl n cs _ ai) -> CommentedFunctionDecl n cs (Just qty) ai
-  _                                 -> f
-
-lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupFunc _ []     = Nothing
-lookupFunc n (d:ds) = case d of
-  CommentedFunctionDecl n' _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupFunc n ds
-
-addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryDataInfo []                               _   = []
-addAbstractCurryDataInfo (CTypeSyn n Public vs ty   : ds) cds =
-  maybe (CommentedTypeDecl n vs ty []) id (lookupTypeDecl n cds)
-    : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CNewType n Public vs con _ : ds) cds =
-  maybe (CommentedNewtypeDecl n vs [] (createNewConsInfos con))
-    (\(CommentedNewtypeDecl a b c d)
-      -> CommentedNewtypeDecl a b c (filterNewCons con d))
-    (lookupNewDecl n cds) : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CType n Public vs cons _   : ds) cds =
-  maybe (CommentedDataDecl n vs [] (createConsInfos cons))
-    (\(CommentedDataDecl a b c d) -> CommentedDataDecl a b c
-       (mapMaybe (filterCons cons) d))
-    (lookupDataDecl n cds) : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CTypeSyn _ Private _ _     : ds) cds =
-  addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CNewType _ Private _ _ _   : ds) cds =
-  addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds =
-  addAbstractCurryDataInfo ds cds
-
-filterCons :: [CConsDecl] -> CommentedConstr -> Maybe CommentedConstr
-filterCons [] _ = Nothing
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConstr n' _ _ _)
-  | n =~= n' && v == Public = Just c
-  | otherwise               = filterCons cs c
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConsOp n' _ _ _ _)
-  | n =~= n' && v == Public = Just c
-  | otherwise               = filterCons cs c
-filterCons (CRecord _ _ n v fs : cs) c@(CommentedRecord n' cms tys fs' ai)
-  | n =~= n' && v == Public =
-    Just (CommentedRecord n' cms tys (filter (filterFields fs) fs') ai)
-  | otherwise               = filterCons cs c
-filterCons (CCons _ _ _ _ _    : cs) c@(CommentedRecord _ _ _ _ _)
-  = filterCons cs c
-filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConsOp _ _ _ _ _)
-  = filterCons cs c
-filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConstr   _ _ _ _)
-  = filterCons cs c
-
-filterFields :: [CFieldDecl] -> CommentedField -> Bool
-filterFields [] _ = False
-filterFields (CField n Public  _ : fs) f@([n'], _, _)
-  = n =~= n' || filterFields fs f
-filterFields (CField _ Public  _ : _) ([], _, _)
-  = error "CurryDoc.filterFields: field with no qname"
-filterFields (CField _ Public  _ : _) ((_:_:_), _, _)
-  = error "CurryDoc.filterFields: field with more than one qname"
-filterFields (CField _ Private _ : fs) f
-  = filterFields fs f
-
-filterNewCons :: CConsDecl -> Maybe CommentedNewtypeConstr -> Maybe CommentedNewtypeConstr
-filterNewCons _ Nothing  = Nothing
-filterNewCons c (Just c') =  case (c, c') of
-  (CCons   _ _ _ Public _ , CommentedNewConstr _ _ _ _)
-      -> Just c'
-  (CRecord _ _ _ Public fs, CommentedNewRecord n' a ty f b)
-      -> Just (CommentedNewRecord n' a ty f' b)
-    where f' = case f of
-                 Nothing -> Nothing
-                 Just x | any isPublicField fs -> Just x
-                        | otherwise            -> Nothing
-  _ -> Nothing
-
-lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupTypeDecl _ []     = Nothing
-lookupTypeDecl n (d:ds) = case d of
-  CommentedTypeDecl n' _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupTypeDecl n ds
-
-lookupDataDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupDataDecl _ []     = Nothing
-lookupDataDecl n (d:ds) = case d of
-  CommentedDataDecl n' _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupDataDecl n ds
-
-lookupNewDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupNewDecl _ []     = Nothing
-lookupNewDecl n (d:ds) = case d of
-  CommentedNewtypeDecl n' _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupNewDecl n ds
-
-createConsInfos :: [CConsDecl] -> [CommentedConstr]
-createConsInfos [] = []
-createConsInfos (CCons _ _ n Public tys : cs) =
-  CommentedConstr n [] tys NoAnalysisInfo : createConsInfos cs
-createConsInfos (CRecord _ _ n Public fs : cs) =
-  CommentedRecord n [] (map cFieldType fs)
-    (map createFieldInfo (filter isPublicField fs))
-    NoAnalysisInfo : createConsInfos cs
-createConsInfos (CCons _ _ _ Private _ : cs) =
-  createConsInfos cs
-createConsInfos (CRecord _ _ _ Private _ : cs) =
-  createConsInfos cs
-
-createFieldInfo :: CFieldDecl -> CommentedField
-createFieldInfo (CField n _ ty) = ([n], [], ty)
-
-createNewConsInfos :: CConsDecl -> Maybe CommentedNewtypeConstr
-createNewConsInfos (CCons _ _ n Public tys) =
-  Just $ CommentedNewConstr n [] (head tys) NoAnalysisInfo
-createNewConsInfos (CRecord _ _ n Public fs) =
-  Just $ CommentedNewRecord n [] (head (map cFieldType fs))
-           (listToMaybe (map createFieldInfo (filter isPublicField fs)))
-           NoAnalysisInfo
-createNewConsInfos (CCons _ _ _ Private _) = Nothing
-createNewConsInfos (CRecord _ _ _ Private _) = Nothing
-
--------------------------------------------------------------------------------
--- Collecting instance informations
-
-
--------------------------------------------------------------------------------
--- Analysis Info conslidation
-
-addAnaInfoToCommentDecls :: AnaInfo -> [COpDecl] -> [CFuncDecl]
-                         -> [CommentedDecl] -> [CommentedDecl]
-addAnaInfoToCommentDecls ai cop funs = map (addAnaInfoToCommentDecl ai cop funs)
-
-addAnaInfoToCommentDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CommentedDecl
-                        -> CommentedDecl
-addAnaInfoToCommentDecl _  _   _    d@(UnsupportedDecl                _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeDecl        _ _ _ _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeSig         _ _ _ _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedInstanceDecl  _ _ _ _ _) = d
-addAnaInfoToCommentDecl _  cop _      (CommentedClassDecl     a b c d e) =
-  CommentedClassDecl a b c d (map (addPrecedenceInfoToCommentDecl cop) e)
-  -- CommentedClassDecl a b (addAnaInfoToCommentDecls ai cop c) -- not reasonably possible for classes
-addAnaInfoToCommentDecl ai cop funs    (CommentedFunctionDecl n qty cs _) =
-  CommentedFunctionDecl n qty cs (createAnalysisInfoFun ai cop funs n)
-addAnaInfoToCommentDecl _  cop _       (CommentedDataDecl     idt vs cs cns) =
-  CommentedDataDecl idt vs cs (map add cns)
-  where add (CommentedConstr c ccs tys _) =
-             CommentedConstr c ccs tys (createPrecInfo cop c)
-        add (CommentedRecord c ccs tys fs  _) =
-             CommentedRecord c ccs tys fs (createPrecInfo cop c)
-        add (CommentedConsOp c ccs ty1 ty2 _) =
-             CommentedConsOp c ccs ty1 ty2 (createPrecInfo cop c)
-addAnaInfoToCommentDecl _  cop _       (CommentedNewtypeDecl idt vs cs cns) =
-  CommentedNewtypeDecl idt vs cs (fmapMaybe add cns)
-  where add (CommentedNewConstr c ccs ty _) =
-             CommentedNewConstr c ccs ty (createPrecInfo cop c)
-        add (CommentedNewRecord c ccs ty f  _) =
-             CommentedNewRecord c ccs ty f (createPrecInfo cop c)
-        fmapMaybe _ Nothing  = Nothing
-        fmapMaybe f (Just x) = Just  (f x)
-
-addPrecedenceInfoToCommentDecl :: [COpDecl] -> CommentedDecl -> CommentedDecl
-addPrecedenceInfoToCommentDecl cop d = case d of
-  CommentedFunctionDecl n qty cs _ ->
-    CommentedFunctionDecl n qty cs (createPrecInfo cop n)
-  _                                -> d
-
-createAnalysisInfoFun :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> QName
-                      -> AnalysisInfo
-createAnalysisInfoFun ai cop funs n = AnalysisInfo {
-    nondet = getNondetInfo ai n,
-    indet  = getIndetInfo ai n,
-    opComplete = getOpCompleteInfo ai n,
-    complete = getCompleteInfo ai n,
-    ext = getExternalInfo funs n,
-    precedence = genPrecedenceInfo cop n
-  }
-
-getExternalInfo :: [CFuncDecl] -> QName -> Bool
-getExternalInfo []                             _
-  = error "CurryDoc.Comment.getExternalInfo: Function not found!"
-getExternalInfo (CFunc     n _ _ _ []    : fs) n'
-  | n =~= n'  = True
-  | otherwise = getExternalInfo fs n'
-getExternalInfo (CmtFunc _ n _ _ _ []    : fs) n'
-  | n =~= n'  = True
-  | otherwise = getExternalInfo fs n'
-getExternalInfo (CFunc     n _ _ _ (_:_) : fs) n'
-  | n =~= n'  = False
-  | otherwise = getExternalInfo fs n'
-getExternalInfo (CmtFunc _ n _ _ _ (_:_) : fs) n'
-  | n =~= n'  = False
-  | otherwise = getExternalInfo fs n'
-
-createPrecInfo :: [COpDecl] -> QName -> AnalysisInfo
-createPrecInfo cop n = PrecedenceInfo {
-    precedence = genPrecedenceInfo cop n
-  }
-
-genPrecedenceInfo :: [COpDecl] -> QName -> Maybe (CFixity, Int)
-genPrecedenceInfo []                     _ = Nothing
-genPrecedenceInfo (COp m fix prec : cop) n
-  | n =~= m   = Just (fix, prec)
-  | otherwise = genPrecedenceInfo cop n

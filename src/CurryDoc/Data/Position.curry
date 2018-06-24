@@ -1,4 +1,4 @@
-module CurryDoc.Position where
+module CurryDoc.Data.Position where
 
 data Position = Position Int Int
               | NoPos

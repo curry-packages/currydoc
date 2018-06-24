@@ -5,14 +5,22 @@
 --- @version April 2016
 ----------------------------------------------------------------------
 
-module CurryDoc.AnaInfo
-  (AnaInfo(..), getNondetInfo, getCompleteInfo, getIndetInfo,
+module CurryDoc.Data.AnaInfo
+  (AnaInfo(..), readAnaInfo, getNondetInfo, getCompleteInfo, getIndetInfo,
    getOpCompleteInfo, getFunctionInfo,
-   AnalysisInfo(..)) where
+   AnalysisInfo(..), Property(..)) where
+
+import Analysis.Deterministic
+import Analysis.TotallyDefined
+import Analysis.Indeterministic
+import Analysis.SolutionCompleteness
+import Analysis.Types (analysisName)
+import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
 
 import FlatCurry.Types
-import AbstractCurry.Types (CFixity)
-import Analysis.TotallyDefined(Completeness(..))
+import AbstractCurry.Types (CFixity, CRule)
+
+import CurryDoc.Info.Goodies
 
 -----------------------------------------------------------------------
 -- Datatype for passing analysis results:
@@ -22,6 +30,21 @@ data AnaInfo =
            (QName -> Completeness)  -- completely defined?
            (QName -> Bool)          -- indeterministically defined?
            (QName -> Bool)          -- solution complete?
+
+-- read and generate all analysis infos:
+readAnaInfo :: String -> IO AnaInfo
+readAnaInfo modname = do
+  initializeAnalysisSystem
+  nondet   <- analyzeAndCheck nondetAnalysis
+  complete <- analyzeAndCheck patCompAnalysis
+  indet    <- analyzeAndCheck indetAnalysis
+  solcomp  <- analyzeAndCheck solcompAnalysis
+  return (AnaInfo (\qn -> nondet qn == NDet) complete indet solcomp)
+ where
+   analyzeAndCheck ana =
+     analyzeInterface ana modname >>= either
+       (\results -> return (\q -> getFunctionInfo results q))
+       (\err -> error $ "Analysis error: " ++ err)
 
 getNondetInfo :: AnaInfo -> QName -> Bool
 getNondetInfo (AnaInfo oi _ _ _) = oi
@@ -41,24 +64,21 @@ getFunctionInfo [] n = error ("No analysis result for function "++show n)
 getFunctionInfo ((fn,fi):fnis) n = if fn =~= n then fi
                                                else getFunctionInfo fnis n
 
-(=~=) :: QName -> QName -> Bool
-(   ""   , x) =~= (   ""   , y) = x == y
-(   ""   , x) =~= (   (_:_), y) = x == y
-(   (_:_), x) =~= (   ""   , y) = x == y
-(xs@(_:_), x) =~= (ys@(_:_), y) = (xs, x) == (ys, y)
-
 --------------------------------------------------------------------------
 
 data AnalysisInfo = AnalysisInfo { nondet, indet, opComplete, ext :: Bool,
                                    complete :: Completeness,
-                                   precedence :: Maybe (CFixity, Int)
+                                   precedence :: Maybe (CFixity, Int),
+                                   property :: [(Property, CRule)]
                                  }
                   | NoAnalysisInfo
                   | PrecedenceInfo { precedence :: Maybe (CFixity, Int)}
   deriving Show
 
-
--- TODO
+data Property = PreSpec | PostSpec | Spec | Prop
+  deriving Show
 
 instance Show Completeness where
-  show _ = ""
+  show   Complete   =   "Complete"
+  show InComplete   = "InComplete"
+  show InCompleteOr = "InCompleteOr"

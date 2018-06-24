@@ -5,7 +5,7 @@
 --- @version October 2017
 ----------------------------------------------------------------------
 
-module CurryDoc.TeX where
+module CurryDoc.Generators.TeX (generateTexDocs) where
 
 import Char
 import Distribution

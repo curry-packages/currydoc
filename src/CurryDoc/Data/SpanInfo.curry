@@ -1,6 +1,6 @@
-module CurryDoc.SpanInfo where
+module CurryDoc.Data.SpanInfo where
 
-import CurryDoc.Span
+import CurryDoc.Data.Span
 
 data SpanInfo = SpanInfo Span [Span]
               | NoSpanInfo

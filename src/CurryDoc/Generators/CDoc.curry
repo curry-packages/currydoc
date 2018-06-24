@@ -5,9 +5,9 @@
 --- @version November 2015
 ----------------------------------------------------------------------
 
-module CurryDoc.CDoc where
+module CurryDoc.Generators.CDoc (generateCDoc) where
 
-import CurryDoc.AnaInfo
+import CurryDoc.Data.AnaInfo
 import CurryDoc.Read
 import FlatCurry.Types
 import FlatCurry.Files

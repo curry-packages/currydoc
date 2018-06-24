@@ -1,12 +1,66 @@
--- | An implementation of the curry AST from curry-frontend without some types
+-- |
+-- Description: Description
+-- Category   : Category
+-- Author     : Author
+-- Version    : Version
+--
+--
+--
+-- An implementation of the curry AST from curry-frontend without some types
 -- that cannot be in shortAST files
-module CurryDoc.Type where
+module CurryDoc.Data.Type where
 
-import CurryDoc.SpanInfo
-import CurryDoc.Ident
-import CurryDoc.Position
+import CurryDoc.Data.SpanInfo
+import CurryDoc.Data.Ident
+import CurryDoc.Data.Position
 
-import Distribution
+import Directory       (doesFileExist)
+import FileGoodies     (getFileInPath, lookupFileInPath)
+import FilePath        (takeFileName, (</>), (<.>))
+import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
+                       , setQuiet, inCurrySubdir, stripCurrySuffix
+                       , callFrontend, callFrontendWithParams
+                       , lookupModuleSourceInLoadPath, getLoadPathForModule
+                       )
+
+
+-- Reads the comments from a specified module
+readShortAST :: String -> IO (Module ())
+readShortAST progname =
+   readShortASTWithParseOptions progname (setQuiet True defaultParams)
+
+readShortASTWithParseOptions :: String -> FrontendParams -> IO (Module ())
+readShortASTWithParseOptions progname options = do
+  mbsrc <- lookupModuleSourceInLoadPath progname
+  case mbsrc of
+    Nothing -> do -- no source file, try to find Comments file in load path:
+      loadpath <- getLoadPathForModule progname
+      filename <- getFileInPath (shortASTFileName (takeFileName progname)) [""]
+                                loadpath
+      readShortASTFile filename
+    Just (dir,_) -> do
+      callFrontendWithParams SAST options progname
+      readShortASTFile (shortASTFileName (dir </> takeFileName progname))
+
+shortASTFileName :: String -> String
+shortASTFileName prog = inCurrySubdir (stripCurrySuffix prog) <.> "sast"
+
+readShortASTFile :: String -> IO (Module ())
+readShortASTFile filename = do
+  filecontents <- readShortASTFileRaw filename
+  return (read filecontents)
+
+readShortASTFileRaw :: String -> IO String
+readShortASTFileRaw filename = do
+  extfcy <- doesFileExist filename
+  if extfcy
+   then readFile filename
+   else do let subdirfilename = inCurrySubdir filename
+           exdirtfcy <- doesFileExist subdirfilename
+           if exdirtfcy
+            then readFile subdirfilename
+            else error ("EXISTENCE ERROR: Comment file '" ++ filename ++
+                        "' does not exist")
 
 data Module a = Module SpanInfo [ModulePragma] ModuleIdent (Maybe ExportSpec)
                        [ImportDecl] [Decl a]
@@ -93,7 +147,6 @@ data TypeExpr
 data QualTypeExpr = QualTypeExpr SpanInfo Context TypeExpr
     deriving (Eq, Read, Show)
 
--- | Context
 type Context = [Constraint]
 
 data Constraint = Constraint SpanInfo QualIdent TypeExpr
@@ -155,21 +208,14 @@ data Extension
   | UnknownExtension Position String
   deriving (Eq, Read, Show)
 
--- | KnownExtension
 data KnownExtension
   = AnonFreeVars
-  |   {- | CPP-} CPP
+  | CPP
   | ExistentialQuantification
   | FunctionalPatterns
   | NegativeLiterals
   | NoImplicitPrelude
   deriving (Eq, Read, Show)
-
-data Test = Test { a, b :: KnownExtension, -- ^ a and b
-                   {- | c  -} c :: KnownExtension} -- ^ constr
-
-newtype Test2 = Test2 { {- | startNew -}lmao :: Extension -- ^ endNew
-                      }
 
 data Tool = KICS2 | PAKCS | CYMAKE | FRONTEND | UnknownTool String
   deriving (Eq, Read, Show)
@@ -199,9 +245,7 @@ instance HasSpanInfo ConstrDecl where
 instance HasSpanInfo FieldDecl where
   getSpanInfo (FieldDecl spi _ _) = spi
 
--- | HasSpanInfo TypeExpr
 instance HasSpanInfo TypeExpr where
-  -- | First
   getSpanInfo (ArrowType spi _ _) = spi
   getSpanInfo (ApplyType spi _ _) = spi
   getSpanInfo (ConstructorType spi _) = spi
@@ -209,11 +253,3 @@ instance HasSpanInfo TypeExpr where
   getSpanInfo (TupleType spi _) = spi
   getSpanInfo (ListType spi _) = spi
   getSpanInfo (ParenType spi _) = spi
-  -- ^ Last
-
-readASTFile :: String -> IO (Module ())
-readASTFile s = readFile s >>= (return . read)
-
-readShortAST :: String -> IO (Module ())
-readShortAST modl = do ss <- readFile (".curry/" ++ modNameToPath modl ++ ".sast")
-                       return (read ss :: Module ())

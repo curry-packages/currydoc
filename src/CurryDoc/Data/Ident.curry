@@ -1,6 +1,6 @@
-module CurryDoc.Ident where
+module CurryDoc.Data.Ident where
 
-import CurryDoc.SpanInfo
+import CurryDoc.Data.SpanInfo
 
 data ModuleIdent = ModuleIdent SpanInfo [String]
   deriving (Show, Read)

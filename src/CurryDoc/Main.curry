@@ -43,22 +43,13 @@ import Maybe           (fromJust)
 import System
 import Time
 
-import Analysis.Deterministic
-import Analysis.TotallyDefined
-import Analysis.Indeterministic
-import Analysis.SolutionCompleteness
-import Analysis.Types (analysisName)
-import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
-
-import CurryDoc.AnaInfo
+import CurryDoc.Data.AnaInfo
+import CurryDoc.Data.Type
 import CurryDoc.Files   ( generateModuleDocMapping )
 import CurryDoc.Options
 import CurryDoc.Read
-import CurryDoc.Html
-import CurryDoc.TeX
-import CurryDoc.Type
-import CurryDoc.Comment
-import CurryDoc.CDoc
+import CurryDoc.Generators
+import CurryDoc.Info
 import CurryDoc.Config
 import CurryDoc.PackageConfig (packagePath)
 
@@ -286,39 +277,20 @@ copyIncludeIfPresent docdir inclfile = do
   when existIDir $
     system (unwords ["cp", includeDir </> inclfile, docdir]) >> done
 
--- read and generate all analysis infos:
-readAnaInfo :: String -> IO AnaInfo
-readAnaInfo modname = do
-  initializeAnalysisSystem
-  nondet   <- analyzeAndCheck nondetAnalysis
-  complete <- analyzeAndCheck patCompAnalysis
-  indet    <- analyzeAndCheck indetAnalysis
-  solcomp  <- analyzeAndCheck solcompAnalysis
-  return (AnaInfo (\qn -> nondet qn == NDet) complete indet solcomp)
- where
-   analyzeAndCheck ana =
-     analyzeInterface ana modname >>= either
-       (\results -> return (\q -> getFunctionInfo results q))
-       (\err -> error $ "Analysis error: " ++ err)
-
 -- generate documentation for a single module:
 makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeDoc docopts recursive docdir modname = do
-  putStrLn ("Reading abstract curry for module \""++modname++"\"...")
-  acyname <- getLoadPathForModule modname >>=
-             getFileInPath (abstractCurryFileName modname) [""]
-  acy@(CurryProg _ _ _ _ _ _ funs ops) <- readAbstractCurryFile acyname
   putStrLn ("Reading comments for module \""++modname++"\"...")
   comments <- readComments modname
   putStrLn ("Reading short-ast for module \""++modname++"\"...")
   prog <- readShortAST modname
-  putStrLn ("Computing Comment matchings for module \""++modname++"\"...")
-  let (declsC, moduleC) = associateCurryDoc comments prog
   putStrLn ("Reading analysis information for module \""++modname++"\"...")
   anainfo <- readAnaInfo modname
-  let fullDecls = addAbstractCurryProg acy (cleanup declsC)
-  let withAnaInfo = addAnaInfoToCommentDecls anainfo ops funs fullDecls
-  print withAnaInfo
+  putStrLn ("Reading abstract curry for module \""++modname++"\"...")
+  acyname <- getLoadPathForModule modname >>=
+             getFileInPath (abstractCurryFileName modname) [""]
+  acy <- readAbstractCurryFile acyname
+  print (generateCurryDocInfos comments prog anainfo acy)
 
 {-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
                     -> String -> String -> [(SourceLine,String)] -> IO ()
@@ -437,4 +409,7 @@ writeOutfile docopts recursive docdir modname generate = do
   when recursive $
     mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
 
+firstPassage :: String -> String
+firstPassage = unlines . takeWhile (\s -> s /= "" && not (all isWhiteSpace s))
+             . lines
 -- -----------------------------------------------------------------------

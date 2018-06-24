@@ -22,7 +22,7 @@ generateModuleDocMapping pkglocs =
   genPkgMapping (srcroot,docroot) = do
     mods <- curryModulesInDir srcroot
     return $ map (\m -> (m,docroot)) mods
- 
+
 --- Gets the names of all Curry modules contained in a directory.
 --- Modules in subdirectories are returned as hierarchical modules.
 curryModulesInDir :: String -> IO [String]

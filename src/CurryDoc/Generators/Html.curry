@@ -5,9 +5,10 @@
 --- @version December 2017
 ----------------------------------------------------------------------
 
-{-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
-
-module CurryDoc.Html where
+module CurryDoc.Generators.Html
+  (generateHtmlDocs,
+   genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage)
+   where
 
 import FilePath
 import FileGoodies     (getFileInPath)
@@ -32,7 +33,7 @@ import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
 import Text.Pretty            (showWidth, empty)
 
-import CurryDoc.AnaInfo
+import CurryDoc.Data.AnaInfo
 import CurryDoc.Options
 import CurryDoc.Read
 import CurryDoc.Config
@@ -40,8 +41,8 @@ import CurryDoc.Config
 infixl 0 `withTitle`
 
 --------------------------------------------------------------------------
--- Generates the documentation of a module in HTML format where the comments
--- are already analyzed.
+--- Generates the documentation of a module in HTML format where the comments
+--- are already analyzed.
 generateHtmlDocs :: DocOptions -> AnaInfo -> String -> String
                  -> [(SourceLine,String)] -> IO String
 generateHtmlDocs opts anainfo modname modcmts progcmts = do
@@ -992,9 +993,5 @@ firstSentence s = let (fs,ls) = break (=='.') s in
   else if tail ls /= "" && isWhiteSpace (head (tail ls))
        then fs ++ "."
        else fs ++ "." ++ firstSentence (tail ls)
-
-firstPassage :: String -> String
-firstPassage = unlines . takeWhile (\s -> s /= "" && not (all isWhiteSpace s))
-             . lines
 
 --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
-module CurryDoc.Span where
+module CurryDoc.Data.Span where
 
-import CurryDoc.Position
+import CurryDoc.Data.Position
 
 data Span = Span Position Position
           | NoSpan
