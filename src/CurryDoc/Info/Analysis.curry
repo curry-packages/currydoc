@@ -17,6 +17,7 @@ addAnaInfoToCommentDecls ai cop funs = map (addAnaInfoToCommentDecl ai cop funs)
 addAnaInfoToCommentDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CommentedDecl
                         -> CommentedDecl
 addAnaInfoToCommentDecl _  _   _    d@(UnsupportedDecl                _) = d
+addAnaInfoToCommentDecl _  _   _    d@(CommentedExternalDecl    _ _ _ _) = d
 addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeDecl        _ _ _ _) = d
 addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeSig         _ _ _ _) = d
 addAnaInfoToCommentDecl _  _   _    d@(CommentedInstanceDecl  _ _ _ _ _) = d

@@ -45,6 +45,7 @@ data CommentedDecl
   | CommentedInstanceDecl QName CContext CTypeExpr [Comment] [CommentedDecl]
   | CommentedFunctionDecl QName [Comment] (Maybe CQualTypeExpr) AnalysisInfo
   | CommentedTypeSig [QName] [Comment] CContext [(CTypeExpr, [Comment])]
+  | CommentedExternalDecl [QName] [Comment] (Maybe CQualTypeExpr) AnalysisInfo
   | UnsupportedDecl [Comment]
   deriving Show
 
@@ -205,6 +206,11 @@ associateCurryDocDeclPre xs d@(FunctionDecl _ _ f _) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
   in  CommentedFunctionDecl (identToQName f) (map (comment . snd) match)
                             Nothing NoAnalysisInfo
+associateCurryDocDeclPre xs d@(ExternalDecl _ fs) =
+  let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
+  in  CommentedExternalDecl (map (\(Var _ i) -> identToQName i) fs)
+                            (map (comment . snd) match)
+                            Nothing NoAnalysisInfo
 associateCurryDocDeclPre xs d@(TypeDecl _ f vs ty) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
   in  CommentedTypeDecl (identToQName f) (map tvIName vs)
@@ -270,11 +276,9 @@ associateCurryDocDeclPre xs d@(TypeSig spi fs
    in  CommentedTypeSig (map identToQName fs) (map (comment . snd) match)
                         (contextToCContext cx)
                         (matchArgumentsPre ty (skipUntilAfter sp rest))
-associateCurryDocDeclPre xs (ExternalDecl _ _) = UnsupportedDecl
+associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPre xs (ExternalDataDecl _ _ _) = UnsupportedDecl
-  (map (comment . snd) xs)
-associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
   (map (comment . snd) xs)
@@ -325,10 +329,15 @@ associateCurryDocDeclPost :: [(Span, CDocComment)]
                           -> Decl a
                           -> CommentedDecl
 associateCurryDocDeclPost xs d@(FunctionDecl _ _ f _) =
-   CommentedFunctionDecl (identToQName f)
-                         (map (comment . snd)
-                              (skipUntilAfter (getSrcSpan d) xs))
-                         Nothing NoAnalysisInfo
+  CommentedFunctionDecl (identToQName f)
+                        (map (comment . snd)
+                             (skipUntilAfter (getSrcSpan d) xs))
+                        Nothing NoAnalysisInfo
+associateCurryDocDeclPost xs d@(ExternalDecl _ fs) =
+  CommentedExternalDecl (map (\(Var _ i) -> identToQName i) fs)
+                        (map (comment . snd)
+                             (skipUntilAfter (getSrcSpan d) xs))
+                        Nothing NoAnalysisInfo
 associateCurryDocDeclPost xs d@(TypeDecl _ f idts ty) =
   CommentedTypeDecl (identToQName f) (map tvIName idts) (typeExprToCType ty)
                     (map (comment . snd) (skipUntilAfter (getSrcSpan d) xs))
@@ -375,8 +384,6 @@ associateCurryDocDeclPost xs (DataDecl spi f vs (c:cs) (_:_)) =
 associateCurryDocDeclPost xs (TypeSig _ fs (QualTypeExpr _ cx ty)) =
   CommentedTypeSig (map identToQName fs) [] (contextToCContext cx)
                    (matchArgumentsPost ty xs)
-associateCurryDocDeclPost xs (ExternalDecl _ _) = UnsupportedDecl
-  (map (comment . snd) xs)
 associateCurryDocDeclPost xs (ExternalDataDecl _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPost xs (InfixDecl _ _ _ _) = UnsupportedDecl
@@ -484,8 +491,8 @@ merge (x1:x2:xs) = case (x1, x2) of
                           (Just (zipNCons cns1 cns2)) : xs)
    (CommentedFunctionDecl f1 ys1 cx1 a1, CommentedFunctionDecl f2 ys2 _ _)
      | f1 == f2 -> merge (CommentedFunctionDecl f1 (ys1 ++ ys2) cx1 a1 : xs)
-   (CommentedTypeSig f1 ys1 cx ps1, CommentedTypeSig f2 ys2 _ ps2)
-     | f1 == f2 -> merge (CommentedTypeSig f1 (ys1 ++ ys2) cx
+   (CommentedTypeSig f1 ys1 cx1 ps1, CommentedTypeSig f2 ys2 _ ps2)
+     | f1 == f2 -> merge (CommentedTypeSig f1 (ys1 ++ ys2) cx1
                                               (zipWith zipPair ps1 ps2) : xs)
    (CommentedClassDecl f1 cx1 v1 ys1 ds1, CommentedClassDecl f2 _ _ ys2 ds2)
      | f1 == f2 -> merge (CommentedClassDecl f1 cx1 v1 (ys1 ++ ys2)
@@ -494,6 +501,8 @@ merge (x1:x2:xs) = case (x1, x2) of
      | ty1 == ty2 &&
        f1 == f2 -> merge (CommentedInstanceDecl f1 cx1 ty1 (ys1 ++ ys2)
                                                 (merge (ds1 ++ ds2)) : xs)
+   (CommentedExternalDecl f1 cs1 cx1 ai1, CommentedExternalDecl f2 cs2 _ _)
+     | f1 == f2 -> merge (CommentedExternalDecl f1 (cs1 ++ cs2) cx1 ai1 : xs)
    _ -> x1 : merge (x2 : xs)
 
   where
@@ -571,6 +580,7 @@ isCommentedTypeSig d = case d of
 -------------------------------------------------------------------------------
 -- Splitting of TypeSigs with multiple idents and field decls inside DataDecls
 -- and filtering of UnsupportedDecls
+-- also translates ExternalDecls to normal ones
 
 cleanup :: [CommentedDecl] -> [CommentedDecl]
 cleanup [] = []
@@ -584,6 +594,8 @@ cleanup (  (CommentedClassDecl     f cx v cs ds') : ds) =
           CommentedClassDecl f cx v cs (cleanup ds')        :  cleanup ds
 cleanup (  (CommentedInstanceDecl f cx ty cs ds') : ds) =
           CommentedInstanceDecl f cx ty cs (cleanup ds')    :  cleanup ds
+cleanup (  (CommentedExternalDecl    fs cs cx ai) : ds) =
+          map (\i -> CommentedFunctionDecl i cs cx ai) fs   ++ cleanup ds
 cleanup (  (CommentedTypeSig     idts cs vs args) : ds) =
           map (\i -> CommentedTypeSig [i] cs vs args) idts  ++ cleanup ds
 
