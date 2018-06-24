@@ -277,20 +277,27 @@ copyIncludeIfPresent docdir inclfile = do
   when existIDir $
     system (unwords ["cp", includeDir </> inclfile, docdir]) >> done
 
+debug :: String -> IO ()
+debug = makeDoc (defaultCurryDocOptions { withAnalysis = False }) True "."
+
 -- generate documentation for a single module:
 makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeDoc docopts recursive docdir modname = do
-  putStrLn ("Reading comments for module \""++modname++"\"...")
-  comments <- readComments modname
-  putStrLn ("Reading short-ast for module \""++modname++"\"...")
+  putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
+  cmts <- readComments modname
+  putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
   prog <- readShortAST modname
-  putStrLn ("Reading analysis information for module \""++modname++"\"...")
-  anainfo <- readAnaInfo modname
-  putStrLn ("Reading abstract curry for module \""++modname++"\"...")
+  putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   acy <- readAbstractCurryFile acyname
-  print (generateCurryDocInfos comments prog anainfo acy)
+  res <- if withAnalysis docopts
+           then do putStrLn ("Reading analysis information for module \""
+                             ++ modname ++ "\"...")
+                   ana <- readAnaInfo modname
+                   return $ generateCurryDocInfosWithAnalysis cmts prog acy ana
+           else    return $ generateCurryDocInfos             cmts prog acy
+  print res
 
 {-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
                     -> String -> String -> [(SourceLine,String)] -> IO ()

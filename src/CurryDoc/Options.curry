@@ -22,6 +22,7 @@ data DocOptions = DocOptions
   { docType      :: DocType
   , withIndex    :: Bool
   , withMarkdown :: Bool
+  , withAnalysis :: Bool
   , mainTitle    :: String
   , useDirURL    :: [(String,String)]
   , docMods      :: [String]
@@ -30,4 +31,4 @@ data DocOptions = DocOptions
 
 --- Default options
 defaultCurryDocOptions :: DocOptions
-defaultCurryDocOptions = DocOptions HtmlDoc True True "" [] [] id
+defaultCurryDocOptions = DocOptions HtmlDoc True True True "" [] [] id
