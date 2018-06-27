@@ -2,6 +2,7 @@ module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
    isCommentedTypeSig, isCommentedInstanceDecl,
    splitNestedComment, commentString,
+   commentedDeclName,
    Comment(..),
    CommentedDecl(..),
    CommentedConstr(..), CommentedNewtypeConstr(..),
@@ -55,7 +56,7 @@ data CommentedConstr
   | CommentedConsOp QName [Comment] CTypeExpr CTypeExpr AnalysisInfo
   deriving Show
 
-type CommentedField = ([QName], [Comment], CTypeExpr)
+type CommentedField = ([QName], [Comment], CTypeExpr) -- TODO: can have fixity
 
 data CommentedNewtypeConstr
   = CommentedNewConstr QName [Comment] CTypeExpr AnalysisInfo
@@ -576,6 +577,20 @@ isCommentedTypeSig :: CommentedDecl -> Bool
 isCommentedTypeSig d = case d of
   CommentedTypeSig _ _ _ _ -> True
   _                        -> False
+
+commentedDeclName :: CommentedDecl -> QName
+commentedDeclName (CommentedTypeDecl n _ _ _) = n
+commentedDeclName (CommentedDataDecl n _ _ _) = n
+commentedDeclName (CommentedNewtypeDecl n _ _ _) = n
+commentedDeclName (CommentedClassDecl n _ _ _ _) = n
+commentedDeclName (CommentedInstanceDecl n _ _ _ _) = n
+commentedDeclName (CommentedFunctionDecl n _ _ _) = n
+commentedDeclName (CommentedTypeSig _ _ _ _) =
+  error "Comment.commentedDeclName: CommentedTypeSig"
+commentedDeclName (CommentedExternalDecl _ _ _ _) =
+  error "Comment.commentedDeclName: CommentedExternalDecl"
+commentedDeclName (UnsupportedDecl _) =
+  error "Comment.commentedDeclName: UnsupportedDecl"
 
 -------------------------------------------------------------------------------
 -- Splitting of TypeSigs with multiple idents and field decls inside DataDecls

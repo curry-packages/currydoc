@@ -24,15 +24,21 @@ addAbstractCurryClassesInfo :: [CClassDecl] -> [CommentedDecl] -> [CommentedDecl
 addAbstractCurryClassesInfo []                               _   = []
 addAbstractCurryClassesInfo (CClass n Public  cx vn ds : cs) cds =
   maybe (CommentedClassDecl n cx vn [] (addAbstractCurryFunInfo ds []))
-    id (lookupClass n cds) : addAbstractCurryClassesInfo cs cds
+    (\(CommentedClassDecl a b c d e) -> CommentedClassDecl a b c d
+      (filter (isExportedIn ds) e)) (lookupClass n cds)
+    : addAbstractCurryClassesInfo cs cds
+  where isExportedIn []     _ = False
+        isExportedIn (f:fs) d =
+          (funcVis f == Public && funcName f =~= commentedDeclName d)
+            || isExportedIn fs d
 addAbstractCurryClassesInfo (CClass _ Private _  _  _  : cs) cds =
   addAbstractCurryClassesInfo cs cds
 
 lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupClass _ []     = Nothing
 lookupClass n (d:ds) = case d of
-  CommentedClassDecl n' _ _ _ _
-    | n =~= n' -> Just d
+  CommentedClassDecl n' a b c ds'
+    | n =~= n' -> Just (CommentedClassDecl n a b c ds')
   _            -> lookupClass n ds
 
 addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl] -> [CommentedDecl]
@@ -44,8 +50,8 @@ addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
 lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
 lookupInstance _ _  []     = Nothing
 lookupInstance n ty (d:ds) = case d of
-  CommentedInstanceDecl n' _ ty' _ _
-    | n =~= n' && ty =~~= ty' -> Just d
+  CommentedInstanceDecl n' a ty' b c
+    | n =~= n' && ty =~~= ty' -> Just (CommentedInstanceDecl n a ty b c)
   _                           -> lookupInstance n ty ds
 
 addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CommentedDecl]
@@ -69,8 +75,8 @@ setType qty f = case f of
 lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupFunc _ []     = Nothing
 lookupFunc n (d:ds) = case d of
-  CommentedFunctionDecl n' _ _ _
-    | n =~= n' -> Just d
+  CommentedFunctionDecl n' a b c
+    | n =~= n' -> Just (CommentedFunctionDecl n a b c)
   _            -> lookupFunc n ds
 
 addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl] -> [CommentedDecl]
@@ -97,15 +103,15 @@ addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds =
 
 filterCons :: [CConsDecl] -> CommentedConstr -> Maybe CommentedConstr
 filterCons [] _ = Nothing
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConstr n' _ _ _)
-  | n =~= n' && v == Public = Just c
+filterCons (CCons _ _ n v _    : cs) c@(CommentedConstr n' cms tys ai)
+  | n =~= n' && v == Public = Just (CommentedConstr n cms tys ai)
   | otherwise               = filterCons cs c
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConsOp n' _ _ _ _)
-  | n =~= n' && v == Public = Just c
+filterCons (CCons _ _ n v _    : cs) c@(CommentedConsOp n' cms ty1 ty2 ai)
+  | n =~= n' && v == Public = Just (CommentedConsOp n cms ty1 ty2 ai)
   | otherwise               = filterCons cs c
 filterCons (CRecord _ _ n v fs : cs) c@(CommentedRecord n' cms tys fs' ai)
   | n =~= n' && v == Public =
-    Just (CommentedRecord n' cms tys (filter (filterFields fs) fs') ai)
+    Just (CommentedRecord n cms tys (mapMaybe (filterFields fs) fs') ai)
   | otherwise               = filterCons cs c
 filterCons (CCons _ _ _ _ _    : cs) c@(CommentedRecord _ _ _ _ _)
   = filterCons cs c
@@ -114,10 +120,11 @@ filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConsOp _ _ _ _ _)
 filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConstr   _ _ _ _)
   = filterCons cs c
 
-filterFields :: [CFieldDecl] -> CommentedField -> Bool
-filterFields [] _ = False
-filterFields (CField n Public  _ : fs) f@([n'], _, _)
-  = n =~= n' || filterFields fs f
+filterFields :: [CFieldDecl] -> CommentedField -> Maybe CommentedField
+filterFields [] _ = Nothing
+filterFields (CField n Public  _ : fs) f@([n'], a, b)
+  | n =~= n'  = Just ([n], a, b)
+  | otherwise = filterFields fs f
 filterFields (CField _ Public  _ : _) ([], _, _)
   = error "CurryDoc.filterFields: field with no qname"
 filterFields (CField _ Public  _ : _) ((_:_:_), _, _)
@@ -128,10 +135,10 @@ filterFields (CField _ Private _ : fs) f
 filterNewCons :: CConsDecl -> Maybe CommentedNewtypeConstr -> Maybe CommentedNewtypeConstr
 filterNewCons _ Nothing  = Nothing
 filterNewCons c (Just c') =  case (c, c') of
-  (CCons   _ _ _ Public _ , CommentedNewConstr _ _ _ _)
-      -> Just c'
-  (CRecord _ _ _ Public fs, CommentedNewRecord n' a ty f b)
-      -> Just (CommentedNewRecord n' a ty f' b)
+  (CCons   _ _ n Public _ , CommentedNewConstr _ a b ai)
+      -> Just (CommentedNewConstr n a b ai)
+  (CRecord _ _ n Public fs, CommentedNewRecord _ a ty f b)
+      -> Just (CommentedNewRecord n a ty f' b)
     where f' = case f of
                  Nothing -> Nothing
                  Just x | any isPublicField fs -> Just x
@@ -141,24 +148,26 @@ filterNewCons c (Just c') =  case (c, c') of
 lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupTypeDecl _ []     = Nothing
 lookupTypeDecl n (d:ds) = case d of
-  CommentedTypeDecl n' _ _ _
-    | n =~= n' -> Just d
+  CommentedTypeDecl n' a b c
+    | n =~= n' -> Just (CommentedTypeDecl n a b c)
   _            -> lookupTypeDecl n ds
 
 lookupDataDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupDataDecl _ []     = Nothing
 lookupDataDecl n (d:ds) = case d of
-  CommentedDataDecl n' _ _ _
-    | n =~= n' -> Just d
+  CommentedDataDecl n' a b c
+    | n =~= n' -> Just (CommentedDataDecl n a b c)
   _            -> lookupDataDecl n ds
 
 lookupNewDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupNewDecl _ []     = Nothing
 lookupNewDecl n (d:ds) = case d of
-  CommentedNewtypeDecl n' _ _ _
-    | n =~= n' -> Just d
+  CommentedNewtypeDecl n' a b c
+    | n =~= n' -> Just (CommentedNewtypeDecl n a b c)
   _            -> lookupNewDecl n ds
 
+
+-- TODO check for consOp
 createConsInfos :: [CConsDecl] -> [CommentedConstr]
 createConsInfos [] = []
 createConsInfos (CCons _ _ n Public tys : cs) =

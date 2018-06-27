@@ -261,11 +261,6 @@ showId :: String -> String
 showId name = if isAlpha (head name) then name
                                      else ('(':name)++")"
 
--- if first argument is True, put brackets around second argument:
-brackets :: Bool -> String -> String
-brackets False s = s
-brackets True  s = "("++s++")"
-
 -- extract last name from a path name:
 getLastName :: String -> String
 getLastName = reverse . takeWhile (/='/') . reverse

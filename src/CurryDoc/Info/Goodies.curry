@@ -7,6 +7,7 @@ import CurryDoc.Data.Type
 import CurryDoc.Data.Ident
 
 import List (intercalate)
+import Char (isSpace)
 
 identToQName :: Ident ->  QName
 identToQName (Ident _ s _) = ("", s)
@@ -78,3 +79,28 @@ publicFieldNames = concatMap publicFieldNames' . constructors
   where publicFieldNames' (CCons   _ _ _ _ _ ) = []
         publicFieldNames' (CRecord _ _ _ _ fs) =
           map (\(CField n _ _) -> n) $ filter isPublicField fs
+
+publicClassNames :: CurryProg -> [QName]
+publicClassNames (CurryProg _ _ _ cls _ _ _ _) =
+  map publicClassName cls
+  where publicClassName (CClass n _ _ _ _) = n
+
+isApplyType :: CTypeExpr -> Bool
+isApplyType t = case t of
+  CTApply _ _ -> True
+  _           -> False
+
+isFunctionType :: CTypeExpr -> Bool
+isFunctionType t = case t of
+  CFuncType _ _ -> True
+  _             -> False
+
+concatCommentStrings :: [String] -> String
+concatCommentStrings ss = unwords (map replaceEmptyLine ss) -- TODO: improve unwording and line replacement
+
+replaceEmptyLine :: String -> String
+replaceEmptyLine ss | all isSpace ss = "\n"
+                  | otherwise      = trimSpace ss
+
+trimSpace :: String -> String
+trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace

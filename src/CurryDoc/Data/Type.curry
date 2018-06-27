@@ -23,7 +23,6 @@ import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
                        , lookupModuleSourceInLoadPath, getLoadPathForModule
                        )
 
-
 -- Reads the comments from a specified module
 readShortAST :: String -> IO (Module ())
 readShortAST progname =

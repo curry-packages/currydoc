@@ -63,11 +63,4 @@ splitWhileIndented intd (s:ss) =
 
 readLongDescr :: ModuleHeader -> [String] -> ModuleHeader
 readLongDescr (ModuleHeader fs cs) ss = ModuleHeader fs (cs ++
-  unwords (map replaceEmptyLine ss)) --TODO: improve unwording and line replacement
-
-replaceEmptyLine :: String -> String
-replaceEmptyLine ss | all isSpace ss = "\n"
-                    | otherwise      = trimSpace ss
-
-trimSpace :: String -> String
-trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace
+  concatCommentStrings ss)

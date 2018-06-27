@@ -3,7 +3,8 @@ module CurryDoc.Info
    module CurryDoc.Info.Comments,
    module CurryDoc.Info.Analysis,
    module CurryDoc.Info.Header,
-   module CurryDoc.Info.AbstractCurry) where
+   module CurryDoc.Info.AbstractCurry,
+   module CurryDoc.Info.Goodies) where
 
 import CurryDoc.Data.Span
 import CurryDoc.Data.Type
@@ -19,34 +20,32 @@ import AbstractCurry.Select
 
 import List (partition)
 
---- CurryDoc mhead instances typesigs decls exports imports
+--- CurryDoc mName mhead instances typesigs decls exports imports
 data CurryDoc =
-  CurryDoc ModuleHeader [CommentedDecl] [CommentedDecl] [CommentedDecl] [QName] [MName]
+  CurryDoc String ModuleHeader [CommentedDecl] [CommentedDecl] [CommentedDecl] Exports [MName]
   deriving Show
 
-generateCurryDocInfosWithAnalysis :: [(Span, Comment)] -> Module a
+--- DataTypes Constructors Fields Functions Typeclasses
+type Exports = ([QName], [QName], [QName], [QName], [QName])
+
+generateCurryDocInfosWithAnalysis :: String -> [(Span, Comment)] -> Module a
                                   -> CurryProg -> AnaInfo
                                   -> CurryDoc
-generateCurryDocInfosWithAnalysis cs m acy@(CurryProg _ _ _ _ _ typ funs ops) ai 
-  = CurryDoc mhead instances sigs withAnaInfo
-    (publicTypeNames acy ++ publicConsNames  acy ++
-     publicFuncNames acy ++ publicFieldNames acy)
-    (imports acy)
-  where
-    (declsC, moduleC) = associateCurryDoc cs m
-    (inst, sigs, decls) = partition3 isCommentedInstanceDecl
-                                     isCommentedTypeSig $
-                                     addAbstractCurryProg acy declsC
-    withAnaInfo = addAnaInfoToCommentDecls ai ops funs decls
-    instances = collectInstanceInfo typ inst
-    mhead = readModuleHeader moduleC
+generateCurryDocInfosWithAnalysis mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) ai
+  = genCDoc (addAnaInfoToCommentDecls ai os fs) mn cs m acy
 
-generateCurryDocInfos :: [(Span, Comment)] -> Module a -> CurryProg
+generateCurryDocInfos :: String -> [(Span, Comment)] -> Module a -> CurryProg
                       -> CurryDoc
-generateCurryDocInfos cs m acy@(CurryProg _ _ _ _ _ types funs ops) =
-  CurryDoc mhead instances sigs decls
-    (publicTypeNames acy ++ publicConsNames  acy ++
-     publicFuncNames acy ++ publicFieldNames acy)
+generateCurryDocInfos = genCDoc id
+
+genCDoc :: ([CommentedDecl] -> [CommentedDecl])
+        -> String -> [(Span, Comment)] -> Module a -> CurryProg
+        -> CurryDoc
+genCDoc f mname cs m acy@(CurryProg _ _ _ _ _ types _ _) =
+  CurryDoc mname mhead instances sigs (f decls)
+    (publicTypeNames  acy, publicConsNames acy,
+     publicFieldNames acy, publicFuncNames acy,
+     publicClassNames acy)
     (imports acy)
   where
     (declsC, moduleC) = associateCurryDoc cs m

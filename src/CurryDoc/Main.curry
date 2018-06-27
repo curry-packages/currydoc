@@ -295,8 +295,8 @@ makeDoc docopts recursive docdir modname = do
            then do putStrLn ("Reading analysis information for module \""
                              ++ modname ++ "\"...")
                    ana <- readAnaInfo modname
-                   return $ generateCurryDocInfosWithAnalysis cmts prog acy ana
-           else    return $ generateCurryDocInfos             cmts prog acy
+                   return $ generateCurryDocInfosWithAnalysis modname cmts prog acy ana
+           else    return $ generateCurryDocInfos             modname cmts prog acy
   print res
 
 {-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> AnaInfo
