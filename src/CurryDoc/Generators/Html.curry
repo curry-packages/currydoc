@@ -8,6 +8,7 @@
 module CurryDoc.Generators.Html
   (generateHtmlDocs,
    genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage,
+   genClassesIndexPage,
    translateSource2ColoredHtml)
    where
 
@@ -27,8 +28,6 @@ import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
 import Analysis.TotallyDefined(Completeness(..))
-import qualified FlatCurry.Types as FC
-import qualified FlatCurry.Goodies as FCG
 import HTML.Base
 import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
@@ -518,7 +517,7 @@ genMainIndexPage docopts docdir modnames =
  do putStrLn ("Writing index page to \""++docdir++"/index.html\"...")
     simplePage "Documentation of Curry modules"
                (Just pageTitle)
-               allConsFuncsMenu (indexPage modnames)
+               allConsFuncsClassesMenu (indexPage modnames)
      >>= writeFile (docdir++"/index.html")
  where
   pageTitle = if not (null (mainTitle docopts))
@@ -529,10 +528,11 @@ genMainIndexPage docopts docdir modnames =
                                  [htxt (head modnames)]]
                       else [htxt "Documentation of Curry programs"]
 
-allConsFuncsMenu :: [[HtmlExp]]
-allConsFuncsMenu =
-  [[href "findex.html" [htxt "All operations"]],
-   [href "cindex.html" [htxt "All constructors"]]]
+allConsFuncsClassesMenu :: [[HtmlExp]]
+allConsFuncsClassesMenu =
+  [[href "findex.html"   [htxt "All operations"]],
+   [href "cindex.html"   [htxt "All constructors"]],
+   [href "clsindex.html" [htxt "All typeclasses"]]]
 
 indexPage :: [String] -> [HtmlExp]
 indexPage modnames =
@@ -566,17 +566,17 @@ explainIcons =
 
 --------------------------------------------------------------------------
 -- generate the function index page for the documentation directory:
-genFunctionIndexPage :: DocOptions -> String -> [FC.FuncDecl] -> IO ()
+genFunctionIndexPage :: DocOptions -> String -> [CFuncDecl] -> IO ()
 genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
-  simplePage "Index to all operations" Nothing allConsFuncsMenu
-             (htmlFuncIndex opts (sortNames expfuns))
+  simplePage "Index to all operations" Nothing allConsFuncsClassesMenu
+             (htmlIndex opts (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
-   expfuns = map FCG.funcName $ filter ((== FC.Public) . FCG.funcVisibility) funs
+   expfuns = map funcName $ filter ((== Public) . funcVis) funs
 
-htmlFuncIndex :: DocOptions -> [QName] -> [HtmlExp]
-htmlFuncIndex opts = categorizeByItemKey . map (showModNameRef opts)
+htmlIndex :: DocOptions -> [QName] -> [HtmlExp]
+htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
 showModNameRef :: DocOptions -> QName -> (String,[HtmlExp])
 showModNameRef opts (modname,name) =
@@ -591,20 +591,30 @@ sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
 
 --------------------------------------------------------------------------
 -- generate the constructor index page for the documentation directory:
-genConsIndexPage :: DocOptions ->  String -> [FC.TypeDecl] -> IO ()
+genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
 genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
-  simplePage "Index to all constructors" Nothing allConsFuncsMenu
-             (htmlConsIndex opts (sortNames expcons))
+  simplePage "Index to all constructors" Nothing allConsFuncsClassesMenu
+             (htmlIndex opts (sortNames expcons))
     >>= writeFile (docdir++"/cindex.html")
  where
-   consDecls (FC.Type    _ _ _ cs) = cs
-   consDecls (FC.TypeSyn _ _ _ _ ) = []
-   expcons = map FCG.consName $ filter ((== FC.Public) . FCG.consVisibility) $
+   consDecls (CType    _ _ _ cs _) = cs
+   consDecls (CNewType _ _ _ c  _) = [c]
+   consDecls (CTypeSyn _ _ _ _   ) = []
+   expcons = map consName $ filter ((== Public) . consVis) $
      concatMap consDecls types
 
-htmlConsIndex :: DocOptions ->  [QName] -> [HtmlExp]
-htmlConsIndex opts = categorizeByItemKey . map (showModNameRef opts)
+--------------------------------------------------------------------------
+-- generate the typeclasses index page for the documentation directory:
+genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
+genClassesIndexPage opts docdir cls = do
+  putStrLn ("Writing typeclasses index page to \""++docdir++"/clsindex.html\"...")
+  simplePage "Index to all typeclasses" Nothing allConsFuncsClassesMenu
+             (htmlIndex opts (sortNames expclasses))
+    >>= writeFile (docdir++"/clsindex.html")
+ where
+   expclasses = map    (\(CClass n _   _ _ _) -> n) $
+                filter (\(CClass _ vis _ _ _) -> vis == Public) cls
 
 --------------------------------------------------------------------------
 -- generate the index page categorizing all system libraries of PAKCS/KICS2

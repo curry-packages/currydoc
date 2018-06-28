@@ -180,13 +180,14 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       let modname = takeFileName modpath
       setCurrentDirectory moddir
       -- generate all necessary source representations
-      mapIO (callFrontendFor modname) [FCY, ACY, SAST, COMMS]
-      (alltypes,allfuns) <- readTypesFuncsWithImports modname
+      mapIO (callFrontendFor modname) [ACY, SAST, COMMS]
+      (alltypes,allfuns, allclasses) <- readTypesFuncsClassesWithImports modname
       makeDocIfNecessary docopts recursive docdir modname
       when (withIndex docopts) $ do
         genMainIndexPage     docopts docdir [modname]
         genFunctionIndexPage docopts docdir allfuns
         genConsIndexPage     docopts docdir alltypes
+        genClassesIndexPage  docopts docdir allclasses
       -- change access rights to readable for everybody:
       system ("chmod -R go+rX "++docdir)
       putStrLn ("Documentation files written into directory "++docdir))
@@ -217,18 +218,15 @@ makeIndexPages docopts docdir modnames = do
         callFrontend SAST modname
         -- generate comment stream
         callFrontend COMMS modname))
-  (alltypes,allfuns) <- mapIO readTypesFuncs modnames >>= return . unzip
+  (alltypes,allfuns,allclasses) <-
+    mapIO readTypesFuncsClassesWithImports modnames >>= return . unzip3
   genMainIndexPage     docopts docdir modnames
   genFunctionIndexPage docopts docdir (concat allfuns)
   genConsIndexPage     docopts docdir (concat alltypes)
+  genClassesIndexPage  docopts docdir (concat allclasses)
   -- change access rights to readable for everybody:
   system ("chmod -R go+rX "++docdir)
   done
- where
-  readTypesFuncs modname = do
-    fcyfile <- getFlatCurryFileInLoadPath modname
-    (Prog _ _ types funs _) <- readFlatCurryFile fcyfile
-    return (types,funs)
 
 --- Generate a system library index page categorizing the given
 --- (already compiled!) modules
@@ -379,11 +377,13 @@ copyDocIfPossible docopts docdir modname =
 
 -- reads all types and function declarations (also imported ones) of
 -- a module:
-readTypesFuncsWithImports :: String -> IO ([TypeDecl],[FuncDecl])
-readTypesFuncsWithImports modname = do
-  allprogs <- readFlatCurryWithImports modname
-  let (ts,fs) = unzip (map (\ (Prog _ _ types funs _) -> (types,funs)) allprogs)
-  return (concat ts, concat fs)
+readTypesFuncsClassesWithImports :: String
+                                 -> IO ([CTypeDecl],[CFuncDecl],[CClassDecl])
+readTypesFuncsClassesWithImports modname = do
+  allprogs <- readCurryWithImports modname
+  let (ts,fs,cs) = unzip3 (map (\ (CurryProg _ _ _ cls _ types funs _)
+                                  -> (types,funs,cls)) allprogs)
+  return (concat ts, concat fs, concat cs)
 
 -- get the associated file extenstion from DocType
 fileExtension :: DocType -> String
