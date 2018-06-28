@@ -5,7 +5,7 @@
 --- @version October 2017
 ----------------------------------------------------------------------
 
-module CurryDoc.Generators.TeX (generateTexDocs) where
+module CurryDoc.Generators.TeX (generateTexDocsOld, generateTexDocs) where
 
 import Char
 import Distribution
@@ -25,9 +25,14 @@ import Markdown
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
 -- are already analyzed.
-generateTexDocs :: DocOptions -> AnaInfo -> String -> String
+generateTexDocs :: DocOptions -> CurryDoc -> IO String
+generateTexDocs _ _ = putStrLn e >> return e
+  where e = "TeX is currently not supported!"
+
+
+generateTexDocsOld :: DocOptions -> AnaInfo -> String -> String
                 -> [(SourceLine,String)] -> IO String
-generateTexDocs docopts anainfo modname modcmts progcmts = do
+generateTexDocsOld docopts anainfo modname modcmts progcmts = do
   fcyname <- getFlatCurryFileInLoadPath modname
   putStrLn $ "Reading FlatCurry program \""++fcyname++"\"..."
   (Prog _ _ types functions _) <- readFlatCurryFile fcyname
@@ -123,7 +128,7 @@ genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
 showTexType :: Bool -> TypeExpr -> String
 showTexType _ (TVar i) = [chr (97+i)]
 showTexType nested (FuncType t1 t2) =
-   brackets nested
+   bracketsIf nested
     (showTexType (isFunctionType t1) t1 ++ " $\\to$ " ++ showTexType False t2)
 showTexType nested (TCons tc ts)
  | ts==[]  = snd tc
@@ -134,7 +139,7 @@ showTexType nested (TCons tc ts)
  | take 2 (snd tc) == "(,"                     -- tuple type
    = "(" ++ concat (intersperse "," (map (showTexType False) ts)) ++ ")"
  | otherwise
-   = brackets nested
+   = bracketsIf nested
       (snd tc ++ " " ++ concat (intersperse " " (map (showTexType True) ts)))
 
 -- convert string into TeX:
@@ -161,3 +166,12 @@ string2tex = concatMap char2tex
              | c=='}'      = "\\}"
              | c=='&'      = "\\&"
              | otherwise   = [c]
+
+bracketsIf :: Bool -> String -> String
+bracketsIf False s = s
+bracketsIf True  s = "("++s++")"
+
+-- enclose a non-letter identifier in brackets:
+showId :: String -> String
+showId name = if isAlpha (head name) then name
+                                     else ('(':name)++")"
