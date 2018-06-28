@@ -1,5 +1,6 @@
 module CurryDoc.Info.Header
-  (ModuleHeader(..), HeaderField(..), readModuleHeader) where
+  (ModuleHeader(..), HeaderField(..), readModuleHeader, getCategoryWithDefault)
+  where
 
 import CurryDoc.Info.Goodies
 import CurryDoc.Info.Comments
@@ -64,3 +65,9 @@ splitWhileIndented intd (s:ss) =
 readLongDescr :: ModuleHeader -> [String] -> ModuleHeader
 readLongDescr (ModuleHeader fs cs) ss = ModuleHeader fs (cs ++
   concatCommentStrings ss)
+
+getCategoryWithDefault :: String -> [(HeaderField, String)] -> String
+getCategoryWithDefault def []             = def
+getCategoryWithDefault def ((cat,v):rest) = case cat of
+  Category -> v
+  _        -> getCategoryWithDefault def rest

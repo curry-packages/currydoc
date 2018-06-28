@@ -256,11 +256,6 @@ skipWhiteSpace = dropWhile isWhiteSpace
 isWhiteSpace :: Char -> Bool
 isWhiteSpace c = c == ' ' || c == '\n'
 
--- enclose a non-letter identifier in brackets:
-showId :: String -> String
-showId name = if isAlpha (head name) then name
-                                     else ('(':name)++")"
-
 -- extract last name from a path name:
 getLastName :: String -> String
 getLastName = reverse . takeWhile (/='/') . reverse

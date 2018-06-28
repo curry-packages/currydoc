@@ -2,7 +2,7 @@ module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
    isCommentedTypeSig, isCommentedInstanceDecl,
    splitNestedComment, commentString,
-   commentedDeclName,
+   commentedDeclName, instTypeName,
    Comment(..),
    CommentedDecl(..),
    CommentedConstr(..), CommentedNewtypeConstr(..),
@@ -577,6 +577,13 @@ isCommentedTypeSig :: CommentedDecl -> Bool
 isCommentedTypeSig d = case d of
   CommentedTypeSig _ _ _ _ -> True
   _                        -> False
+
+instTypeName :: CommentedDecl -> QName
+instTypeName d = case d of
+  CommentedInstanceDecl _ _ ty _ _ ->
+    let Just (q,_) = tconsArgsOfType ty
+    in q
+  _ -> error "Eoment.instTypeName: No instance type"
 
 commentedDeclName :: CommentedDecl -> QName
 commentedDeclName (CommentedTypeDecl n _ _ _) = n

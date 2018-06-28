@@ -7,7 +7,8 @@
 
 module CurryDoc.Generators.Html
   (generateHtmlDocs,
-   genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage)
+   genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage,
+   translateSource2ColoredHtml)
    where
 
 import FilePath
@@ -159,34 +160,37 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
   where fieldHtml (typ, value) =
           par [bold [htxt (show typ ++ ": ")], htxt value]
 
--- TODO instances
 --- generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> [CommentedDecl] -> CommentedDecl -> [HtmlExp]
-genHtmlType docopts inst (CommentedDataDecl n@(tmod,tcons) vs cs cns) =
-     [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
-  ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-  ++ [par [explainCat "Constructors: "]]
-  ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
-  ++ [par [explainCat "Known instances: "]]
-  ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
-  ++ [hrule]
-genHtmlType docopts inst (CommentedNewtypeDecl n@(tmod,tcons) vs cs cn) =
-  [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
-  ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-  ++ [par [explainCat "Constructors: "]]
-  ++ genHtmlNewCons docopts n vs cn
-  ++ [par [explainCat "Known instances: "]]
-  ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
-  ++ [hrule]
-genHtmlType docopts _ (CommentedTypeDecl (tmod,tcons) vs ty cs) =
-     [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
-  ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-  ++ [ par [explainCat "Type synonym:"
-     , nbsp
-     , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++
-                        " = " ++ showType docopts tmod False ty)]]
-     , hrule
-     ]
+genHtmlType docopts inst d = case d of
+  CommentedDataDecl n@(tmod,tcons) vs cs cns ->
+       [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    ++ [par [explainCat "Constructors: "]]
+    ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
+    ++ [par [explainCat "Known instances: "]]
+    ++ ulistOrEmpty (map (genHtmlInst docopts tmod)
+                         (filter ((n =~=) . instTypeName) inst))
+    ++ [hrule]
+  CommentedNewtypeDecl n@(tmod,tcons) vs cs cn ->
+    [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    ++ [par [explainCat "Constructors: "]]
+    ++ genHtmlNewCons docopts n vs cn
+    ++ [par [explainCat "Known instances: "]]
+    ++ ulistOrEmpty (map (genHtmlInst docopts tmod)
+                         (filter ((n =~=) . instTypeName) inst))
+    ++ [hrule]
+  CommentedTypeDecl (tmod,tcons) vs ty cs ->
+       [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    ++ [ par [explainCat "Type synonym:"
+       , nbsp
+       , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++
+                          " = " ++ showType docopts tmod False ty)]]
+       , hrule
+       ]
+  _ -> []
 
 --- generate HTML documentation for a constructor if it is exported:
 genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CommentedConstr
@@ -195,11 +199,11 @@ genHtmlCons docopts dn vs (CommentedConsOp cn cs ty1 ty2 ai) =
   genHtmlCons docopts dn vs (CommentedConstr cn cs [ty1, ty2] ai) -- TODO: maybe different?
 genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
   anchored (cname ++ "_CONS")
-    [code [opnameDoc [htxt cname]],
-          HtmlText (" :: " ++
+    [code [opnameDoc [htxt cname],
+           HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
-                    tcons ++ " " ++ unwords (map snd vs))] :
+                    tcons ++ " " ++ unwords (map snd vs))]] :
     if null txt then [] else
            htxt " : " : removeTopPar (docComment2HTML docopts txt) ++
     maybe []
@@ -212,11 +216,11 @@ genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
           _              -> precedence ai
 genHtmlCons docopts (_, tcons) vs (CommentedRecord (cmod,cname) cs tys fs ai) =
   anchored (cname ++ "_CONS")
-    [code [opnameDoc [htxt cname]],
+    [code [opnameDoc [htxt cname],
           HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
-                    tcons ++ " " ++ unwords (map snd vs))] :
+                    tcons ++ " " ++ unwords (map snd vs))]] :
     if null txt then [] else
            htxt " : " : removeTopPar (docComment2HTML docopts txt) ++
     par [explainCat "Fields:"] :
@@ -230,6 +234,8 @@ genHtmlCons docopts (_, tcons) vs (CommentedRecord (cmod,cname) cs tys fs ai) =
 
 -- generate HTML documentation for record fields
 genHtmlField :: DocOptions -> CommentedField -> [HtmlExp]
+genHtmlField _       ([]            , _ , _ ) = []
+genHtmlField _       ((_ : _ : _)   , _ , _ ) = []
 genHtmlField docopts ([(fmod,fname)], cs, ty) =
   [anchored (fname ++ "_FIELD")
     ([ code [opnameDoc [htxt fname]]
@@ -250,101 +256,112 @@ genHtmlNewCons docopts dn vs (Just (CommentedNewRecord cn cs ty f ai)) =
                Nothing -> []
 
 genHtmlInst :: DocOptions -> String -> CommentedDecl -> [HtmlExp]
-genHtmlInst docopts dn (CommentedInstanceDecl (cmod, cname) cx ty _ _) =
-  [code [htxt (if null cxString then [] else cxString ++ " "),
-         classnameDoc [href (docURL docopts cmod++".html#"++cname++"_CLASS")
-                        [htxt cname]],
-         htxt (showType docopts dn (isApplyType ty || isFunctionType ty) ty)]]
-  where cxString = showContext docopts cmod cx
+genHtmlInst docopts dn d = case d of
+  CommentedInstanceDecl (cmod, cname) cx ty _ _ ->
+    [code [htxt (if null cxString then [] else cxString ++ " "),
+           href (docURL docopts cmod++".html#"++cname++"_CLASS")
+                 [htxt cname]]] ++
+    [code [HtmlText (showType docopts dn
+                       (isApplyType ty || isFunctionType ty) ty)]]
+    where cxString = showContext docopts cmod cx
+  _ -> []
 
 -- generate HTML documentation for a function:
 genHtmlClass :: DocOptions -> CommentedDecl -> [HtmlExp]
-genHtmlClass docopts (CommentedClassDecl (cmod, cname) cx v cs ds) =
-     [anchored (cname ++ "_CLASS")
-       [code [(htxt "class "),
-              htxt (if null cxString then [] else cxString ++ " "),
-              classnameDoc [htxt cname],
-              htxt (' ' : snd v)]]]
-  ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-  ++ [par [explainCat "Methods: "]]
-  ++ ulistOrEmpty (map (genHtmlFunc docopts typsigs) methods)
-  where cxString = showContext docopts cmod cx
-        (typsigs, methods) = partition isCommentedTypeSig ds
+genHtmlClass docopts d = case d of
+  CommentedClassDecl (cmod, cname) cx v cs ds ->
+       [anchored (cname ++ "_CLASS")
+         [code [(htxt "class "),
+                htxt (if null cxString then [] else cxString ++ " "),
+                classnameDoc [htxt cname],
+                htxt (' ' : snd v)]]]
+    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    ++ [par [explainCat "Methods: "]]
+    ++ ulistOrEmpty (map (genHtmlFunc docopts typsigs) methods)
+    where cxString = showContext docopts cmod cx
+          (typsigs, methods) = partition isCommentedTypeSig ds
+  _ -> []
 
 -- generate HTML documentation for a function:
 genHtmlFunc :: DocOptions -> [CommentedDecl] -> CommentedDecl -> [HtmlExp]
-genHtmlFunc docopts typesigs (CommentedFunctionDecl (fmod,fname) (Just ty) ai) =
-  anchoredDiv (fname ++ "_FUNC")
-    [borderedTable [[
-      [par $
-        [code [opnameDoc [showCodeHRef fname],
-               HtmlText (" :: "++ showQualType docopts fmod ty)],
-         nbsp, nbsp] ++
-        genFuncPropIcons ai] ++
-        genSigComment (lookupTypeSig n typesigs) ++
-        docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
-        genFurtherInfos ai]]]
-  where showCodeHRef fn = href (modname++"_curry.html#"++fn) [htxt (showId fn)]
+genHtmlFunc docopts types d = case d of
+  CommentedFunctionDecl (fmod,fname) cs (Just ty) ai ->
+    [anchoredDiv (fname ++ "_FUNC")
+      [borderedTable [[
+        [par $
+          [code [opnameDoc [showCodeHRef fname],
+                 HtmlText (" :: "++ showQualType docopts fmod ty)],
+           nbsp, nbsp] ++
+          genFuncPropIcons ai] ++
+          genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
+          docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
+          genFurtherInfos (fmod, fname) ai]]]]
+    where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
+  _ -> []
 
-genSigComment :: Maybe CommentedDecl -> [HtmlExp]
-genSigComment Nothing = []
-genSigComment (Just (CommentedTypeSig [(fmod, fname)] cs cx ps))=
-  [ par [docComment2HTML docopts (concatCommentStrings (map commentString cs))]
-  , par [code [htxt (showContext docopts fmod cx)]]
-  ] ++ genParamComments ps
+genSigComment :: DocOptions -> Maybe CommentedDecl -> [HtmlExp]
+genSigComment _       Nothing  = []
+genSigComment docopts (Just d) = case d of
+  CommentedTypeSig [(fmod, _)] cs cx ps ->
+    [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))
+    , par [code [htxt (showContext docopts fmod cx)]]
+    ] ++ genParamComments docopts fmod ps
+  _ -> []
 
-genParamComment :: String -> (CTypeExpr, [Comment]) -> [HtmlExp]
-genParamComment _    []         = error "Html.genParamComment: empty list"
-genParamComment fmod [(ty, cs)] =
-  [par [code [htxt showType docopts fmod False ty], nbsp, nbsp, nbsp, nbsp
-        docComment2HTML docopts (unwords (map commentString cs))]]
-genParamComment fmod ((ty, cs) : xs@(_:_)) =
-  (par [code [htxt showType docopts fmod False ty],
-        code [htxt " -> "],
-        docComment2HTML docopts (unwords (map commentString cs))])
-    : genParamComment fmod xs
+genParamComments :: DocOptions -> String -> [(CTypeExpr, [Comment])] -> [HtmlExp]
+genParamComments _       _    []         =
+  error "Html.genParamComment: empty list"
+genParamComments docopts fmod [(ty, cs)] =
+  [par ([code [htxt (showType docopts fmod False ty)], nbsp, nbsp, nbsp, nbsp] ++
+        docComment2HTML docopts (unwords (map commentString cs)))]
+genParamComments docopts fmod ((ty, cs) : xs@(_:_)) =
+  (par ([code [htxt (showType docopts fmod False ty)],
+        code [htxt " -> "]] ++
+        docComment2HTML docopts (unwords (map commentString cs))))
+    : genParamComments docopts fmod xs
 
-genFurtherInfos :: AnalysisInfo -> [HtmlExp]
-genFurtherInfos NoAnalysisInfo            = []
-genFurtherInfos (PrecedenceInfo (Just p)) =
-  [dlist [[explainCat "Further infos:"],
-          genPrecedenceText p]]
-genFurtherInfos ai@(AnalysisInfo {}) =
-  showProperties (property ai) ++
-  [dlist [[explainCat "Further infos:"],
-          maybe [] (\p -> genPrecedenceText p) (precedence ai),
-          ] ++ filter (not . null)
-            [completenessInfo,
-             indeterminismInfo,
-             opcompleteInfo,
-             externalInfo rules]]
+genFurtherInfos :: QName -> AnalysisInfo -> [HtmlExp]
+genFurtherInfos _  NoAnalysisInfo            = []
+genFurtherInfos _  (PrecedenceInfo Nothing)  = []
+genFurtherInfos _  (PrecedenceInfo (Just p)) =
+  [dlist [([explainCat "Further infos:"],
+          genPrecedenceText p)]]
+genFurtherInfos qn ai@(AnalysisInfo {}) =
+  concatMap (showProperty qn) (property ai) ++
+  [dlist [([explainCat "Further infos:"],
+            (maybe [] (\p -> genPrecedenceText p) (precedence ai)
+              ++ catMaybes
+                  [completenessInfo,
+                   indeterminismInfo,
+                   opcompleteInfo,
+                   externalInfo]))]]
   where
-    completenessInfo = let ci = complete ai
+    completenessInfo = let ci = complete ai in
       if ci == Complete
-       then []
-       else [htxt
+       then Nothing
+       else Just (htxt
          (if ci == InComplete
             then "partially defined"
             else
-              "partially defined in each disjunction (but might be complete)")]
+              "partially defined in each disjunction (but might be complete)"))
 
     -- comment about the indeterminism of a function:
     indeterminismInfo =
       if indet ai
-        then [htxt "might behave indeterministically"]
-        else []
+        then Just (htxt "might behave indeterministically")
+        else Nothing
 
     -- comment about the indeterminism of a function:
     opcompleteInfo =
        if opComplete ai
-         then [htxt "solution complete, i.e., able to compute all solutions"]
-         else []
+         then Just (htxt "solution complete, i.e., able to compute all solutions")
+         else Nothing
 
     -- comment about the external definition of a function:
     externalInfo  =
-      if ex ai
-        then [htxt "externally defined"]
-        else []
+      if ext ai
+        then Just (htxt "externally defined")
+        else Nothing
 
 genPrecedenceText :: (CFixity, Int) -> [HtmlExp]
 genPrecedenceText (fixity, prec) =
@@ -352,83 +369,49 @@ genPrecedenceText (fixity, prec) =
               " infix operator with precedence " ++
               show prec)]]
 
-showProperties :: [(Property, CRule)] -> [HtmlExp]
+showProperty :: QName -> (Property, CRule) -> [HtmlExp]
+showProperty qn (sp, rule) = case (sp, rule) of
+  (PreSpec, CRule _ (CSimpleRhs _ _)) ->
+     let (lhs,rhs) = break (=='=') prettyRule
+     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+         italic [htxt " requires "],
+         code [htxt (safeTail rhs)]]
+  (PreSpec, _) -> -- we don't put much effort to format complex preconditions:
+    [code [htxt prettyRule]]
+  (PostSpec, CRule ps (CSimpleRhs _ _)) ->
+    let (_,rhs) = break (=='=') prettyRule
+    in [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
+                     prettyWith ppCPattern
+                                 (CPComb qn (take (length ps - 1) ps)) ],
+        italic [htxt " satisfies "],
+        code [htxt (safeTail rhs)]]
+  (PostSpec, _) -> -- we don't put much effort to format complex postconditions:
+    [code [htxt prettyRule]]
+  (Spec, CRule _ (CSimpleRhs _ _)) ->
+    let (lhs,rhs) = break (=='=') prettyRule
+    in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+        italic [htxt " is equivalent to "],
+        code [htxt (safeTail rhs)]]
+  (Spec, _) -> -- we don't put much effort to format complex specifications:
+    [code [htxt prettyRule]]
+  (Prop, _) ->
+    [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]
+ where
+   safeTail xs      = if null xs then xs else tail xs
+   prettyRule       = showWidth 78 (ppCRule prettyOpts qn rule)
+   prettyWith ppfun = showWidth 78 . ppfun prettyOpts
+   prettyOpts       = setNoQualification defaultOptions
 
-
-  {-showAttachments aname attachkind =
-   let attachfuns = filter (\ (k,_,_) -> k==attachkind)
-                           (maybe [] id (lookup fname funcattachments))
-    in if null attachfuns then [] else
-        [dlist [([explainCat (aname++":")],
-                 [par (intercalate [breakline]
-                         (map (\ (_,pn,pc) -> pc ++
-                                 [nbsp, htxt "(", showCodeHRef pn, htxt ")"])
-                              attachfuns))])]]
-
-      showContract fnsuff formatrule =
-        maybe []
-              (\contractdecl -> showRulesWith formatrule fnsuff contractdecl)
-              (find (\fd -> snd (funcName fd) == fnsuff) props)
-
-      showRulesWith formatrule fnsuff (CFunc qn@(mn,fn) ar _ (CQualType _ ftype) rules) =
-        let stripSuffix = reverse . tail . dropWhile (/='\'') . reverse
-         in map (formatrule fnsuff qn (mn,stripSuffix fn)
-                  . etaExpand ar (length (argTypes ftype))) rules
-
-      -- eta expand simple rules for more reasonable documentation
-      etaExpand arity tarity rule = case rule of
-        CRule ps (CSimpleRhs exp ldecls) ->
-          if arity == tarity
-          then rule
-          else let evars = map (\i -> (i,"x"++show i)) [(arity+1) .. tarity]
-                in CRule (ps ++ map CPVar evars)
-                         (CSimpleRhs (foldl CApply exp (map CVar evars)) ldecls)
-        _ -> rule -- don't do it for complex rules
-
-      showPreCond fnpre qp qn rule = case rule of
-       CRule _ (CSimpleRhs _ _) ->
-         let (lhs,rhs) = break (=='=') (prettyRule qn rule)
-          in (PreCond, fnpre, [code [htxt $ "(" ++ stripSpaces lhs ++ ")"],
-                               italic [htxt " requires "],
-                               code [htxt (safeTail rhs)]])
-       _ -> -- we don't put much effort to format complex preconditions:
-            (PreCond, fnpre, [code [htxt $ prettyRule qp rule]])
-
-      showPostCond fnpost qp qn rule = case rule of
-       CRule ps (CSimpleRhs _ _) ->
-         let (_,rhs) = break (=='=') (prettyRule qn rule)
-          in (PostCond, fnpost,
-              [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
-                            prettyWith ppCPattern
-                                       (CPComb qn (take (length ps - 1) ps)) ],
-                     italic [htxt " satisfies "],
-                     code [htxt (safeTail rhs)]])
-       _ -> -- we don't put much effort to format complex postconditions:
-            (PostCond, fnpost, [code [htxt $ prettyRule qp rule]])
-
-      showSpec fnspec qp qn rule = case rule of
-       CRule _ (CSimpleRhs _ _) ->
-         let (lhs,rhs) = break (=='=') (prettyRule qn rule)
-          in (SpecFun, fnspec, [code [htxt $ "(" ++ stripSpaces lhs ++ ")"],
-                                italic [htxt " is equivalent to "],
-                                code [htxt (safeTail rhs)]])
-       _ -> -- we don't put much effort to format complex specifications:
-            (SpecFun, fnspec, [code [htxt $ prettyRule qp rule]])
-
-      prettyWith ppfun = showWidth 78 . ppfun prettyOpts
-      prettyRule qn rl = showWidth 78 (ppCRule prettyOpts qn rl)
-      prettyOpts       = setNoQualification defaultOptions
- -}
-
---------------------------------------------------------------------------
 --- Generates icons for particular properties of functions.
-genFuncPropIcons :: AnaInfo -> QName -> [HtmlExp]
-genFuncPropIcons anainfo fname =
+genFuncPropIcons :: AnalysisInfo -> [HtmlExp]
+genFuncPropIcons    NoAnalysisInfo    = []
+genFuncPropIcons    PrecedenceInfo {} = []
+genFuncPropIcons ai@AnalysisInfo   {} =
    [detPropIcon, nbsp]
  where
    --(non)deterministically defined property:
    detPropIcon =
-    if nondet anainfo
+    if nondet ai
     then href "index.html#nondet_explain" [nondetIcon]
     else href "index.html#det_explain"    [detIcon]
 
@@ -454,9 +437,9 @@ showConstraint opts mod (cn,texp) =
 -- second argument is True iff brackets must be written around complex types
 showType :: DocOptions -> String -> Bool -> CTypeExpr -> String
 showType opts mod nested texp = case texp of
-  CTVar (i,_) -> [chr (97+i)] -- TODO: use name given in source program instead?
+  CTVar (_,n) -> n -- TODO: use name given in source program instead?
   CFuncType t1 t2 ->
-    bracketsIf nested (showType opts mod (isFunctionalType t1) t1 ++ " -&gt; " ++
+    bracketsIf nested (showType opts mod (isFunctionalType t1) t1++" -&gt; "++
                      showType opts mod False t2)
   CTCons tc -> showTConsType opts mod nested tc []
   CTApply t1 t2 ->
@@ -625,8 +608,8 @@ htmlConsIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
 --------------------------------------------------------------------------
 -- generate the index page categorizing all system libraries of PAKCS/KICS2
-genSystemLibsPage :: String -> [Category] -> [[ModInfo]] -> IO ()
-genSystemLibsPage = error ""{-docdir cats modInfos = do
+genSystemLibsPage :: String -> [String] -> [[(String, ModuleHeader)]] -> IO ()
+genSystemLibsPage docdir cats modInfos = do
   putStrLn $ "Writing main index page for " ++ currySystem ++
              " to \"" ++ fname ++ "\"..."
   mainPage (currySystem ++ " Libraries")
@@ -654,10 +637,10 @@ syslibsRightTopMenu =
            [extLinkIcon, htxt " Curry Report"]]
   ]
 
-syslibsSideMenu :: [HeaderField] -> [HtmlExp]
+syslibsSideMenu :: [String] -> [HtmlExp]
 syslibsSideMenu cats = map par $
      [[ehref currygleURL [extLinkIcon, htxt " Search with Curr(y)gle"]]]
-  ++ [[href ("#" ++ genCatLink c) [ htxt (show c)]] | c <- cats]
+  ++ [[href ("#" ++ c) [ htxt (genCatExplain c)]] | c <- cats]
   ++ [ [href "findex.html" [htxt "Index to all library functions"]]
      , [href "cindex.html" [htxt "Index to all library constructors"]]
      , [href "#explain_icons" [htxt "Icons used in the documentation"]]
@@ -675,25 +658,33 @@ infoTxt = par
   , htxt "."
   ]
 
--- Generate links for a category (system libraries page)
-genCatLink :: Category -> String
-genCatLink cat = getCategoryID cat
+genCatExplain :: String -> String
+genCatExplain c = case c of
+  "general"   -> "General libraries"
+  "algorithm" -> "Data structures and algorithms"
+  "database"  -> "Database access and manipulation"
+  "web"       -> "Libraries for web applications"
+  "meta"      -> "Libraries for meta-programming"
+  _           -> "Other Libraries"
 
-genHtmlLibCats :: [[ModInfo]] -> [HtmlExp]
+genHtmlLibCats :: [[(String, ModuleHeader)]] -> [HtmlExp]
 genHtmlLibCats = concatMap gen
   where
-  gen []              = []
-  gen cat@((c,_,_):_) = [anchoredSection (getCategoryID c)
-                        (h2 [htxt (showCategory c ++ ":")] : genHtmlLibCat cat)]
+    gen [] = []
+    gen mods@((_, (ModuleHeader xs _)):_) =
+      let c = getCategoryWithDefault "general" xs
+      in [anchoredSection (getCategoryWithDefault "general" xs)
+            (h2 [htxt (genCatExplain c ++ ":")] : genHtmlLibCat mods)]
 
-genHtmlLibCat :: [ModInfo] -> [HtmlExp]
-genHtmlLibCat category =
+
+genHtmlLibCat :: [(String, ModuleHeader)] -> [HtmlExp]
+genHtmlLibCat mods =
   [dlist [(genHtmlName modname, docComment2HTML defaultCurryDocOptions modcmt)
-  | (_,modname,modcmt) <- category ]
+  | (modname, ModuleHeader _ modcmt) <- mods ]
   ]
  where
   genHtmlName modname = [code [href (modname ++ ".html") [htxt modname]]]
--}
+
 --------------------------------------------------------------------------
 -- Auxiliary operation for general page style.
 
@@ -814,6 +805,12 @@ ehref url desc = href url desc `addAttr` ("target","_blank")
 --------------------------------------------------------------------------
 -- auxiliaries:
 
+lookupTypeSig :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupTypeSig _ []     = Nothing
+lookupTypeSig n (d:ds) = case d of
+  CommentedTypeSig [n'] _ _ _
+    | n =~= n' -> Just d
+  _            -> lookupTypeSig n ds
 
 ulistOrEmpty :: [[HtmlExp]] -> [HtmlExp]
 ulistOrEmpty items | null items = []
@@ -824,10 +821,6 @@ ifNotNull :: [a] -> ([a] -> [b]) -> [b]
 ifNotNull cmt genDoc
   | null cmt  = []
   | otherwise = genDoc cmt
-
-
-stripSpaces :: String -> String
-stripSpaces = reverse . dropWhile isSpace . reverse . dropWhile isSpace
 
 -- style for explanation categories, like "Constructors:", "Parameters:",...
 explainCat :: String -> HtmlExp
@@ -883,95 +876,7 @@ removeTopPar hexps = case hexps of
   [HtmlStruct "p" [] hs] -> hs
   _ -> hexps
 
---------------------------------------------------------------------------
-
-
-{--- Associate the properties or contracts (first argument)
--- to functions according to their positions and name in the source code
--- (we assume that they follow the actual function definitions).
--- Each property or contract is represented by its kind ('FuncAttachment'),
--- its name, and its documentation (HTML document).
-attachProperties2Funcs :: [CFuncDecl] -> [(SourceLine,String)]
-                       -> [(String,[(FuncAttachment,String,[HtmlExp])])]
-attachProperties2Funcs _ [] = []
-attachProperties2Funcs props ((sourceline,_) : slines) =
-  case sourceline of
-    FuncDef fn -> let (fprops,rslines) = span isPropFuncDef slines
-                   in (fn, showContracts fn ++ concatMap showProp fprops) :
-                      attachProperties2Funcs props rslines
-    _          -> attachProperties2Funcs props slines
- where
-  propNames = map (snd . funcName) props
-
-  showProp (FuncDef fn,_) =
-    let propdecl = fromJust (find (\fd -> snd (funcName fd) == fn) props)
-     in if isProperty propdecl
-        then map (\rhs -> (Property, fn,
-                           [code [htxt $ prettyWith (ppCRhs empty) rhs]]))
-                 (map ruleRHS (funcRules propdecl))
-        else []
-
-  showContracts fn =
-    showContract (fn++"'pre")  showPreCond ++
-    showContract (fn++"'post") showPostCond ++
-    showContract (fn++"'spec") showSpec
-
-  showContract fnsuff formatrule =
-    maybe []
-          (\contractdecl -> showRulesWith formatrule fnsuff contractdecl)
-          (find (\fd -> snd (funcName fd) == fnsuff) props)
-
-  showRulesWith formatrule fnsuff (CFunc qn@(mn,fn) ar _ (CQualType _ ftype) rules) =
-    let stripSuffix = reverse . tail . dropWhile (/='\'') . reverse
-     in map (formatrule fnsuff qn (mn,stripSuffix fn)
-              . etaExpand ar (length (argTypes ftype))) rules
-
-  -- eta expand simple rules for more reasonable documentation
-  etaExpand arity tarity rule = case rule of
-    CRule ps (CSimpleRhs exp ldecls) ->
-      if arity == tarity
-      then rule
-      else let evars = map (\i -> (i,"x"++show i)) [(arity+1) .. tarity]
-            in CRule (ps ++ map CPVar evars)
-                     (CSimpleRhs (foldl CApply exp (map CVar evars)) ldecls)
-    _ -> rule -- don't do it for complex rules
-
-  showPreCond fnpre qp qn rule = case rule of
-   CRule _ (CSimpleRhs _ _) ->
-     let (lhs,rhs) = break (=='=') (prettyRule qn rule)
-      in (PreCond, fnpre, [code [htxt $ "(" ++ stripSpaces lhs ++ ")"],
-                           italic [htxt " requires "],
-                           code [htxt (safeTail rhs)]])
-   _ -> -- we don't put much effort to format complex preconditions:
-        (PreCond, fnpre, [code [htxt $ prettyRule qp rule]])
-
-  showPostCond fnpost qp qn rule = case rule of
-   CRule ps (CSimpleRhs _ _) ->
-     let (_,rhs) = break (=='=') (prettyRule qn rule)
-      in (PostCond, fnpost,
-          [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
-                        prettyWith ppCPattern
-                                   (CPComb qn (take (length ps - 1) ps)) ],
-                 italic [htxt " satisfies "],
-                 code [htxt (safeTail rhs)]])
-   _ -> -- we don't put much effort to format complex postconditions:
-        (PostCond, fnpost, [code [htxt $ prettyRule qp rule]])
-
-  showSpec fnspec qp qn rule = case rule of
-   CRule _ (CSimpleRhs _ _) ->
-     let (lhs,rhs) = break (=='=') (prettyRule qn rule)
-      in (SpecFun, fnspec, [code [htxt $ "(" ++ stripSpaces lhs ++ ")"],
-                            italic [htxt " is equivalent to "],
-                            code [htxt (safeTail rhs)]])
-   _ -> -- we don't put much effort to format complex specifications:
-        (SpecFun, fnspec, [code [htxt $ prettyRule qp rule]])
-
-  prettyWith ppfun = showWidth 78 . ppfun prettyOpts
-  prettyRule qn rl = showWidth 78 (ppCRule prettyOpts qn rl)
-  prettyOpts       = setNoQualification defaultOptions
-
-  safeTail xs = if null xs then xs else tail xs
-
-  isPropFuncDef (sline,_) =
-    case sline of FuncDef fn -> fn `elem` propNames
-                  _          -> False-}
+-- enclose a non-letter identifier in brackets:
+showId :: String -> String
+showId name = if isAlpha (head name) then name
+                                     else ('(':name)++")"
