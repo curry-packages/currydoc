@@ -1,18 +1,32 @@
+{- |
+
+    Description : A module for detailed positional information
+    Author      : Kai-Oliver Prott
+
+    This module provides a typeclass and a datatype to manage
+    exact positions of entities.
+-}
 module CurryDoc.Data.SpanInfo where
 
 import CurryDoc.Data.Span
 
-data SpanInfo = SpanInfo Span [Span]
+data SpanInfo = SpanInfo Span [Span] -- ^ Span for the whole entity
+                                     -- and a list of minor sub-spans,
+                                     -- e.g. keywords.
               | NoSpanInfo
   deriving (Eq, Show, Read)
 
+-- ^ A class for easy access to SpanInfos
 class HasSpanInfo a where
   getSpanInfo :: a -> SpanInfo
 
 instance HasSpanInfo SpanInfo where
   getSpanInfo = id
 
-getSrcSpan :: HasSpanInfo a => a -> Span
+-- | Get the span of the whole entity
+getSrcSpan :: HasSpanInfo a
+           => a    -- The entity with SpanInfos
+           -> Span -- Whole span of that entity
 getSrcSpan a = case getSpanInfo a of
   NoSpanInfo   -> NoSpan
   SpanInfo s _ -> s
