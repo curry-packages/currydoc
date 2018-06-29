@@ -166,7 +166,7 @@ associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
                             in  associateCurryDocDeclPost ((sp, cdc) : match) d'
                                   : associateCurryDocDecls next (d:ds) prev
            | vertDist sp spd == 0 ->
-               let (match, next) = getToMatch spd sp cs isPost
+               let (match, next) = getToMatch spNextd sp cs isPost
                in  associateCurryDocDeclPost ((sp, cdc) : match) d
                      : associateCurryDocDecls next (d:ds) prev
            | otherwise ->
@@ -174,6 +174,9 @@ associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
 
     None _ -> associateCurryDocDecls cs (d:ds) prev
   where spd  = getSrcSpan d
+        spNextd = case ds of
+          []     -> NoSpan
+          (d':_) -> getSrcSpan d'
 
 getToMatch :: Span                  -- ^ until
            -> Span                  -- ^ last undiscarded comment span

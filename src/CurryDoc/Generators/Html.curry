@@ -57,13 +57,13 @@ generateHtmlDocs opts (CurryDoc mname mhead insts typesigs decls ex im) = do
     content =
       genHtmlModule opts mhead ++
       (if null exptypes then [] else
-         [anchoredSection "exported_datatypes"
-           ((h2 [htxt "Exported datatypes:"]) : hrule :
-           concatMap (genHtmlType opts insts) decls)]) ++
+        [anchoredSection "exported_datatypes"
+          ((h2 [htxt "Exported datatypes:"]) : hrule :
+          concatMap (genHtmlType opts insts) decls)]) ++
       (if null expfuncs then [] else
         [anchoredSection "exported_operations"
           ((h2 [htxt "Exported operations:"]) : hrule :
-          concatMap (genHtmlFunc opts typesigs) decls)]) ++
+          concatMap (mkFunctionBorder . genHtmlFunc opts typesigs) decls)]) ++
       (if null expclasses then [] else
         [anchoredSection "exported_classes"
           ((h2 [htxt "Exported Typeclasses:"]) : hrule :
@@ -80,7 +80,9 @@ generateHtmlDocs opts (CurryDoc mname mhead insts typesigs decls ex im) = do
                  , href (mname ++ "_curry.html") [htxt mname]
                  ]
 
-  lefttopmenu :: Bool -> Bool -> Bool -> [[HtmlExp]]
+  mkFunctionBorder []        = []
+  mkFunctionBorder fun@(_:_) = [borderedTable [[fun]]]
+
   lefttopmenu tb fb cb
     = [[href "?" [htxt title]], [href "#imported_modules" [htxt "Imports"]]]
    ++ if tb then [[href "#exported_datatypes"  [htxt "Datatypes"  ]]] else []
@@ -185,8 +187,11 @@ genHtmlType docopts inst d = case d of
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [ par [explainCat "Type synonym:"
        , nbsp
-       , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++
-                          " = " ++ showType docopts tmod False ty)]]
+       , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++ " = " ++
+            case (tmod,tcons) of
+              ("Prelude", "String")
+                -> "[" ++ showTypeCons docopts tmod (tmod,tcons) ++ "]"
+              _ -> showType docopts tmod False ty)]]
        , hrule
        ]
   _ -> []
@@ -203,8 +208,7 @@ genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
-    if null txt then [] else
-           htxt " : " : removeTopPar (docComment2HTML docopts txt) ++
+    (if null txt then [] else removeTopPar (docComment2HTML docopts txt)) ++
     maybe []
       (\(fixity, prec) -> [par [htxt ("defined as " ++ showFixity fixity ++
                                       " infix operator with precedence " ++
@@ -220,8 +224,7 @@ genHtmlCons docopts (_, tcons) vs (CommentedRecord (cmod,cname) cs tys fs ai) =
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
-    if null txt then [] else
-           htxt " : " : removeTopPar (docComment2HTML docopts txt) ++
+    (if null txt then [] else removeTopPar (docComment2HTML docopts txt)) ++
     par [explainCat "Fields:"] :
     ulistOrEmpty (map (genHtmlField docopts) fs) ++
     maybe []
@@ -270,13 +273,14 @@ genHtmlClass :: DocOptions -> CommentedDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
   CommentedClassDecl (cmod, cname) cx v cs ds ->
        [anchored (cname ++ "_CLASS")
-         [code [(htxt "class "),
+         [(style "classheader"
+            [code [(htxt "class "),
                 htxt (if null cxString then [] else cxString ++ " "),
                 classnameDoc [htxt cname],
-                htxt (' ' : snd v)]]]
+                htxt (' ' : snd v)]])]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
-    ++ ulistOrEmpty (map (genHtmlFunc docopts typsigs) methods)
+    ++ [borderedTable (map ((:[]) . genHtmlFunc docopts typsigs) methods)]
     where cxString = showContext docopts cmod cx
           (typsigs, methods) = partition isCommentedTypeSig ds
   _ -> []
@@ -285,16 +289,15 @@ genHtmlClass docopts d = case d of
 genHtmlFunc :: DocOptions -> [CommentedDecl] -> CommentedDecl -> [HtmlExp]
 genHtmlFunc docopts types d = case d of
   CommentedFunctionDecl (fmod,fname) cs (Just ty) ai ->
-    [anchoredDiv (fname ++ "_FUNC")
-      [borderedTable [[
-        [par $
-          [code [opnameDoc [showCodeHRef fname],
-                 HtmlText (" :: "++ showQualType docopts fmod ty)],
-           nbsp, nbsp] ++
-          genFuncPropIcons ai] ++
-          genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
-          docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
-          genFurtherInfos (fmod, fname) ai]]]]
+     [anchoredDiv (fname ++ "_FUNC")
+      [par $
+        [code [opnameDoc [showCodeHRef fname],
+               HtmlText (" :: "++ showQualType docopts fmod ty)],
+         nbsp, nbsp] ++
+        genFuncPropIcons ai]] ++
+        genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
+        docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
+        genFurtherInfos (fmod, fname) ai
     where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
   _ -> []
 
@@ -303,7 +306,7 @@ genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
   CommentedTypeSig [(fmod, _)] cs cx ps ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))
-    , par [code [htxt (showContext docopts fmod cx)]]
+    , par [code [HtmlText (showContext docopts fmod cx)]]
     ] ++ genParamComments docopts fmod ps
   _ -> []
 
@@ -311,10 +314,10 @@ genParamComments :: DocOptions -> String -> [(CTypeExpr, [Comment])] -> [HtmlExp
 genParamComments _       _    []         =
   error "Html.genParamComment: empty list"
 genParamComments docopts fmod [(ty, cs)] =
-  [par ([code [htxt (showType docopts fmod False ty)], nbsp, nbsp, nbsp, nbsp] ++
+  [par ([code [HtmlText (showType docopts fmod False ty)], nbsp, nbsp, nbsp, nbsp] ++
         docComment2HTML docopts (unwords (map commentString cs)))]
 genParamComments docopts fmod ((ty, cs) : xs@(_:_)) =
-  (par ([code [htxt (showType docopts fmod False ty)],
+  (par ([code [HtmlText (showType docopts fmod False ty)],
         code [htxt " -> "]] ++
         docComment2HTML docopts (unwords (map commentString cs))))
     : genParamComments docopts fmod xs
@@ -801,8 +804,7 @@ anchored tag doc = style "anchored" doc `addAttr` ("id",tag)
 
 --- An anchored element in the document:
 anchoredDiv :: String -> [HtmlExp] -> HtmlExp
-anchoredDiv tag doc = block doc `addAttr` ("class", "anchored")
-                                `addAttr` ("id",tag)
+anchoredDiv tag doc = block doc `addAttr` ("id",tag)
 
 --- A bordered table:
 borderedTable :: [[[HtmlExp]]] -> HtmlExp
