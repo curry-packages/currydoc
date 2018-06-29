@@ -49,13 +49,8 @@ genCDoc f mname cs m acy@(CurryProg _ _ _ _ _ types _ _) =
     (imports acy)
   where
     (declsC, moduleC) = associateCurryDoc cs m
-    (inst, sigs, decls) = partition3 isCommentedInstanceDecl
-                                     isCommentedTypeSig $
-                                     addAbstractCurryProg acy declsC
+    (sigs, other) = partition isCommentedTypeSig declsC
+    (inst, decls) = partition isCommentedInstanceDecl $
+                              addAbstractCurryProg acy other
     instances = collectInstanceInfo types inst
     mhead = readModuleHeader moduleC
-
-partition3 :: (a -> Bool) -> (a -> Bool) -> [a] -> ([a], [a], [a])
-partition3 p1 p2 xs = (a, b, c)
-  where (a, bc) = partition p1 xs
-        (b, c)  = partition p2 bc

@@ -26,7 +26,7 @@
 -- * Current restriction: doesn't properly work for infix operator definitions
 --   without a type definition (so it should be always included)
 
-module CurryDoc.Main where
+module CurryDoc.Main (main, debug) where
 
 import AbstractCurry.Files
 import AbstractCurry.Types
@@ -47,7 +47,6 @@ import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.Type
 import CurryDoc.Files   ( generateModuleDocMapping )
 import CurryDoc.Options
-import CurryDoc.Read
 import CurryDoc.Generators
 import CurryDoc.Info
 import CurryDoc.Config
@@ -76,7 +75,11 @@ main = do
   putStrLn banner
   processArgs defaultCurryDocOptions args
 
-debug = processArgs defaultCurryDocOptions ["--noanalysis","--html", "CurryDoc.Main"]
+debug :: IO ()
+debug = do
+  dir <- getCurrentDirectory
+  processArgs defaultCurryDocOptions ["--noanalysis","--html", "CurryDoc.Data.SpanInfo"]
+  setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
 processArgs opts args = do
@@ -289,11 +292,11 @@ makeDoc docopts recursive docdir modname = do
                    ana <- readAnaInfo modname
                    return $ generateCurryDocInfosWithAnalysis modname cmts prog acy ana
            else    return $ generateCurryDocInfos             modname cmts prog acy
-  makeDocWithComments (docType docopts) docopts recursive docdir modname res
+  makeDocForType (docType docopts) docopts recursive docdir modname res
 
-makeDocWithComments :: DocType -> DocOptions -> Bool -> String -> String
+makeDocForType :: DocType -> DocOptions -> Bool -> String -> String
                     -> CurryDoc -> IO ()
-makeDocWithComments HtmlDoc docopts recursive docdir modname cdoc = do
+makeDocForType HtmlDoc docopts recursive docdir modname cdoc = do
   writeOutfile docopts recursive docdir modname
                (generateHtmlDocs docopts cdoc)
   translateSource2ColoredHtml docdir modname
@@ -302,10 +305,10 @@ makeDocWithComments HtmlDoc docopts recursive docdir modname cdoc = do
                False docdir modname
                (generateCDoc modname modcmts progcmts anainfo)-}
 
-makeDocWithComments TexDoc docopts recursive docdir modname cdoc = do
+makeDocForType TexDoc docopts recursive docdir modname cdoc = do
   writeOutfile docopts recursive docdir modname (generateTexDocs docopts cdoc)
 
-makeDocWithComments CDoc docopts recursive docdir modname cdoc = do
+makeDocForType CDoc docopts recursive docdir modname cdoc = do
   writeOutfile docopts recursive docdir modname (generateCDoc docopts cdoc)
 
 
@@ -402,7 +405,4 @@ writeOutfile docopts recursive docdir modname generate = do
   when recursive $
     mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
 
-firstPassage :: String -> String
-firstPassage = unlines . takeWhile (\s -> s /= "" && not (all isWhiteSpace s))
-             . lines
 -- -----------------------------------------------------------------------

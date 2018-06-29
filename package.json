@@ -8,7 +8,6 @@
         "abstract-curry": ">= 2.0.0",
         "cass-analysis" : ">= 2.0.0",
         "cass"          : ">= 2.0.0",
-        "flatcurry"     : ">= 2.0.0",
         "html"          : ">= 2.0.0",
         "markdown"      : ">= 2.0.0",
         "wl-pprint"     : ">= 0.0.1"
