@@ -16,7 +16,7 @@ data SpanInfo = SpanInfo Span [Span] -- ^ Span for the whole entity
               | NoSpanInfo
   deriving (Eq, Show, Read)
 
--- ^ A class for easy access to SpanInfos
+-- | A class for easy access to SpanInfos
 class HasSpanInfo a where
   getSpanInfo :: a -> SpanInfo
 
@@ -25,8 +25,8 @@ instance HasSpanInfo SpanInfo where
 
 -- | Get the span of the whole entity
 getSrcSpan :: HasSpanInfo a
-           => a    -- The entity with SpanInfos
-           -> Span -- Whole span of that entity
+           => a    -- ^ The entity with SpanInfos
+           -> Span -- ^ Whole span of that entity
 getSrcSpan a = case getSpanInfo a of
   NoSpanInfo   -> NoSpan
   SpanInfo s _ -> s
