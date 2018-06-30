@@ -11,7 +11,8 @@ import CurryDoc.Info.Goodies
 import Maybe (listToMaybe, mapMaybe)
 
 --- Remove unexported entities and
---- add exported entities that did not have any comments
+--- add exported entities that did not have any comments.
+--- Also corrects QNames
 addAbstractCurryProg :: CurryProg -> [CommentedDecl] -> [CommentedDecl]
 addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) ds =
   let withcls  = addAbstractCurryClassesInfo cls ds
@@ -82,7 +83,9 @@ lookupFunc n (d:ds) = case d of
 addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl] -> [CommentedDecl]
 addAbstractCurryDataInfo []                               _   = []
 addAbstractCurryDataInfo (CTypeSyn n Public vs ty   : ds) cds =
-  maybe (CommentedTypeDecl n vs ty []) id (lookupTypeDecl n cds)
+  maybe (CommentedTypeDecl n vs ty [])
+    (\(CommentedTypeDecl _ _ _ d) -> CommentedTypeDecl n vs ty d)
+    (lookupTypeDecl n cds)
     : addAbstractCurryDataInfo ds cds
 addAbstractCurryDataInfo (CNewType n Public vs con _ : ds) cds =
   maybe (CommentedNewtypeDecl n vs [] (createNewConsInfos con))
@@ -103,15 +106,17 @@ addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds =
 
 filterCons :: [CConsDecl] -> CommentedConstr -> Maybe CommentedConstr
 filterCons [] _ = Nothing
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConstr n' cms tys ai)
+filterCons (CCons _ _ n v tys   : cs) c@(CommentedConstr n' cms _ ai)
   | n =~= n' && v == Public = Just (CommentedConstr n cms tys ai)
   | otherwise               = filterCons cs c
-filterCons (CCons _ _ n v _    : cs) c@(CommentedConsOp n' cms ty1 ty2 ai)
-  | n =~= n' && v == Public = Just (CommentedConsOp n cms ty1 ty2 ai)
+filterCons (CCons _ _ n v tys   : cs) c@(CommentedConsOp n' cms _ _ ai)
+  | n =~= n' && v == Public = let [ty1, ty2] = tys in
+    Just (CommentedConsOp n cms ty1 ty2 ai)
   | otherwise               = filterCons cs c
-filterCons (CRecord _ _ n v fs : cs) c@(CommentedRecord n' cms tys fs' ai)
+filterCons (CRecord _ _ n v fs : cs) c@(CommentedRecord n' cms _ fs' ai)
   | n =~= n' && v == Public =
-    Just (CommentedRecord n cms tys (mapMaybe (filterFields fs) fs') ai)
+    Just (CommentedRecord n cms (map cFieldType fs)
+      (mapMaybe (filterFields fs) fs') ai)
   | otherwise               = filterCons cs c
 filterCons (CCons _ _ _ _ _    : cs) c@(CommentedRecord _ _ _ _ _)
   = filterCons cs c
@@ -132,17 +137,19 @@ filterFields (CField _ Public  _ : _) ((_:_:_), _, _)
 filterFields (CField _ Private _ : fs) f
   = filterFields fs f
 
+cFieldDeclToCommentedField :: CFieldDecl -> CommentedField
+cFieldDeclToCommentedField (CField n _ ty) = ([n], [], ty)
+
 filterNewCons :: CConsDecl -> Maybe CommentedNewtypeConstr -> Maybe CommentedNewtypeConstr
 filterNewCons _ Nothing  = Nothing
 filterNewCons c (Just c') =  case (c, c') of
-  (CCons   _ _ n Public _ , CommentedNewConstr _ a b ai)
-      -> Just (CommentedNewConstr n a b ai)
-  (CRecord _ _ n Public fs, CommentedNewRecord _ a ty f b)
-      -> Just (CommentedNewRecord n a ty f' b)
-    where f' = case f of
-                 Nothing -> Nothing
-                 Just x | any isPublicField fs -> Just x
-                        | otherwise            -> Nothing
+  (CCons   _ _ n Public [ty] , CommentedNewConstr _ a _ ai)
+      -> Just (CommentedNewConstr n a ty ai)
+  (CRecord _ _ n Public [f], CommentedNewRecord _ a _ _ b)
+      -> Just (CommentedNewRecord n a (cFieldType f) f' b)
+    where f' = if isPublicField f
+                 then Just (cFieldDeclToCommentedField f)
+                 else Nothing
   _ -> Nothing
 
 lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
