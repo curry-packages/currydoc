@@ -26,7 +26,7 @@ addAbstractCurryClassesInfo []                               _   = []
 addAbstractCurryClassesInfo (CClass n Public  cx vn ds : cs) cds =
   maybe (CommentedClassDecl n cx vn [] (addAbstractCurryFunInfo ds []))
     (\(CommentedClassDecl a b c d e) -> CommentedClassDecl a b c d
-      (filter (isExportedIn ds) e)) (lookupClass n cds)
+      (addAbstractCurryFunInfo ds e)) (lookupClass n cds)
     : addAbstractCurryClassesInfo cs cds
   where isExportedIn []     _ = False
         isExportedIn (f:fs) d =

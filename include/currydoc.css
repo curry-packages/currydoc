@@ -30,6 +30,11 @@ section {
   font-weight: bold;
 }
 
+/* class signature at header positions */
+.classheader {
+  font-size: 20px;
+}
+
 /* function name in the documentation of a exported functions */
 .opname {
   font-weight: bold;

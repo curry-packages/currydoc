@@ -307,19 +307,18 @@ genSigComment docopts (Just d) = case d of
   CommentedTypeSig [(fmod, _)] cs cx ps ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))
     , par [code [HtmlText (showContext docopts fmod cx)]]
-    ] ++ genParamComments docopts fmod ps
+    ] ++ [table (genParamComments docopts fmod ps)]
   _ -> []
 
-genParamComments :: DocOptions -> String -> [(CTypeExpr, [Comment])] -> [HtmlExp]
+genParamComments :: DocOptions -> String -> [(CTypeExpr, [Comment])] -> [[[HtmlExp]]]
 genParamComments _       _    []         =
   error "Html.genParamComment: empty list"
 genParamComments docopts fmod [(ty, cs)] =
-  [par ([code [HtmlText (showType docopts fmod False ty)], nbsp, nbsp, nbsp, nbsp] ++
-        docComment2HTML docopts (unwords (map commentString cs)))]
+  [[[code [HtmlText (showType docopts fmod False ty)]],
+     [par $ docComment2HTML docopts (unwords (map commentString cs))]]]
 genParamComments docopts fmod ((ty, cs) : xs@(_:_)) =
-  (par ([code [HtmlText (showType docopts fmod False ty)],
-        code [htxt " -> "]] ++
-        docComment2HTML docopts (unwords (map commentString cs))))
+  [[code [HtmlText (showType docopts fmod False ty ++ " ->")]],
+   [par $ docComment2HTML docopts (unwords (map commentString cs))]]
     : genParamComments docopts fmod xs
 
 genFurtherInfos :: QName -> AnalysisInfo -> [HtmlExp]
