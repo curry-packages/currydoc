@@ -26,8 +26,8 @@ import Markdown
 -- are already analyzed.
 generateTexDocs :: DocOptions -> CurryDoc -> IO String
 generateTexDocs docopts (CurryDoc mname mhead insts typesigs decls _ _) =
-  let textypes   = concatMap (genHtmlTexType  docopts) decls
-      texfuncs   = concatMap (genHtmlTexFunc  docopts) decls
+  let textypes   = concatMap (genHtmlTexType  docopts insts) decls
+      texfuncs   = concatMap (genHtmlTexFunc  docopts typesigs) decls
       texclasses = concatMap (genHtmlTexClass docopts) decls
   in return $
     "\\currymodule{"++mname++"}\n" ++
@@ -68,34 +68,50 @@ replaceIdLinks str = case str of
               else "<code>"++s++"</code>"
 
 -- generate TeX documentation for a function
-genHtmlTexFunc :: DocOptions -> CommentedDecl -> String
-genHtmlTexFunc docopts d = case d of
+genHtmlTexFunc :: DocOptions -> [CommentedDecl] -> CommentedDecl -> String
+genHtmlTexFunc docopts sigs d = case d of
   CommentedFunctionDecl (fmod, fname) cs (Just ty) _
     -> "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
          showQualTexType docopts fmod ty ++ "}}\n" ++
+         htmlString2Tex docopts(
+           concatCommentStrings (map commentString
+             (getTypesigComment (fmod, fname) sigs))) ++
          htmlString2Tex docopts
            (concatCommentStrings (map commentString cs)) ++
        "\\curryfunctionstop\n"
   _ -> ""
 
+getTypesigComment :: QName -> [CommentedDecl] -> [Comment]
+getTypesigComment _ []     = []
+getTypesigComment n (d:ds) = case d of
+  CommentedTypeSig [n'] cs _ _
+    | n' =~= n -> cs
+  _            -> getTypesigComment n ds
+
 --- generate TeX documentation for a datatype
-genHtmlTexType :: DocOptions -> CommentedDecl -> String
-genHtmlTexType docopts d = case d of
-  CommentedDataDecl (_,tcons) vs cs constrs ->
+genHtmlTexType :: DocOptions -> [CommentedDecl] -> CommentedDecl -> String
+genHtmlTexType docopts insts d = case d of
+  CommentedDataDecl (tcmod,tcons) vs cs constrs ->
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     "\n\\currydatacons\n" ++
     concatMap (genHtmlTexCons docopts tcons vs) constrs ++
+    "\n\\currydatainsts\n" ++
+    concatMap (genHtmlTexInst docopts tcmod)
+       (filter (((tcmod,tcons) =~=) . instTypeName) insts) ++
     "\\currydatastop\n"
-  CommentedNewtypeDecl (_,tcons) vs cs cons ->
-    "\\currynewtypestart{" ++ tcons ++ "}\n" ++
+  CommentedNewtypeDecl (tcmod,tcons) vs cs cons ->
+    "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     "\n\\currydatacons\n" ++
     genHtmlTexNewCons docopts tcons vs cons ++
-    "\\currynewtypestop\n"
+    "\n\\currydatainsts\n" ++
+    concatMap (genHtmlTexInst docopts tcmod)
+       (filter (((tcmod,tcons) =~=) . instTypeName) insts) ++
+    "\\currydatastop\n"
   CommentedTypeDecl (tcmod,tcons) vs ty cs ->
     "\\currytypesynstart{" ++ tcons ++ "}{" ++
     (if tcons=="String" && tcmod=="Prelude"
@@ -105,6 +121,15 @@ genHtmlTexType docopts d = case d of
     htmlString2Tex docopts
        (concatCommentStrings (map commentString cs)) ++
     "\\currytypesynstop\n\n"
+  _ -> ""
+
+genHtmlTexInst :: DocOptions -> String -> CommentedDecl -> String
+genHtmlTexInst docopts modname d = case d of
+  CommentedInstanceDecl (cmod, cname) cx ty _ _ ->
+    (if null cxString then "" else cxString ++ " ") ++
+    "\\textbf{" ++ cname ++ "} " ++
+    showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++ "\n\n"
+    where cxString = showTexContext docopts cmod cx
   _ -> ""
 
 --- generate HTML documentation for a constructor if it is exported:
@@ -155,9 +180,10 @@ genHtmlTexClass docopts d = case d of
        snd v ++ "}{" ++
        htmlString2Tex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
-       concatMap (genHtmlTexFunc docopts) ds ++
+       concatMap (genHtmlTexFunc docopts sigs) other ++
        "\\curryclassstop\n"
     where cxString = showTexContext docopts cmod cx
+          (sigs, other) = partition isCommentedTypeSig ds
   _ -> ""
 
 --- generate Tex documentation for a module:
