@@ -78,7 +78,7 @@ main = do
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--noanalysis","--html", "CurryDoc.Data.SpanInfo"]
+  processArgs defaultCurryDocOptions ["--noanalysis","--tex", "CurryDoc.Data.SpanInfo"]
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
@@ -98,7 +98,7 @@ processArgs opts args = do
                                                     [(src,tail url)] } margs
     ("--html"      : margs) -> processArgs opts { docType = HtmlDoc } margs
     ("--tex"       : margs) ->
-      processArgs opts { docType = TexDoc, withIndex = False } margs
+      processArgs opts { docType = TexDoc, withIndex = False, withAnalysis = False } margs
     ("--cdoc"      : margs) ->
       processArgs opts { docType = CDoc,   withIndex = False } margs
     -- HTML without index

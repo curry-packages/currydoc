@@ -5,7 +5,7 @@
 --- @version October 2017
 ----------------------------------------------------------------------
 
-module CurryDoc.Generators.TeX (generateTexDocsOld, generateTexDocs) where
+module CurryDoc.Generators.TeX (generateTexDocs) where
 
 import Char
 import Distribution
@@ -13,10 +13,9 @@ import List
 import Maybe
 
 import CurryDoc.Options
-import CurryDoc.Read
-import FlatCurry.Types
-import FlatCurry.Files
-import FlatCurry.Show (isClassContext)
+import CurryDoc.Info
+import AbstractCurry.Types
+import AbstractCurry.Select
 import HTML.Base
 import HTML.LaTeX  ( showLatexExps )
 import HTML.Parser
@@ -26,26 +25,19 @@ import Markdown
 -- Generates the documentation of a module in HTML format where the comments
 -- are already analyzed.
 generateTexDocs :: DocOptions -> CurryDoc -> IO String
-generateTexDocs _ _ = putStrLn e >> return e
-  where e = "TeX is currently not supported!"
-
-
-generateTexDocsOld :: DocOptions -> AnaInfo -> String -> String
-                -> [(SourceLine,String)] -> IO String
-generateTexDocsOld docopts anainfo modname modcmts progcmts = do
-  fcyname <- getFlatCurryFileInLoadPath modname
-  putStrLn $ "Reading FlatCurry program \""++fcyname++"\"..."
-  (Prog _ _ types functions _) <- readFlatCurryFile fcyname
-  let textypes = concatMap (genTexType docopts progcmts) types
-      texfuncs = concatMap (genTexFunc docopts progcmts anainfo) functions
-      modcmt   = fst (splitComment modcmts)
-  return $
-     "\\currymodule{"++modname++"}\n" ++
-     htmlString2Tex docopts modcmt ++ "\n" ++
-     (if null textypes then ""
-      else "\\currytypesstart\n" ++ textypes ++ "\\currytypesstop\n") ++
-     (if null texfuncs then ""
-      else "\\curryfuncstart\n" ++ texfuncs ++ "\\curryfuncstop\n")
+generateTexDocs docopts (CurryDoc mname mhead insts typesigs decls _ _) =
+  let textypes   = concatMap (genHtmlTexType  docopts) decls
+      texfuncs   = concatMap (genHtmlTexFunc  docopts) decls
+      texclasses = concatMap (genHtmlTexClass docopts) decls
+  in return $
+    "\\currymodule{"++mname++"}\n" ++
+    genHtmlTexModule docopts mhead ++ "\n" ++
+    (if null textypes   then ""
+     else "\\currytypesstart\n"   ++ textypes   ++ "\\currytypesstop\n") ++
+    (if null texfuncs   then ""
+     else "\\curryfuncstart\n"    ++ texfuncs   ++ "\\curryfuncstop\n") ++
+    (if null texclasses then ""
+     else "\\curryclassesstart\n" ++ texclasses ++ "\\curryclassesstop\n")
 
 --- Translate a documentation comment to LaTeX and use markdown translation
 --- if necessary. If the string contains HTML tags, these are also
@@ -75,72 +67,153 @@ replaceIdLinks str = case str of
               then '\'' : s ++ ['\'']
               else "<code>"++s++"</code>"
 
--- generate short HTML documentation for a function if it is exported:
-genTexFunc :: DocOptions -> [(SourceLine,String)] -> _ -> FuncDecl -> String
-genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
-  if fvis==Public
-  then "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
+-- generate TeX documentation for a function
+genHtmlTexFunc :: DocOptions -> CommentedDecl -> String
+genHtmlTexFunc docopts d = case d of
+  CommentedFunctionDecl (fmod, fname) cs (Just ty) _
+    -> "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
-         showTexType False ftype ++ "}}\n" ++
+         showQualTexType docopts fmod ty ++ "}}\n" ++
          htmlString2Tex docopts
-               (fst (splitComment (getFuncComment fname progcmts))) ++
+           (concatCommentStrings (map commentString cs)) ++
        "\\curryfunctionstop\n"
-  else ""
+  _ -> ""
 
---- generate TeX documentation for a datatype if it is exported:
-genTexType :: DocOptions -> [(SourceLine,String)] -> TypeDecl -> String
-genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
-  if tvis==Public
-  then
-   let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
-    in "\\currydatastart{" ++ tcons ++ "}\n" ++
-       htmlString2Tex docopts datacmt ++
-       "\n\\currydatacons\n" ++
-       concatMap (genHtmlCons (getCommentType "cons" conscmts)) constrs ++
-       "\\currydatastop\n"
-  else ""
- where
-  genHtmlCons conscmts (Cons (_,cname) _ cvis argtypes) =
-    if cvis==Public
-    then "\\curryconsstart{" ++ cname ++ "}{" ++
-         concatMap (\t->showTexType True t++" $\\to$ ") argtypes ++
-                   tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ "}\n" ++
-         (maybe ""
-                (\ (call,cmt) -> "{\\tt " ++ call ++ "}" ++
-                                 htmlString2Tex docopts cmt)
-                (getConsComment conscmts cname))
-         ++ "\n"
-    else ""
+--- generate TeX documentation for a datatype
+genHtmlTexType :: DocOptions -> CommentedDecl -> String
+genHtmlTexType docopts d = case d of
+  CommentedDataDecl (_,tcons) vs cs constrs ->
+    "\\currydatastart{" ++ tcons ++ "}\n" ++
+    htmlString2Tex docopts
+      (concatCommentStrings (map commentString cs)) ++
+    "\n\\currydatacons\n" ++
+    concatMap (genHtmlTexCons docopts tcons vs) constrs ++
+    "\\currydatastop\n"
+  CommentedNewtypeDecl (_,tcons) vs cs cons ->
+    "\\currynewtypestart{" ++ tcons ++ "}\n" ++
+    htmlString2Tex docopts
+      (concatCommentStrings (map commentString cs)) ++
+    "\n\\currydatacons\n" ++
+    genHtmlTexNewCons docopts tcons vs cons ++
+    "\\currynewtypestop\n"
+  CommentedTypeDecl (tcmod,tcons) vs ty cs ->
+    "\\currytypesynstart{" ++ tcons ++ "}{" ++
+    (if tcons=="String" && tcmod=="Prelude"
+     then "String = [Char]"
+     else tcons ++ " " ++ unwords (map snd vs) ++ "="
+           ++ showTexType docopts tcmod False ty) ++ "}\n" ++
+    htmlString2Tex docopts
+       (concatCommentStrings (map commentString cs)) ++
+    "\\currytypesynstop\n\n"
+  _ -> ""
 
-genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
-  if tvis==Public
-  then let (typecmt,_) = splitComment (getDataComment tcons progcmts) in
-       "\\currytypesynstart{" ++ tcons ++ "}{" ++
-       (if tcons=="String" && tcmod=="Prelude"
-        then "String = [Char]"
-        else tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ " = " ++
-                      showTexType False texp ) ++ "}\n" ++
-       htmlString2Tex docopts typecmt ++ "\\currytypesynstop\n\n"
-  else ""
+--- generate HTML documentation for a constructor if it is exported:
+genHtmlTexCons :: DocOptions -> String -> [CTVarIName] -> CommentedConstr -> String
+genHtmlTexCons docopts vs ds (CommentedConsOp (cmod, cname) cs ty1 ty2 ai) =
+  genHtmlTexCons docopts vs ds (CommentedConstr (cmod, "(" ++ cname ++ ")")
+                            cs [ty1, ty2] ai) -- TODO: maybe different?
+genHtmlTexCons docopts tcons vs (CommentedConstr (cmod, cname) cs tys _) =
+ "\\curryconsstart{" ++ cname ++ "}{" ++
+      concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
+      tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
+      htmlString2Tex docopts (unwords (map commentString cs))
+genHtmlTexCons docopts tcons vs (CommentedRecord (cmod,cname) cs tys fs _) =
+ "\\curryconsstart{" ++ cname ++ "}{" ++
+      concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
+      tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
+      htmlString2Tex docopts (unwords (map commentString cs)) ++
+      intercalate "\n" (map (genHtmlTexField docopts) fs)
+
+-- generate HTML documentation for record fields
+genHtmlTexField :: DocOptions -> CommentedField -> String
+genHtmlTexField _       ([]            , _ , _ ) = []
+genHtmlTexField _       ((_ : _ : _)   , _ , _ ) = []
+genHtmlTexField docopts ([(fmod,fname)], cs, ty) =
+  "\\curryfieldstart{" ++ fname ++ "}{" ++
+    fname ++ " :: " ++ showTexType docopts fmod False ty ++ "}" ++
+    if null txt then [] else
+      " : " ++ htmlString2Tex docopts txt
+  where txt = unwords (map commentString cs)
+
+genHtmlTexNewCons :: DocOptions -> String -> [CTVarIName]
+                  -> Maybe CommentedNewtypeConstr -> String
+genHtmlTexNewCons _       _  _  Nothing = []
+genHtmlTexNewCons docopts dn vs (Just (CommentedNewConstr cn cs ty ai)) =
+  genHtmlTexCons docopts dn vs (CommentedConstr cn cs [ty] ai)
+genHtmlTexNewCons docopts dn vs (Just (CommentedNewRecord cn cs ty f ai)) =
+  genHtmlTexCons docopts dn vs (CommentedRecord cn cs [ty] fs ai)
+  where fs = case f of
+               Just f' -> [f']
+               Nothing -> []
+
+-- generate HTML documentation for a function:
+genHtmlTexClass :: DocOptions -> CommentedDecl -> String
+genHtmlTexClass docopts d = case d of
+  CommentedClassDecl (cmod, cname) cx v cs ds
+    -> "\\curryclassstart{" ++ cname ++ " " ++
+       (if null cxString then "" else cxString ++ " ") ++
+       snd v ++ "}{" ++
+       htmlString2Tex docopts
+         (concatCommentStrings (map commentString cs)) ++ "\n" ++
+       concatMap (genHtmlTexFunc docopts) ds ++
+       "\\curryclassstop\n"
+    where cxString = showTexContext docopts cmod cx
+  _ -> ""
+
+--- generate Tex documentation for a module:
+genHtmlTexModule :: DocOptions -> ModuleHeader -> String
+genHtmlTexModule docopts (ModuleHeader fields maincmt) =
+  htmlString2Tex docopts maincmt ++
+  concatMap fieldHtml fields
+  where fieldHtml (typ, value) =
+          "\\textbf{" ++ show typ ++ ": } " ++ value ++ "\n\n"
+
+-- Pretty printer for qualified types in Curry syntax:
+showQualTexType :: DocOptions -> String -> CQualTypeExpr -> String
+showQualTexType opts mod (CQualType ctxt texp) =
+  unwords [showTexContext opts mod ctxt, showTexType opts mod False texp]
+
+showTexContext :: DocOptions -> String -> CContext -> String
+showTexContext _ _ (CContext []) = ""
+showTexContext opts mod (CContext [clscon]) =
+  showTexConstraint opts mod clscon ++ " =>"
+showTexContext opts mod (CContext ctxt@(_:_:_)) =
+  bracketsIf True (intercalate ", " (map (showTexConstraint opts mod) ctxt))
+    ++ " =>"
+
+--- Pretty-print a single class constraint.
+showTexConstraint :: DocOptions -> String -> CConstraint -> String
+showTexConstraint opts mod (cn,texp) =
+  snd cn ++ " " ++ showTexType opts mod True texp
 
 -- Pretty printer for types in Curry syntax as TeX string.
 -- first argument is True iff brackets must be written around complex types
-showTexType :: Bool -> TypeExpr -> String
-showTexType _ (TVar i) = [chr (97+i)]
-showTexType nested (FuncType t1 t2) =
-   bracketsIf nested
-    (showTexType (isFunctionType t1) t1 ++ " $\\to$ " ++ showTexType False t2)
-showTexType nested (TCons tc ts)
+showTexType :: DocOptions -> String -> Bool -> CTypeExpr -> String
+showTexType opts mod nested texp = case texp of
+  CTVar (_,n) -> n -- TODO: use name given in source program instead?
+  CFuncType t1 t2 ->
+    bracketsIf nested (showTexType opts mod (isFunctionalType t1) t1++" $\\to$ "++
+                     showTexType opts mod False t2)
+  CTCons tc -> showTexTConsType opts mod nested tc []
+  CTApply t1 t2 ->
+       maybe (bracketsIf nested $
+                showTexType opts mod True t1 ++ " " ++ showTexType opts mod True t2)
+             (\ (tc,ts) -> showTexTConsType opts mod nested tc ts)
+             (tconsArgsOfType texp)
+
+showTexTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
+showTexTConsType opts mod nested tc ts
  | ts==[]  = snd tc
- | tc==("Prelude","[]") && (head ts == TCons ("Prelude","Char") [])
+ | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
    = "String"
  | tc==("Prelude","[]")
-   = "[" ++ showTexType False (head ts) ++ "]" -- list type
- | take 2 (snd tc) == "(,"                     -- tuple type
-   = "(" ++ concat (intersperse "," (map (showTexType False) ts)) ++ ")"
+   = "[" ++ showTexType opts mod False (head ts) ++ "]" -- list type
+ | take 2 (snd tc) == "(,"                      -- tuple type
+   = "(" ++ concat (intersperse "," (map (showTexType opts mod False) ts)) ++ ")"
  | otherwise
    = bracketsIf nested
-      (snd tc ++ " " ++ concat (intersperse " " (map (showTexType True) ts)))
+      (snd tc ++ " " ++
+       concat (intersperse " " (map (showTexType opts mod True) ts)))
 
 -- convert string into TeX:
 string2tex :: String -> String

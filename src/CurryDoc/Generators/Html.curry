@@ -199,8 +199,9 @@ genHtmlType docopts inst d = case d of
 --- generate HTML documentation for a constructor if it is exported:
 genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CommentedConstr
             -> [HtmlExp]
-genHtmlCons docopts dn vs (CommentedConsOp cn cs ty1 ty2 ai) =
-  genHtmlCons docopts dn vs (CommentedConstr cn cs [ty1, ty2] ai) -- TODO: maybe different?
+genHtmlCons docopts ds vs (CommentedConsOp (cmod, cname) cs ty1 ty2 ai) =
+  genHtmlCons docopts ds vs (CommentedConstr (cmod, "(" ++ cname ++ ")")
+                              cs [ty1, ty2] ai) -- TODO: maybe different?
 genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
   anchored (cname ++ "_CONS")
     [code [opnameDoc [htxt cname],
