@@ -266,7 +266,7 @@ genHtmlInst docopts dn d = case d of
                  [htxt cname]]] ++
     [code [HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)]]
-    where cxString = showContext docopts cmod cx
+    where cxString = showContext docopts cmod True cx
   _ -> []
 
 -- generate HTML documentation for a function:
@@ -282,7 +282,7 @@ genHtmlClass docopts d = case d of
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
     ++ [borderedTable (map ((:[]) . genHtmlFunc docopts typsigs) methods)]
-    where cxString = showContext docopts cmod cx
+    where cxString = showContext docopts cmod True cx
           (typsigs, methods) = partition isCommentedTypeSig ds
   _ -> []
 
@@ -305,22 +305,21 @@ genHtmlFunc docopts types d = case d of
 genSigComment :: DocOptions -> Maybe CommentedDecl -> [HtmlExp]
 genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
-  CommentedTypeSig [(fmod, _)] cs cx ps ->
-    [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))
-    , par [code [HtmlText (showContext docopts fmod cx)]]
-    ] ++ [table (genParamComments docopts fmod ps)]
+  CommentedTypeSig [(fmod, _)] cs    (CContext []   ) ps ->
+    [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
+    ++ [table (genParamComments docopts fmod "::" ps)]
+  CommentedTypeSig [(fmod, _)] cs cx@(CContext (_:_)) ps ->
+    [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
+    ++ [table ([[code [HtmlText (":: " ++ showContext docopts fmod False cx)]]]
+                : genParamComments docopts fmod "=>" ps)]
   _ -> []
 
-genParamComments :: DocOptions -> String -> [(CTypeExpr, [Comment])] -> [[[HtmlExp]]]
-genParamComments _       _    []         =
-  error "Html.genParamComment: empty list"
-genParamComments docopts fmod [(ty, cs)] =
-  [[[code [HtmlText (showType docopts fmod False ty)]],
-     [par $ docComment2HTML docopts (unwords (map commentString cs))]]]
-genParamComments docopts fmod ((ty, cs) : xs@(_:_)) =
-  [[code [HtmlText (showType docopts fmod False ty ++ " ->")]],
-   [par $ docComment2HTML docopts (unwords (map commentString cs))]]
-    : genParamComments docopts fmod xs
+genParamComments :: DocOptions -> String -> String -> [(CTypeExpr, [Comment])] -> [[[HtmlExp]]]
+genParamComments _       _    _   []              = []
+genParamComments docopts fmod sym ((ty, cs) : xs) =
+  [[code [HtmlText (sym ++ " " ++ showType docopts fmod False ty)]],
+   removeTopPar (docComment2HTML docopts (unwords (map commentString cs)))]
+    : genParamComments docopts fmod "->" xs
 
 genFurtherInfos :: QName -> AnalysisInfo -> [HtmlExp]
 genFurtherInfos _  NoAnalysisInfo            = []
@@ -421,14 +420,15 @@ genFuncPropIcons ai@AnalysisInfo   {} =
 -- Pretty printer for qualified types in Curry syntax:
 showQualType :: DocOptions -> String -> CQualTypeExpr -> String
 showQualType opts mod (CQualType ctxt texp) =
-  unwords [showContext opts mod ctxt, showType opts mod False texp]
+  unwords [showContext opts mod True ctxt, showType opts mod False texp]
 
-showContext :: DocOptions -> String -> CContext -> String
-showContext _ _ (CContext []) = ""
-showContext opts mod (CContext [clscon]) =
-  showConstraint opts mod clscon ++ " =>"
-showContext opts mod (CContext ctxt@(_:_:_)) =
-  bracketsIf True (intercalate ", " (map (showConstraint opts mod) ctxt)) ++ " =>"
+showContext :: DocOptions -> String -> Bool -> CContext -> String
+showContext _ _ _ (CContext []) = ""
+showContext opts mod arr (CContext [clscon]) =
+  showConstraint opts mod clscon ++ if arr then " =>" else ""
+showContext opts mod arr (CContext ctxt@(_:_:_)) =
+  bracketsIf True (intercalate ", " (map (showConstraint opts mod) ctxt)) ++
+  if arr then " =>" else ""
 
 --- Pretty-print a single class constraint.
 showConstraint :: DocOptions -> String -> CConstraint -> String

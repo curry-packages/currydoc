@@ -56,7 +56,7 @@ data CommentedConstr
   | CommentedConsOp QName [Comment] CTypeExpr CTypeExpr AnalysisInfo
   deriving Show
 
-type CommentedField = ([QName], [Comment], CTypeExpr) -- TODO: can have fixity
+type CommentedField = ([QName], [Comment], CTypeExpr)
 
 data CommentedNewtypeConstr
   = CommentedNewConstr QName [Comment] CTypeExpr AnalysisInfo
