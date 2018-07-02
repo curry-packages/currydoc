@@ -470,8 +470,8 @@ showTypeCons opts mod (mtc,tc) =
   then tc --"<a href=\"Prelude.html#"++tc++"\">"++tc++"</a>"
   else
     if mod == mtc
-    then "<a href=\"#"++tc++"\">"++tc++"</a>"
-    else "<a href=\""++docURL opts mtc++".html#"++tc++"\">"++tc++"</a>"
+    then "<a href=\"#"++tc++"_TYPE"++"\">"++tc++"</a>"
+    else "<a href=\""++docURL opts mtc++".html#"++tc++"_TYPE"++"\">"++tc++"</a>"
 
 showFixity :: CFixity -> String
 showFixity CInfixOp  = "non-associative"
