@@ -126,6 +126,7 @@ genHtmlTexType docopts insts d = case d of
 genHtmlTexInst :: DocOptions -> String -> CommentedDecl -> String
 genHtmlTexInst docopts modname d = case d of
   CommentedInstanceDecl (cmod, cname) cx ty _ _ ->
+    "\n" ++
     (if null cxString then "" else cxString ++ " ") ++
     "\\textbf{" ++ cname ++ "} " ++
     showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++ "\n\n"
@@ -210,7 +211,7 @@ showTexContext opts mod (CContext ctxt@(_:_:_)) =
 --- Pretty-print a single class constraint.
 showTexConstraint :: DocOptions -> String -> CConstraint -> String
 showTexConstraint opts mod (cn,texp) =
-  snd cn ++ " " ++ showTexType opts mod True texp
+  "\\textbf{" ++ snd cn ++ "} " ++ showTexType opts mod True texp
 
 -- Pretty printer for types in Curry syntax as TeX string.
 -- first argument is True iff brackets must be written around complex types
