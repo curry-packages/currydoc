@@ -54,7 +54,7 @@ generateHtmlDocs opts (CurryDoc mname mhead insts typesigs decls ex im) = do
       , ulist (map (\i -> [href (docURL opts i ++ ".html") [htxt i]]) im)
         `addClass` "nav nav-sidebar"
       ]
-    content =
+    content = -- TODO order by export list
       genHtmlModule opts mhead ++
       (if null exptypes then [] else
         [anchoredSection "exported_datatypes"
@@ -190,7 +190,7 @@ genHtmlType docopts inst d = case d of
        , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++ " = " ++
             case (tmod,tcons) of
               ("Prelude", "String")
-                -> "[" ++ showTypeCons docopts tmod (tmod,tcons) ++ "]"
+                -> "[" ++ showTypeCons docopts tmod (tmod,"Char") ++ "]"
               _ -> showType docopts tmod False ty)]]
        , hrule
        ]
@@ -258,6 +258,7 @@ genHtmlNewCons docopts dn vs (Just (CommentedNewRecord cn cs ty f ai)) =
                Just f' -> [f']
                Nothing -> []
 
+-- TODO: Add href to code
 genHtmlInst :: DocOptions -> String -> CommentedDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
   CommentedInstanceDecl (cmod, cname) cx ty _ _ ->
@@ -299,7 +300,7 @@ genHtmlFunc docopts types d = case d of
         genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
         docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
         genFurtherInfos (fmod, fname) ai
-    where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
+    where showCodeHRef fn = href (fmod++"_curry.html#"++fn++"_FUNC") [htxt (showId fn)]
   _ -> []
 
 genSigComment :: DocOptions -> Maybe CommentedDecl -> [HtmlExp]
@@ -307,10 +308,14 @@ genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
   CommentedTypeSig [(fmod, _)] cs    (CContext []   ) ps ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
-    ++ [table (genParamComments docopts fmod "::" ps)]
+    ++ if all (null . snd) ps
+         then []
+         else [table (genParamComments docopts fmod "::" ps)]
   CommentedTypeSig [(fmod, _)] cs cx@(CContext (_:_)) ps ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
-    ++ [table ([[code [HtmlText (":: " ++ showContext docopts fmod False cx)]]]
+    ++ if all (null . snd) ps
+         then []
+         else [table ([[code [HtmlText (":: " ++ showContext docopts fmod False cx)]]]
                 : genParamComments docopts fmod "=>" ps)]
   _ -> []
 
@@ -497,6 +502,7 @@ translateSource2AnchoredHtml docdir modname =
                   [HtmlStruct "pre" []
                      [HtmlText (addFuncAnchors [] (lines prog))]])
 
+-- TODO: fix anchors for instance declarations
 -- add the anchors to the classified lines and translate back:
 -- first argument: list of already added anchors
 -- second argument: list of source lines
@@ -576,7 +582,7 @@ genFunctionIndexPage opts docdir funs = do
              (htmlIndex opts (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
-   expfuns = map funcName $ filter ((== Public) . funcVis) funs
+   expfuns = nub $ map funcName $ filter ((== Public) . funcVis) funs
 
 htmlIndex :: DocOptions -> [QName] -> [HtmlExp]
 htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
@@ -604,7 +610,7 @@ genConsIndexPage opts docdir types = do
    consDecls (CType    _ _ _ cs _) = cs
    consDecls (CNewType _ _ _ c  _) = [c]
    consDecls (CTypeSyn _ _ _ _   ) = []
-   expcons = map consName $ filter ((== Public) . consVis) $
+   expcons = nub $ map consName $ filter ((== Public) . consVis) $
      concatMap consDecls types
 
 --------------------------------------------------------------------------
@@ -616,8 +622,8 @@ genClassesIndexPage opts docdir cls = do
              (htmlIndex opts (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
-   expclasses = map    (\(CClass n _   _ _ _) -> n) $
-                filter (\(CClass _ vis _ _ _) -> vis == Public) cls
+   expclasses = nub $ map    (\(CClass n _   _ _ _) -> n) $
+                      filter (\(CClass _ vis _ _ _) -> vis == Public) cls
 
 --------------------------------------------------------------------------
 -- generate the index page categorizing all system libraries of PAKCS/KICS2

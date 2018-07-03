@@ -38,6 +38,7 @@ data CDocComment = Pre  { comment :: Comment }
                  | None { comment :: Comment }
   deriving Show
 
+-- TODO: commented externall data decls
 data CommentedDecl
   = CommentedTypeDecl QName [CTVarIName] CTypeExpr [Comment]
   | CommentedDataDecl QName [CTVarIName] [Comment] [CommentedConstr]
