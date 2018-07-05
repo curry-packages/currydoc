@@ -18,10 +18,43 @@ section {
   padding-top: 30px;
 }
 
-.nav-sidebar > li > a {
-  padding-top: 5px;
-  padding-bottom: 5px;
-  line-height: 15px;
+/* The sidebar menu */
+.nav-sidebar {
+    width: 300px;
+    position: fixed;
+    z-index: 1;
+    top: 100px;
+    left: 10px;
+    background-color: #eee;
+    overflow-x: hidden;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    line-height: 15px;
+}
+
+.nav-sidebar > div > a:hover {
+    color: #064579;
+}
+
+/* The navigation menu links */
+.nav-sidebar > div > a {
+    padding: 6px 8px 6px 16px;
+    text-decoration: none;
+    font-size: 18px;
+    color: #2196F3;
+    display: block;
+}
+
+/* When you mouse over the navigation links, change their color */
+.nav-sidebar > div > a:hover {
+    color: #064579;
+}
+
+/* On smaller screens, where height is less than 450px,
+   change the style of the sidebar (less padding and a smaller font size) */
+@media screen and (max-height: 450px) {
+    .nav-sidebar {padding-top: 15px;}
+    .nav-sidebar > div > a {font-size: 12px;}
 }
 
 .anchored {
@@ -44,11 +77,6 @@ section {
   font-weight: bold;
 }
 
-/* class name in the documentation of a typeclass */
-.classname {
-  font-weight: bold;
-}
-
 /* style for constructor comments" */
 .conscomment {
   padding: 5px 0px 0px 20px;
@@ -58,6 +86,23 @@ section {
 .explaincat {
   font-style: italic;
 }
+
+.indent1 {
+  text-indent:  10px;
+}
+
+.indent2 {
+  text-indent:  15px;
+}
+
+.indent3 {
+  text-indent: 20px;
+}
+
+.indent4 {
+  text-indent: 25px;
+}
+
 
 code { color:black }
 

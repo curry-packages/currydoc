@@ -252,3 +252,9 @@ instance HasSpanInfo TypeExpr where
   getSpanInfo (TupleType spi _) = spi
   getSpanInfo (ListType spi _) = spi
   getSpanInfo (ParenType spi _) = spi
+
+instance HasSpanInfo Export where
+  getSpanInfo (ExportTypeAll spi _) = spi
+  getSpanInfo (ExportTypeWith spi _ _) = spi
+  getSpanInfo (ExportModule spi _) = spi
+  getSpanInfo (Export spi _) = spi

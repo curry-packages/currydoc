@@ -69,7 +69,7 @@ main = do
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--onlyindexhtml", "CurryDoc.Data.SpanInfo"]
+  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Data.SpanInfo"]
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
@@ -243,8 +243,9 @@ makeSystemLibsIndex docopts docdir modnames = do
   sortByCategory           = sortBy  ((<=) `on` category)
   groupByCategory          = groupBy ((==) `on` category)
   sortByName               = sortBy  ((<=) `on` fst)
-  genModHeader (cmt, prog) = readModuleHeader $ snd $ associateCurryDoc cmt prog
+  genModHeader (cmt, prog) = readModuleHeader $ snd3 $ associateCurryDoc cmt prog
   category (_, ModuleHeader xs _) = getCategoryWithDefault "general" xs
+  snd3 (_, b, _) = b
 
 -- create documentation directory (if necessary) with gifs and stylesheets:
 prepareDocDir :: DocType -> String -> IO ()

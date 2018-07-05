@@ -1,10 +1,12 @@
 module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
    isCommentedTypeSig, isCommentedInstanceDecl,
+   isCommentedClassDecl, isCommentedFuncDecl,
+   isExportSection,
    splitNestedComment, commentString,
    commentedDeclName, instTypeName,
    Comment(..),
-   CommentedDecl(..),
+   CommentedDecl(..), ExportEntry(..),
    CommentedConstr(..), CommentedNewtypeConstr(..),
    CommentedField) where
 
@@ -36,7 +38,7 @@ data Comment = NestedComment String
 data CDocComment = Pre     { comment :: Comment }
                  | Post    { comment :: Comment }
                  | None    { comment :: Comment }
-                 | Section { comment :: comments, nest :: Int }
+                 | Section { comment :: Comment, nest :: Int }
   deriving Show
 
 -- TODO: Simplyfy data structures for this part of the process
@@ -65,6 +67,11 @@ type CommentedField = ([QName], [Comment], CTypeExpr)  --TODO: can have fixity
 data CommentedNewtypeConstr
   = CommentedNewConstr QName [Comment] CTypeExpr AnalysisInfo
   | CommentedNewRecord QName [Comment] CTypeExpr (Maybe CommentedField) AnalysisInfo
+  deriving Show
+
+data ExportEntry a = ExportEntry a
+                   | ExportEntryModule MName
+                   | ExportSection Comment Int [ExportEntry a]
   deriving Show
 
 -- Reads the comments from a specified module
@@ -107,15 +114,46 @@ readCommentsFileRaw filename = do
 
 -- Associates given comments with declarations from given module
 -- based on the source code positions
-associateCurryDoc :: [(Span, Comment)] -> Module a -> ([CommentedDecl], [Comment])
-associateCurryDoc []       _                       = ([], [])
-associateCurryDoc xs@(_:_) (Module spi _ _ _ _ ds) =
-  let (result, rest) = associateCurryDocHeader spi sp xs'
-  in  (cleanup $ merge $ associateCurryDocDecls rest ds Nothing, result)
+associateCurryDoc :: [(Span, Comment)] -> Module a
+                  -> ([CommentedDecl], [Comment], Maybe [ExportEntry QName])
+associateCurryDoc []       _                        = ([], [], Nothing)
+associateCurryDoc xs@(_:_) (Module spi _ _ ex _ ds) =
+  let (header, rest) = associateCurryDocHeader spi sp xs'
+      exportList     = maybe Nothing (Just . associateExports xs') ex
+      matchings      = cleanup $ merge $ associateCurryDocDecls rest ds Nothing
+  in  (matchings, header, exportList)
   where xs' = map (\(sp',c) -> (sp', classifyComment c)) xs
         sp = case ds of
           (d:_) -> getSrcSpan d
           _     -> NoSpan
+
+associateExports :: [(Span, CDocComment)] -> ExportSpec -> [ExportEntry QName]
+associateExports cs e = case e of
+  Exporting (SpanInfo _ (sp:_)) ex
+    -> associateExportList (skipUntilAfter sp cs) ex
+  _ -> error $ "CurryDoc.Info.Comments.associateExports: " ++
+               "Invalid SpanInfo in ExportList"
+
+associateExportList :: [(Span, CDocComment)] -> [Export] -> [ExportEntry QName]
+associateExportList _  []       = []
+associateExportList cs (e : es) =
+  if getSrcSpan e `isBeforeList` (map fst cs)
+    then genExportEntry e : associateExportList cs es
+    else let ((_,c):cs') = cs
+             es' = associateExportList cs' es
+         in case c of
+              Section com n -> genExportSection n com es'
+              _             -> es'
+  where genExportEntry (Export _ q)           = ExportEntry       (qIdentToQName q)
+        genExportEntry (ExportTypeAll _ q)    = ExportEntry       (qIdentToQName q)
+        genExportEntry (ExportTypeWith _ q _) = ExportEntry       (qIdentToQName q)
+        genExportEntry (ExportModule _ m)     = ExportEntryModule (mIdentToMName m)
+
+genExportSection :: Int -> Comment -> [ExportEntry QName] -> [ExportEntry QName]
+genExportSection n c es =
+  let (this, next) = span (\e -> not (isExportSection e) ||
+                                     (exportSectionNesting e >= n)) es
+  in ExportSection c n this : next
 
 associateCurryDocHeader :: SpanInfo                           -- ^ module SpanInfo
                         -> Span                               -- ^ first decl span
@@ -198,13 +236,15 @@ getToMatch stop last ((sp, c) : cs) p =
 matchLast :: [(Span, CDocComment)]
           -> Maybe (Decl a)
           -> [CommentedDecl]
-matchLast []                  (Just _) = []
-matchLast _                   Nothing  = []
-matchLast ((sp, Post c) : cs) (Just d) =
+matchLast []                       (Just _) = []
+matchLast _                        Nothing  = []
+matchLast ((sp, Post    c  ) : cs) (Just d) =
   let (match, next) = getToMatch (getSrcSpan d) sp cs isPost
   in  associateCurryDocDeclPost ((sp, Post c) : match) d
         : matchLast next (Just d)
-matchLast ((_ , _     ) : cs) (Just d) = matchLast cs (Just d)
+matchLast ((_ , None    _  ) : cs) (Just d) = matchLast cs (Just d)
+matchLast ((_ , Pre     _  ) : cs) (Just d) = matchLast cs (Just d)
+matchLast ((_ , Section _ _) : cs) (Just d) = matchLast cs (Just d)
 
 associateCurryDocDeclPre :: [(Span, CDocComment)]
                          -> Decl a
@@ -568,18 +608,32 @@ isSection Post    {} = False
 isSection None    {} = False
 isSection Section {} = True
 
+isExportSection :: ExportEntry a -> Bool
+isExportSection e = case e of
+  ExportSection _ _ _-> True
+  _                  -> False
+
+exportSectionNesting :: ExportEntry a -> Int
+exportSectionNesting e = case e of
+  ExportSection _ i _ -> i
+  _ -> error "CurryDoc.Info.Comments.exportSectionNesting: Not an ExportSection"
+
 classifyComment :: Comment -> CDocComment
 classifyComment (NestedComment s)
-  | "{- |" `isPrefixOf` s = Pre  $ NestedComment $ dropLast2 $ drop 4 s
-  | "{- ^" `isPrefixOf` s = Post $ NestedComment $ dropLast2 $ drop 4 s
-  | otherwise             = None $ NestedComment $ dropLast2 $ drop 2 s
-  where dropLast2 = init . init
+  | "{- |" `isPrefixOf` s = Pre     $ NestedComment $ dropLast2 $ drop 4     s
+  | "{- ^" `isPrefixOf` s = Post    $ NestedComment $ dropLast2 $ drop 4     s
+  | "{- *" `isPrefixOf` s = Section ( NestedComment $ dropLast2 $ drop (3+n) s) n
+  | otherwise             = None    $ NestedComment $ dropLast2 $ drop 2     s
+  where n = length $ takeWhile (=='*') $ drop 3 s
+        dropLast2 = init . init
 classifyComment (LineComment   s)
-  | "---"      ==       s = Pre  $ LineComment               $ drop 3 s
-  | "--- " `isPrefixOf` s = Pre  $ LineComment               $ drop 4 s
-  | "-- |" `isPrefixOf` s = Pre  $ LineComment               $ drop 4 s
-  | "-- ^" `isPrefixOf` s = Post $ LineComment               $ drop 4 s
-  | otherwise             = None $ LineComment               $ drop 2 s
+  | "---"      ==       s = Pre     $ LineComment               $ drop 3     s
+  | "--- " `isPrefixOf` s = Pre     $ LineComment               $ drop 4     s
+  | "-- |" `isPrefixOf` s = Pre     $ LineComment               $ drop 4     s
+  | "-- ^" `isPrefixOf` s = Post    $ LineComment               $ drop 4     s
+  | "-- *" `isPrefixOf` s = Section ( LineComment               $ drop (3+n) s) n
+  | otherwise             = None    $ LineComment               $ drop 2     s
+  where n = length $ takeWhile (=='*') $ drop 3 s
 
 commentString :: Comment -> String
 commentString (LineComment   s) = s
@@ -598,6 +652,16 @@ isCommentedTypeSig :: CommentedDecl -> Bool
 isCommentedTypeSig d = case d of
   CommentedTypeSig _ _ _ _ -> True
   _                        -> False
+
+isCommentedClassDecl :: CommentedDecl -> Bool
+isCommentedClassDecl d = case d of
+  CommentedClassDecl _ _ _ _ _ -> True
+  _                            -> False
+
+isCommentedFuncDecl :: CommentedDecl -> Bool
+isCommentedFuncDecl d = case d of
+  CommentedFunctionDecl _ _ _ _ -> True
+  _                             -> False
 
 instTypeName :: CommentedDecl -> QName
 instTypeName d = case d of

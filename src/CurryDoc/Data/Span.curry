@@ -1,4 +1,9 @@
-module CurryDoc.Data.Span where
+module CurryDoc.Data.Span (
+ -- * section A
+ Span(..), isSpan, isNoSpan,
+ -- ** section B
+ vertDist, isAfter, isBefore, isBeforeList
+) where
 
 import CurryDoc.Data.Position
 
@@ -36,3 +41,7 @@ isBefore NoSpan     NoSpan     = False
 isBefore (Span _ _) NoSpan     = False
 isBefore NoSpan     (Span _ _) = False
 isBefore (Span _ e) (Span s _) = e <= s
+
+isBeforeList :: Span -> [Span] -> Bool
+isBeforeList _   []      = True
+isBeforeList sp1 (sp2:_) = isBefore sp1 sp2

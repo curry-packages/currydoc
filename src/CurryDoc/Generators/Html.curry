@@ -44,51 +44,43 @@ infixl 0 `withTitle`
 --- Generates the documentation of a module in HTML format where the comments
 --- are already analyzed.
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
-generateHtmlDocs opts (CurryDoc mname mhead insts typesigs decls ex im) = do
+generateHtmlDocs opts (CurryDoc mname mhead insts typesigs ex _) = do
   let
-    (exptypes, expcons, expfields, expfuncs, expclasses) = ex
-    navigation =
-      [ bold [htxt "Exported names:"]
-      , genHtmlExportIndex exptypes expcons expfields expfuncs expclasses
-      , anchored "imported_modules" [bold [htxt "Imported modules:"]]
-      , ulist (map (\i -> [href (docURL opts i ++ ".html") [htxt i]]) im)
-        `addClass` "nav nav-sidebar"
-      ]
-    content = -- TODO: order by export list
+    navigation = [block (genHtmlExportSections ex) `addClass` "nav nav-sidebar"]
+    content =
       genHtmlModule opts mhead ++
-      (if null exptypes then [] else
-        [anchoredSection "exported_datatypes"
-          ((h2 [htxt "Exported datatypes:"]) : hrule :
-          concatMap (genHtmlType opts insts) decls)]) ++
-      (if null expfuncs then [] else
-        [anchoredSection "exported_operations"
-          ((h2 [htxt "Exported operations:"]) : hrule :
-          concatMap (mkFunctionBorder . genHtmlFunc opts typesigs) decls)]) ++
-      (if null expclasses then [] else
-        [anchoredSection "exported_classes"
-          ((h2 [htxt "Exported Typeclasses:"]) : hrule :
-          concatMap (genHtmlClass opts) decls)])
+      snd (genHtmlForExport 0 opts insts typesigs ex)
+  mainPage title [htmltitle] [] rightTopMenu navigation content
+   where
+    title = "Module " ++ mname
 
-    leftTopMenu = lefttopmenu (not $ null exptypes)
-                              (not $ null expfuncs)
-                              (not $ null expclasses)
-  mainPage title [htmltitle] leftTopMenu rightTopMenu navigation content
- where
-  title = "Module " ++ mname
+    htmltitle = h1 [ htxt "Module "
+                   , href (mname ++ "_curry.html") [htxt mname]
+                   ]
 
-  htmltitle = h1 [ htxt "Module "
-                 , href (mname ++ "_curry.html") [htxt mname]
-                 ]
-
-  mkFunctionBorder []        = []
-  mkFunctionBorder fun@(_:_) = [borderedTable [[fun]]]
-
-  lefttopmenu tb fb cb
-    = [[href "?" [htxt title]], [href "#imported_modules" [htxt "Imports"]]]
-   ++ if tb then [[href "#exported_datatypes"  [htxt "Datatypes"  ]]] else []
-   ++ if fb then [[href "#exported_operations" [htxt "Operations" ]]] else []
-   ++ if cb then [[href "#exported_classes"    [htxt "Typeclasses"]]] else []
-
+genHtmlForExport :: Int -> DocOptions -> [CommentedDecl] -> [CommentedDecl]
+                 -> [ExportEntry CommentedDecl] -> (Int, [HtmlExp])
+genHtmlForExport num _   _     _        []                                  =
+  (num, [])
+genHtmlForExport num doc insts typesigs (ExportSection c nesting ex : rest) =
+  let (num' , innerHtml) = genHtmlForExport (num  + 1) doc insts typesigs ex
+      (num'', outerHtml) = genHtmlForExport (num' + 1) doc insts typesigs rest
+  in (num'', anchoredSection ("g" ++ show num)
+               ((hnest nesting [htxt (commentString c)]) : hrule
+                 : innerHtml)
+              : outerHtml)
+  where hnest n = case n of
+                    1 -> h2
+                    2 -> h3
+                    3 -> h4
+                    _ -> h5
+genHtmlForExport num doc insts typesigs (ExportEntryModule _ : rest) =
+  genHtmlForExport num doc insts typesigs rest -- TODO: show export of modules
+genHtmlForExport num doc insts typesigs (ExportEntry decl : rest)
+  | isCommentedFuncDecl decl  = (num', genHtmlFunc  doc typesigs decl ++ restHtml)
+  | isCommentedClassDecl decl = (num', genHtmlClass doc          decl ++ restHtml)
+  | otherwise                 = (num', genHtmlType  doc insts    decl ++ restHtml)
+  where (num', restHtml) = genHtmlForExport num doc insts typesigs rest
 
 --- Translate a documentation comment to HTML and use markdown translation
 --- if necessary
@@ -126,32 +118,17 @@ replaceIdLinks opts str = case str of
                              else docURL opts md ++ ".html#" ++ tail dotfun) ++
              "\">"++s++"</a></code>"
 
-genHtmlExportIndex :: [QName] -> [QName] -> [QName] -> [QName] -> [QName]
-                  -> HtmlExp
-genHtmlExportIndex exptypes expcons expfields expfuns expcls =
-  HtmlStruct "ul" [("class","nav nav-sidebar")]
-    (concatMap (\ (htmlnames,cattitle) ->
-                 if null htmlnames
-                 then []
-                 else HtmlStruct "li" [("class","nav-header")] [htxt cattitle] :
-                      map (HtmlStruct "li" []) htmlnames)
-            [(htmltypes,"Datatypes:"),
-             (htmlcons ,"Constructors:"),
-             (htmlfields,"Fields:"),
-             (htmlfuns ,"Operations:"),
-             (htmlcls ,"Typeclasses:")])
- where
-  htmltypes  = map (\n->[href ('#':n++"_TYPE" ) [htxt n]])
-                   (nub (sortStrings $ unquals exptypes))
-  htmlcons   = map (\n->[href ('#':n++"_CONS" ) [htxt n]])
-                   (nub (sortStrings $ unquals expcons))
-  htmlfields = map (\n->[href ('#':n++"_FIELD") [htxt n]])
-                  (nub (sortStrings $ unquals expfields))
-  htmlfuns   = map (\n->[href ('#':n++"_FUNC" ) [htxt n]])
-                   (nub (sortStrings $ unquals expfuns))
-  htmlcls    = map (\n->[href ('#':n++"_CLASS"  ) [htxt n]])
-                   (nub (sortStrings $ unquals expcls))
-  unquals = map snd
+genHtmlExportSections :: [ExportEntry a] -> [HtmlExp]
+genHtmlExportSections = genHtmlExportSections' 0
+  where genHtmlExportSections' _   [] = []
+        genHtmlExportSections' num (ExportSection c nesting sub : rest) =
+          (block [href ("#g"++show num) [htxt (commentString c)]]
+            `addClass` ("indent" ++ show nesting)) :
+          genHtmlExportSections' (num + 1) (sub ++ rest)
+        genHtmlExportSections' num (ExportEntry _ : rest) =
+          genHtmlExportSections' num rest
+        genHtmlExportSections' num (ExportEntryModule _ : rest) =
+          genHtmlExportSections' num rest
 
 --- generate HTML documentation for a module:
 genHtmlModule :: DocOptions -> ModuleHeader -> [HtmlExp]

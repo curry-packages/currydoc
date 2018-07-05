@@ -14,9 +14,11 @@ identToQName (Ident _ s _) = ("", s)
 
 qIdentToQName :: QualIdent -> QName
 qIdentToQName (QualIdent _ Nothing   idt) = identToQName idt
-qIdentToQName (QualIdent _ (Just mi) idt) = (intercalate "." ms, n)
+qIdentToQName (QualIdent _ (Just mi) idt) = (mIdentToMName mi, n)
   where (_, n) = identToQName idt
-        ModuleIdent _ ms = mi
+
+mIdentToMName :: ModuleIdent -> MName
+mIdentToMName (ModuleIdent _ ms) = intercalate "." ms
 
 (=~=) :: QName -> QName -> Bool
 (   ""   , x) =~= (   ""   , y) = x == y

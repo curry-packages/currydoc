@@ -1,5 +1,5 @@
 module CurryDoc.Info
-  (module CurryDoc.Info,
+  (generateCurryDocInfosWithAnalysis, generateCurryDocInfos, CurryDoc(..),
    module CurryDoc.Info.Comments,
    module CurryDoc.Info.Analysis,
    module CurryDoc.Info.Header,
@@ -18,15 +18,14 @@ import CurryDoc.Info.Goodies
 import AbstractCurry.Types (QName, MName, CurryProg(..))
 import AbstractCurry.Select
 
-import List (partition)
+import List  (partition)
+import Maybe (fromMaybe)
 
---- CurryDoc mName mhead instances typesigs decls exports imports
+--- CurryDoc mName mhead instances typesigs exports imports
 data CurryDoc =
-  CurryDoc String ModuleHeader [CommentedDecl] [CommentedDecl] [CommentedDecl] Exports [MName]
+  CurryDoc String ModuleHeader [CommentedDecl] [CommentedDecl]
+    [ExportEntry CommentedDecl] [MName]
   deriving Show
-
---- DataTypes Constructors Fields Functions Typeclasses
-type Exports = ([QName], [QName], [QName], [QName], [QName])
 
 generateCurryDocInfosWithAnalysis :: String -> [(Span, Comment)] -> Module a
                                   -> CurryProg -> AnaInfo
@@ -42,15 +41,43 @@ genCDoc :: ([CommentedDecl] -> [CommentedDecl])
         -> String -> [(Span, Comment)] -> Module a -> CurryProg
         -> CurryDoc
 genCDoc f mname cs m acy@(CurryProg _ _ _ _ _ types _ _) =
-  CurryDoc mname mhead instances sigs (f decls)
-    (publicTypeNames  acy, publicConsNames acy,
-     publicFieldNames acy, publicFuncNames acy,
-     publicClassNames acy)
+  CurryDoc mname mhead instances sigs
+    (structureDecls (f decls)
+      (fromMaybe (genExportList acy) exportList))
     (imports acy)
   where
-    (declsC, moduleC) = associateCurryDoc cs m
+    (declsC, moduleC, exportList) = associateCurryDoc cs m
     (sigs, other) = partition isCommentedTypeSig declsC
     (inst, decls) = partition isCommentedInstanceDecl $
                               addAbstractCurryProg acy other
     instances = collectInstanceInfo types inst
     mhead = readModuleHeader moduleC
+
+genExportList :: CurryProg -> [ExportEntry QName]
+genExportList acy =
+  (if null types
+     then []
+     else [ExportSection (LineComment "Exported Datatypes"  ) 1 $
+             map ExportEntry types]) ++
+  (if null funcs
+     then []
+     else [ExportSection (LineComment "Exported Functions"  ) 1 $
+             map ExportEntry funcs]) ++
+  (if null classes
+     then []
+     else [ExportSection (LineComment "Exported Classes"  ) 1 $
+             map ExportEntry classes])
+  where types   = publicTypeNames  acy
+        funcs   = publicFuncNames  acy
+        classes = publicClassNames acy
+
+structureDecls :: [CommentedDecl] -> [ExportEntry QName]
+               -> [ExportEntry CommentedDecl]
+structureDecls _  [] = []
+structureDecls ds (ExportSection c n ex:rest) =
+  ExportSection c n (structureDecls ds ex) : structureDecls ds rest
+structureDecls ds (ExportEntry q : rest) =
+  maybe [] ((:[]) . ExportEntry) (lookupClassDataFuncDecl q ds) ++ -- TODO: can 'Nothing' actually be a result of the lookup?
+  structureDecls ds rest
+structureDecls ds (ExportEntryModule m : rest) =
+  ExportEntryModule m : structureDecls ds rest
