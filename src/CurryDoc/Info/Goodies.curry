@@ -96,11 +96,11 @@ isFunctionType t = case t of
   _             -> False
 
 concatCommentStrings :: [String] -> String
-concatCommentStrings ss = unwords (map replaceEmptyLine ss) -- TODO: improve unwording and line replacement
+concatCommentStrings ss = unwords (map replaceEmptyLine ss)
 
 replaceEmptyLine :: String -> String
 replaceEmptyLine ss | all isSpace ss = "\n"
-                  | otherwise      = trimSpace ss
+                    | otherwise      = trimSpace ss
 
 trimSpace :: String -> String
 trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace

@@ -36,7 +36,7 @@ generateCurryDocInfosWithAnalysis mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) ai
 
 generateCurryDocInfos :: String -> [(Span, Comment)] -> Module a -> CurryProg
                       -> CurryDoc
-generateCurryDocInfos = genCDoc id
+generateCurryDocInfos = genCDoc id -- TODO: dont skip all analysis
 
 genCDoc :: ([CommentedDecl] -> [CommentedDecl])
         -> String -> [(Span, Comment)] -> Module a -> CurryProg

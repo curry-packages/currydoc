@@ -1,30 +1,21 @@
-----------------------------------------------------------------------
---- Implementation of CurryDoc, a utility for the automatic
---- generation of HTML documentation from Curry programs.
----
---- @author Michael Hanus, Jan Tikovsky
---- @version May 2018
-----------------------------------------------------------------------
+{- |
 
--- * All comments to be put into the HTML documentation must be
---   prefixed by "--- " (also in literate programs!).
+    Description : Implementation of CurryDoc, a utility for the automatic
+                  generation of HTML documentation from Curry programs.
+    Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
+    Version     : July 2018
+-}
+--  * All comments prefixed by a CurryDoc comment ("-- |", "{- |",
+--    "-- ^" or "{- ^") are are considered for documentation.
 --
--- * The comment of a module must occur before the first "module" or
---   "import" line of this module.
+--  * Any other comment on a line following a CurryDoc comment
+--    will also be considered
 --
--- * The comment of a function or datatype must occur before the
---   first definition of this function or datatype.
+--  * The comment of a module must occur before the first "module" or
+--    "import" line of this module.
 --
--- * The comments can contain at the end several special comments:
---   @cons id comment   --> a comment for a constructor of a datatype
---   @param id comment  --> comment for function parameter id
---                          (list all parameters in left-to-right order)
---   @return comment    --> comments for the return value of a function
---   @author comment    --> the author of a module (only in module comments)
---   @version comment   --> the version of a module (only in module comments)
---
--- * Current restriction: doesn't properly work for infix operator definitions
---   without a type definition (so it should be always included)
+--  * The exact rules on how comments are associated with syntactic elements
+--    (similar to Haddock) are documented at: TODO
 
 module CurryDoc.Main (main, debug) where
 
@@ -78,7 +69,7 @@ main = do
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--noanalysis","--html", "CurryDoc.Data.SpanInfo"]
+  processArgs defaultCurryDocOptions ["--onlyindexhtml", "CurryDoc.Data.SpanInfo"]
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
@@ -144,12 +135,14 @@ printUsageMessage = do
    , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
    , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
    , "curry-doc <options> --libsindexhtml <doc_dir> <modules>"
+   , "curry-doc --version"
    , ""
    , "where <options> can be:"
    , "  --title s    : Title of the main HTML documentation page"
    , "  --use dir@url: use for all Curry programs in <dir> the documentation"
    , "                 already stored at <url>"
    , "  --nomarkdown : do not process markdown code in comments"
+   , "  --noanalysis : do not generate any further analysis information for functions"
    ]
 
 

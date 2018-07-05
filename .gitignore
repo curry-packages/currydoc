@@ -2,3 +2,7 @@
 .curry
 .cpm
 src/CurryDoc/PackageConfig.curry
+
+DOC_CurryDoc\.Main/
+
+DOC_CurryDoc\.Data\.SpanInfo/

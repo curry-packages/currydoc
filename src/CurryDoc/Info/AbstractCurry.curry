@@ -173,12 +173,14 @@ lookupNewDecl n (d:ds) = case d of
     | n =~= n' -> Just (CommentedNewtypeDecl n a b c)
   _            -> lookupNewDecl n ds
 
-
--- TODO check for consOp
 createConsInfos :: [CConsDecl] -> [CommentedConstr]
 createConsInfos [] = []
-createConsInfos (CCons _ _ n Public tys : cs) =
-  CommentedConstr n [] tys NoAnalysisInfo : createConsInfos cs
+createConsInfos (CCons _ _ n Public tys : cs)
+  | isOperator && length tys == 2 = let [ty1, ty2] = tys in
+                 CommentedConsOp n [] ty1 ty2 NoAnalysisInfo : rest
+  | otherwise  = CommentedConstr n [] tys     NoAnalysisInfo : rest
+  where rest = createConsInfos cs
+        isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") (snd n)
 createConsInfos (CRecord _ _ n Public fs : cs) =
   CommentedRecord n [] (map cFieldType fs)
     (map createFieldInfo (filter isPublicField fs))

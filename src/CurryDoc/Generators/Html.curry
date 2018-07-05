@@ -54,7 +54,7 @@ generateHtmlDocs opts (CurryDoc mname mhead insts typesigs decls ex im) = do
       , ulist (map (\i -> [href (docURL opts i ++ ".html") [htxt i]]) im)
         `addClass` "nav nav-sidebar"
       ]
-    content = -- TODO order by export list
+    content = -- TODO: order by export list
       genHtmlModule opts mhead ++
       (if null exptypes then [] else
         [anchoredSection "exported_datatypes"
@@ -149,7 +149,7 @@ genHtmlExportIndex exptypes expcons expfields expfuns expcls =
                   (nub (sortStrings $ unquals expfields))
   htmlfuns   = map (\n->[href ('#':n++"_FUNC" ) [htxt n]])
                    (nub (sortStrings $ unquals expfuns))
-  htmlcls    = map (\n->[href ('#':n++"_CLS"  ) [htxt n]])
+  htmlcls    = map (\n->[href ('#':n++"_CLASS"  ) [htxt n]])
                    (nub (sortStrings $ unquals expcls))
   unquals = map snd
 
@@ -174,6 +174,7 @@ genHtmlType docopts inst d = case d of
                          (filter ((n =~=) . instTypeName) inst))
     ++ [hrule]
   CommentedNewtypeDecl n@(tmod,tcons) vs cs cn ->
+  -- TODO: distinguish from data
     [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
@@ -275,11 +276,12 @@ genHtmlClass :: DocOptions -> CommentedDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
   CommentedClassDecl (cmod, cname) cx v cs ds ->
        [anchored (cname ++ "_CLASS")
-         [(style "classheader"
-            [code [(htxt "class "),
-                htxt (if null cxString then [] else cxString ++ " "),
-                classnameDoc [htxt cname],
-                htxt (' ' : snd v)]])]]
+         [style "classheader"
+           [code
+             ([(htxt "class ")] ++
+              (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
+              [classnameDoc [htxt cname]] ++
+              [htxt (' ' : snd v)])]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
     ++ [borderedTable (map ((:[]) . genHtmlFunc docopts typsigs) methods)]
@@ -300,7 +302,7 @@ genHtmlFunc docopts types d = case d of
         genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
         docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
         genFurtherInfos (fmod, fname) ai
-    where showCodeHRef fn = href (fmod++"_curry.html#"++fn++"_FUNC") [htxt (showId fn)]
+    where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
   _ -> []
 
 genSigComment :: DocOptions -> Maybe CommentedDecl -> [HtmlExp]
@@ -334,14 +336,18 @@ genFurtherInfos _  (PrecedenceInfo (Just p)) =
           genPrecedenceText p)]]
 genFurtherInfos qn ai@(AnalysisInfo {}) =
   concatMap (showProperty qn) (property ai) ++
-  [dlist [([explainCat "Further infos:"],
-            (maybe [] (\p -> genPrecedenceText p) (precedence ai)
-              ++ catMaybes
-                  [completenessInfo,
-                   indeterminismInfo,
-                   opcompleteInfo,
-                   externalInfo]))]]
+  if null content
+    then []
+    else [dlist [([explainCat "Further infos:"], content)]]
   where
+    content =
+      maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
+      catMaybes
+        [completenessInfo,
+         indeterminismInfo,
+         opcompleteInfo,
+         externalInfo]
+
     completenessInfo = let ci = complete ai in
       if ci == Complete
        then Nothing
@@ -444,7 +450,7 @@ showConstraint opts mod (cn,texp) =
 -- second argument is True iff brackets must be written around complex types
 showType :: DocOptions -> String -> Bool -> CTypeExpr -> String
 showType opts mod nested texp = case texp of
-  CTVar (_,n) -> n -- TODO: use name given in source program instead?
+  CTVar (_,n) -> n
   CFuncType t1 t2 ->
     bracketsIf nested (showType opts mod (isFunctionalType t1) t1++" -&gt; "++
                      showType opts mod False t2)
@@ -491,33 +497,6 @@ translateSource2ColoredHtml docdir modname = do
     putStrLn ("Writing source file as HTML to \""++output++"\"...")
     callFrontendWithParams HTML
       (setQuiet True (setHtmlDir docdir defaultParams)) modname
-
--- translate source file into HTML file with anchors for each function:
-translateSource2AnchoredHtml :: String -> String -> IO ()
-translateSource2AnchoredHtml docdir modname =
- do putStrLn ("Writing source file as HTML to \""++docdir++"/"++modname++"_curry.html\"...")
-    prog <- readFile (modname++".curry")
-    writeFile (docdir </> modname++"_curry.html")
-              (showPageWithDocStyle (modname++".curry")
-                  [HtmlStruct "pre" []
-                     [HtmlText (addFuncAnchors [] (lines prog))]])
-
--- TODO: fix anchors for instance declarations
--- add the anchors to the classified lines and translate back:
--- first argument: list of already added anchors
--- second argument: list of source lines
-addFuncAnchors :: [String] -> [String] -> String
-addFuncAnchors _ [] = ""
-addFuncAnchors ancs (sl : sls) = let id1 = getFirstId sl in
-  if id1=="" ||
-     id1 `elem` ["data","type","import","module","infix","infixl","infixr"]
-  then htmlQuote (sl++"\n") ++ addFuncAnchors ancs sls
-  else if id1 `elem` ancs
-       then (sl++"\n") ++ addFuncAnchors ancs sls
-       else "<a name=\""++id1++"\"></a>"
-            ++ htmlQuote (sl++"\n")
-            ++ addFuncAnchors (id1:ancs) sls
-
 
 --------------------------------------------------------------------------
 -- generate the index page for the documentation directory:
@@ -579,18 +558,18 @@ genFunctionIndexPage :: DocOptions -> String -> [CFuncDecl] -> IO ()
 genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
   simplePage "Index to all operations" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expfuns))
+             (htmlIndex opts "FUNC" (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
    expfuns = nub $ map funcName $ filter ((== Public) . funcVis) funs
 
-htmlIndex :: DocOptions -> [QName] -> [HtmlExp]
-htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
+htmlIndex :: DocOptions -> String -> [QName] -> [HtmlExp]
+htmlIndex opts ty = categorizeByItemKey . map (showModNameRef opts ty)
 
-showModNameRef :: DocOptions -> QName -> (String,[HtmlExp])
-showModNameRef opts (modname,name) =
+showModNameRef :: DocOptions -> String -> QName -> (String,[HtmlExp])
+showModNameRef opts ty (modname,name) =
   (name,
-   [href (docURL opts modname ++ ".html#"++name) [htxt name], nbsp, nbsp,
+   [href (docURL opts modname++".html#"++name++"_"++ty) [htxt name], nbsp, nbsp,
     htxt "(", href (docURL opts modname ++ ".html") [htxt modname], htxt ")"]
   )
 
@@ -604,7 +583,7 @@ genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
 genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
   simplePage "Index to all constructors" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expcons))
+             (htmlIndex opts "CONS" (sortNames expcons))
     >>= writeFile (docdir++"/cindex.html")
  where
    consDecls (CType    _ _ _ cs _) = cs
@@ -619,7 +598,7 @@ genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
 genClassesIndexPage opts docdir cls = do
   putStrLn ("Writing typeclasses index page to \""++docdir++"/clsindex.html\"...")
   simplePage "Index to all typeclasses" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expclasses))
+             (htmlIndex opts "CLASS" (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
    expclasses = nub $ map    (\(CClass n _   _ _ _) -> n) $
@@ -849,7 +828,7 @@ opnameDoc :: [HtmlExp] -> HtmlExp
 opnameDoc = style "opname"
 
 classnameDoc :: [HtmlExp] -> HtmlExp
-classnameDoc = opnameDoc -- TODO
+classnameDoc = style "classname"
 
 -- Sorts a list of strings.
 sortStrings :: [String] -> [String]

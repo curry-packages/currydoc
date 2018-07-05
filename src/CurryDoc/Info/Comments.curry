@@ -33,12 +33,14 @@ data Comment = NestedComment String
              | LineComment   String
   deriving (Eq, Ord, Read, Show)
 
-data CDocComment = Pre  { comment :: Comment }
-                 | Post { comment :: Comment }
-                 | None { comment :: Comment }
+data CDocComment = Pre     { comment :: Comment }
+                 | Post    { comment :: Comment }
+                 | None    { comment :: Comment }
+                 | Section { comment :: comments, nest :: Int }
   deriving Show
 
--- TODO: commented externall data decls
+-- TODO: Simplyfy data structures for this part of the process
+-- TODO: commented external data decls
 data CommentedDecl
   = CommentedTypeDecl QName [CTVarIName] CTypeExpr [Comment]
   | CommentedDataDecl QName [CTVarIName] [Comment] [CommentedConstr]
@@ -48,6 +50,7 @@ data CommentedDecl
   | CommentedFunctionDecl QName [Comment] (Maybe CQualTypeExpr) AnalysisInfo
   | CommentedTypeSig [QName] [Comment] CContext [(CTypeExpr, [Comment])]
   | CommentedExternalDecl [QName] [Comment] (Maybe CQualTypeExpr) AnalysisInfo
+--  | CommentedExternalData QName [CTVarIName] [Comment] AnalysisInfo
   | UnsupportedDecl [Comment]
   deriving Show
 
@@ -57,7 +60,7 @@ data CommentedConstr
   | CommentedConsOp QName [Comment] CTypeExpr CTypeExpr AnalysisInfo
   deriving Show
 
-type CommentedField = ([QName], [Comment], CTypeExpr)
+type CommentedField = ([QName], [Comment], CTypeExpr)  --TODO: can have fixity
 
 data CommentedNewtypeConstr
   = CommentedNewConstr QName [Comment] CTypeExpr AnalysisInfo
@@ -139,7 +142,7 @@ associateCurryDocHeader spi@(SpanInfo _ (spm : ss)) sp (c:cs) =
       | otherwise             ->
           ([], c:cs)
 
-    (_  , None _)             ->
+    (_  , _      )             ->
           associateCurryDocHeader spi sp cs
 associateCurryDocHeader (SpanInfo _ []) _ (c:cs) = ([], c:cs)
 associateCurryDocHeader NoSpanInfo      _ (c:cs) = ([], c:cs)
@@ -173,7 +176,7 @@ associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
            | otherwise ->
                associateCurryDocDecls ((sp, cdc) : cs) ds (Just d)
 
-    None _ -> associateCurryDocDecls cs (d:ds) prev
+    _ -> associateCurryDocDecls cs (d:ds) prev
   where spd  = getSrcSpan d
         spNextd = case ds of
           []     -> NoSpan
@@ -201,8 +204,7 @@ matchLast ((sp, Post c) : cs) (Just d) =
   let (match, next) = getToMatch (getSrcSpan d) sp cs isPost
   in  associateCurryDocDeclPost ((sp, Post c) : match) d
         : matchLast next (Just d)
-matchLast ((_ , None _) : cs) (Just d) = matchLast cs (Just d)
-matchLast ((_ , Pre  _) : cs) (Just d) = matchLast cs (Just d)
+matchLast ((_ , _     ) : cs) (Just d) = matchLast cs (Just d)
 
 associateCurryDocDeclPre :: [(Span, CDocComment)]
                          -> Decl a
@@ -216,6 +218,10 @@ associateCurryDocDeclPre xs d@(ExternalDecl _ fs) =
   in  CommentedExternalDecl (map (\(Var _ i) -> identToQName i) fs)
                             (map (comment . snd) match)
                             Nothing NoAnalysisInfo
+--associateCurryDocDeclPre xs d@(ExternalDataDecl _ f vs) =
+--  let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
+--      CommentedExternalData (identToQName f) (map tvIName vs)
+--                            (map (comment . snd) match) NoAnalysisInfo
 associateCurryDocDeclPre xs d@(TypeDecl _ f vs ty) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
   in  CommentedTypeDecl (identToQName f) (map tvIName vs)
@@ -283,8 +289,6 @@ associateCurryDocDeclPre xs d@(TypeSig spi fs
                         (matchArgumentsPre ty (skipUntilAfter sp rest))
 associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
-associateCurryDocDeclPre xs (ExternalDataDecl _ _ _) = UnsupportedDecl
-  (map (comment . snd) xs)
 associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
@@ -343,6 +347,11 @@ associateCurryDocDeclPost xs d@(ExternalDecl _ fs) =
                         (map (comment . snd)
                              (skipUntilAfter (getSrcSpan d) xs))
                         Nothing NoAnalysisInfo
+--associateCurryDocDeclPost xs d@(ExternalDataDecl _ f vs) =
+--    CommentedExternalData (identToQName f) (map tvIName vs)
+--                          (map (comment . snd)
+--                               (skipUntilAfter (getSrcSpan d) xs))
+--                          NoAnalysisInfo
 associateCurryDocDeclPost xs d@(TypeDecl _ f idts ty) =
   CommentedTypeDecl (identToQName f) (map tvIName idts) (typeExprToCType ty)
                     (map (comment . snd) (skipUntilAfter (getSrcSpan d) xs))
@@ -389,8 +398,6 @@ associateCurryDocDeclPost xs (DataDecl spi f vs (c:cs) (_:_)) =
 associateCurryDocDeclPost xs (TypeSig _ fs (QualTypeExpr _ cx ty)) =
   CommentedTypeSig (map identToQName fs) [] (contextToCContext cx)
                    (matchArgumentsPost ty xs)
-associateCurryDocDeclPost xs (ExternalDataDecl _ _ _) = UnsupportedDecl
-  (map (comment . snd) xs)
 associateCurryDocDeclPost xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPost xs (DefaultDecl _ _) = UnsupportedDecl
@@ -508,6 +515,8 @@ merge (x1:x2:xs) = case (x1, x2) of
                                                 (merge (ds1 ++ ds2)) : xs)
    (CommentedExternalDecl f1 cs1 cx1 ai1, CommentedExternalDecl f2 cs2 _ _)
      | f1 == f2 -> merge (CommentedExternalDecl f1 (cs1 ++ cs2) cx1 ai1 : xs)
+--   (CommentedExternalData f1 vs1 cs1 ai1, CommentedExternalData f1 _ cs1 _)
+--     | f1 == f2 -> merge (CommentedExternalData f1 vs1 (cs1 ++ cs2) ai1 : xs)
    _ -> x1 : merge (x2 : xs)
 
   where
@@ -538,18 +547,26 @@ skipUntilAfter sp = filter (( `isAfter` sp) . fst)
 -------------------------------------------------------------------------------
 -- utility for matching and conversions while matching
 
-isPre, isPost, isNone :: CDocComment -> Bool
-isPre  Pre  {} = True
-isPre  Post {} = False
-isPre  None {} = False
+isPre, isPost, isNone, isSection :: CDocComment -> Bool
+isPre  Pre     {} = True
+isPre  Post    {} = False
+isPre  None    {} = False
+isPre  Section {} = False
 
-isPost Pre  {} = False
-isPost Post {} = True
-isPost None {} = False
+isPost Pre     {}    = False
+isPost Post    {}    = True
+isPost None    {}    = False
+isPost Section {}    = False
 
-isNone Pre  {} = False
-isNone Post {} = False
-isNone None {} = True
+isNone Pre     {} = False
+isNone Post    {} = False
+isNone None    {} = True
+isNone Section {} = False
+
+isSection Pre     {} = False
+isSection Post    {} = False
+isSection None    {} = False
+isSection Section {} = True
 
 classifyComment :: Comment -> CDocComment
 classifyComment (NestedComment s)
@@ -596,6 +613,7 @@ commentedDeclName (CommentedNewtypeDecl n _ _ _) = n
 commentedDeclName (CommentedClassDecl n _ _ _ _) = n
 commentedDeclName (CommentedInstanceDecl n _ _ _ _) = n
 commentedDeclName (CommentedFunctionDecl n _ _ _) = n
+--commentedDeclName (CommentedExternalData n _ _ _) = n
 commentedDeclName (CommentedTypeSig _ _ _ _) =
   error "Comment.commentedDeclName: CommentedTypeSig"
 commentedDeclName (CommentedExternalDecl _ _ _ _) =
@@ -613,6 +631,7 @@ cleanup [] = []
 cleanup (d@(CommentedTypeDecl            _ _ _ _) : ds) = d :  cleanup ds
 cleanup (d@(CommentedFunctionDecl        _ _ _ _) : ds) = d :  cleanup ds
 cleanup (d@(CommentedNewtypeDecl         _ _ _ _) : ds) = d :  cleanup ds
+--cleanup (d@(CommentedExternalData        _ _ _ _) : ds) = d :  cleanup ds
 cleanup (  (UnsupportedDecl                    _) : ds) =      cleanup ds
 cleanup (  (CommentedDataDecl        f vs cs cns) : ds) =
           CommentedDataDecl f vs cs (map cleanupConstr cns) :  cleanup ds

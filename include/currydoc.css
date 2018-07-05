@@ -40,6 +40,11 @@ section {
   font-weight: bold;
 }
 
+/* class name in the documentation of a typeclass */
+.classname {
+  font-weight: bold;
+}
+
 /* style for constructor comments" */
 .conscomment {
   padding: 5px 0px 0px 20px;

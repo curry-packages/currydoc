@@ -31,6 +31,7 @@ generateTexDocs docopts (CurryDoc mname mhead insts typesigs decls _ _) =
       texclasses = concatMap (genHtmlTexClass docopts) decls
   in return $
     "\\currymodule{"++mname++"}\n" ++
+    -- TODO: order by export list
     genHtmlTexModule docopts mhead ++ "\n" ++
     (if null textypes   then ""
      else "\\currytypesstart\n"   ++ textypes   ++ "\\currytypesstop\n") ++
@@ -103,6 +104,7 @@ genHtmlTexType docopts insts d = case d of
        (filter (((tcmod,tcons) =~=) . instTypeName) insts) ++
     "\\currydatastop\n"
   CommentedNewtypeDecl (tcmod,tcons) vs cs cons ->
+  -- TODO: distinguish from data
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
@@ -217,7 +219,7 @@ showTexConstraint opts mod (cn,texp) =
 -- first argument is True iff brackets must be written around complex types
 showTexType :: DocOptions -> String -> Bool -> CTypeExpr -> String
 showTexType opts mod nested texp = case texp of
-  CTVar (_,n) -> n -- TODO: use name given in source program instead?
+  CTVar (_,n) -> n
   CFuncType t1 t2 ->
     bracketsIf nested (showTexType opts mod (isFunctionalType t1) t1++" $\\to$ "++
                      showTexType opts mod False t2)
