@@ -1,178 +1,148 @@
-module CurryDoc.Info.AbstractCurry
-  (addAbstractCurryProg, collectInstanceInfo,
-  lookupClass, lookupInstance, lookupFunc, lookupTypeDecl,
-  lookupDataDecl, lookupNewDecl, lookupClassDataFuncDecl) where
+module CurryDoc.Info.AbstractCurry (addAbstractCurryProg) where
 
 import AbstractCurry.Types
 import AbstractCurry.Select
 
 import CurryDoc.Data.AnaInfo
+import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
 import CurryDoc.Info.Goodies
 
-import Maybe (listToMaybe, mapMaybe)
+import List  (last)
+import Maybe (listToMaybe)
 
 --- Remove unexported entities and
 --- add exported entities that did not have any comments.
---- Also corrects QNames
-addAbstractCurryProg :: CurryProg -> [CommentedDecl] -> [CommentedDecl]
+--- Also translates into CurryDoc representations and sets a flag for
+--- ExternalDataDecls
+addAbstractCurryProg :: CurryProg -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) ds =
-  let withcls  = addAbstractCurryClassesInfo cls ds
-      withins  = addAbstractCurryInstInfo inst ds
-      withtyp  = addAbstractCurryDataInfo typ ds
+  let withins  = addAbstractCurryInstInfo inst ds ++
+                 concatMap generateDerivingInstances typ
+      withcls  = addAbstractCurryClassesInfo cls ds
+      withtyp  = addAbstractCurryDataInfo typ ds withins
       withfun  = addAbstractCurryFunInfo func ds
-  in withcls ++ withins ++ withtyp ++ withfun
+  in withcls ++ withtyp ++ withfun
 
-addAbstractCurryClassesInfo :: [CClassDecl] -> [CommentedDecl] -> [CommentedDecl]
+addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl] -> [CurryDocInstanceDecl]
+addAbstractCurryInstInfo []                          _   = []
+addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
+  maybe (CurryDocInstanceDecl n cx ty (addAbstractCurryFunInfo ds []) [])
+    (\(CommentedInstanceDecl _ _ cs ds') -> CurryDocInstanceDecl n cx ty
+        (addAbstractCurryFunInfo ds ds') cs) (lookupInstance n ty cds)
+    : addAbstractCurryInstInfo is cds
+
+addAbstractCurryClassesInfo :: [CClassDecl] -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryClassesInfo []                               _   = []
 addAbstractCurryClassesInfo (CClass n Public  cx vn ds : cs) cds =
-  maybe (CommentedClassDecl n cx vn [] (addAbstractCurryFunInfo ds []))
-    (\(CommentedClassDecl _ b c d e) -> CommentedClassDecl n b c d
-      (addAbstractCurryFunInfo ds e)) (lookupClass n cds)
+  maybe (CurryDocClassDecl n cx vn (addAbstractCurryFunInfo ds []) [])
+    (\(CommentedClassDecl _ cs' ds') -> CurryDocClassDecl n cx vn
+        (addAbstractCurryFunInfo ds ds') cs') (lookupClass n cds)
     : addAbstractCurryClassesInfo cs cds
-  where isExportedIn []     _ = False
-        isExportedIn (f:fs) d =
-          (funcVis f == Public && funcName f =~= commentedDeclName d)
-            || isExportedIn fs d
 addAbstractCurryClassesInfo (CClass _ Private _  _  _  : cs) cds =
   addAbstractCurryClassesInfo cs cds
 
-addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryInstInfo []                          _   = []
-addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
-  maybe (CommentedInstanceDecl n cx ty [] (addAbstractCurryFunInfo ds []))
-    id (lookupInstance n ty cds) : addAbstractCurryInstInfo is cds
-
-addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryFunInfo []                                 _   = []
-addAbstractCurryFunInfo (CFunc     n _ Public  qty _ : ds) cds =
-  maybe (CommentedFunctionDecl n [] (Just qty) NoAnalysisInfo)
-    (\(CommentedFunctionDecl _ cs _ ai) -> CommentedFunctionDecl n cs (Just qty) ai)
-    (lookupFunc n cds) : addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CmtFunc _ n _ Public  qty _ : ds) cds =
-  maybe (CommentedFunctionDecl n [] (Just qty) NoAnalysisInfo)
-    (\(CommentedFunctionDecl _ cs _ ai) -> CommentedFunctionDecl n cs (Just qty) ai)
-    (lookupFunc n cds) : addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CFunc     _ _ Private _   _ : ds) cds =
+addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CurryDocDecl]
+addAbstractCurryFunInfo []                             _   = []
+addAbstractCurryFunInfo (CFunc n _ Public  qty _ : ds) cds =
+  maybe (CurryDocFunctionDecl n qty Nothing NoAnalysisInfo [])
+    (\(CommentedFunctionDecl _ cs) -> CurryDocFunctionDecl n qty
+        (transformTypesig qty (lookupTypeSig n cds)) NoAnalysisInfo cs)
+    (lookupFunc n cds)
+    : addAbstractCurryFunInfo ds cds
+addAbstractCurryFunInfo (CFunc _ _ Private _   _ : ds) cds =
   addAbstractCurryFunInfo ds cds
-addAbstractCurryFunInfo (CmtFunc _ _ _ Private _   _ : ds) cds =
-  addAbstractCurryFunInfo ds cds
+addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
+  addAbstractCurryFunInfo (CFunc a b c d e : ds) cds
 
-setType :: CQualTypeExpr -> CommentedDecl -> CommentedDecl
-setType qty f = case f of
-  (CommentedFunctionDecl n cs _ ai) -> CommentedFunctionDecl n cs (Just qty) ai
-  _                                 -> f
+transformTypesig :: CQualTypeExpr -> Maybe CommentedDecl -> Maybe CurryDocTypeSig
+transformTypesig (CQualType cx _) d = case d of
+  Just (CommentedTypeSig [n] cs ps) -> Just (CurryDocTypeSig n cx ps cs)
+  _                                 -> Nothing
 
-addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl] -> [CommentedDecl]
-addAbstractCurryDataInfo []                               _   = []
-addAbstractCurryDataInfo (CTypeSyn n Public vs ty   : ds) cds =
-  maybe (CommentedTypeDecl n vs ty [])
-    (\(CommentedTypeDecl _ _ _ d) -> CommentedTypeDecl n vs ty d)
+addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl]
+                         -> [CurryDocInstanceDecl] -> [CurryDocDecl]
+addAbstractCurryDataInfo []                                _   _   = []
+addAbstractCurryDataInfo (CTypeSyn n Public vs ty    : ds) cds ins =
+  maybe (CurryDocTypeDecl n vs ty [])
+    (\(CommentedTypeDecl _ cs) -> CurryDocTypeDecl n vs ty cs)
     (lookupTypeDecl n cds)
-    : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CNewType n Public vs con _ : ds) cds =
-  maybe (CommentedNewtypeDecl n vs [] (createNewConsInfos con))
-    (\(CommentedNewtypeDecl _ b c d)
-      -> CommentedNewtypeDecl n b c (filterNewCons con d))
-    (lookupNewDecl n cds) : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CType n Public vs cons _   : ds) cds =
-  maybe (CommentedDataDecl n vs [] (createConsInfos cons))
-    (\(CommentedDataDecl _ b c d) -> CommentedDataDecl n b c
-       (mapMaybe (filterCons cons) d))
-    (lookupDataDecl n cds) : addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CTypeSyn _ Private _ _     : ds) cds =
-  addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CNewType _ Private _ _ _   : ds) cds =
-  addAbstractCurryDataInfo ds cds
-addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds =
-  addAbstractCurryDataInfo ds cds
+    : addAbstractCurryDataInfo ds cds ins
+addAbstractCurryDataInfo (CNewType n Public vs con _ : ds) cds ins =
+  maybe (CurryDocNewtypeDecl n vs (getInstances n ins)
+          (listToMaybe (addAbstractCurryConsInfo [con] [])) [])
+    (\(CommentedNewtypeDecl _ cs cn) -> CurryDocNewtypeDecl n vs
+        (getInstances n ins) (listToMaybe (addAbstractCurryConsInfo [con] [cn])) cs)
+    (lookupNewDecl n cds)
+    : addAbstractCurryDataInfo ds cds ins
+addAbstractCurryDataInfo (CType n Public vs cons _   : ds) cds ins =
+  maybe (CurryDocDataDecl n vs (getInstances n ins)
+          (null cons) (addAbstractCurryConsInfo cons []) [])
+    (\(CommentedDataDecl _ cs cns) -> CurryDocDataDecl n vs (getInstances n ins)
+          (null cons) (addAbstractCurryConsInfo cons cns) cs)
+    (lookupDataDecl n cds)
+    : addAbstractCurryDataInfo ds cds ins
+addAbstractCurryDataInfo (CTypeSyn _ Private _ _     : ds) cds ins =
+  addAbstractCurryDataInfo ds cds ins
+addAbstractCurryDataInfo (CNewType _ Private _ _ _   : ds) cds ins =
+  addAbstractCurryDataInfo ds cds ins
+addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds ins =
+  addAbstractCurryDataInfo ds cds ins
 
-filterCons :: [CConsDecl] -> CommentedConstr -> Maybe CommentedConstr
-filterCons [] _ = Nothing
-filterCons (CCons _ _ n v tys   : cs) c@(CommentedConstr n' cms _ ai)
-  | n =~= n' && v == Public = Just (CommentedConstr n cms tys ai)
-  | otherwise               = filterCons cs c
-filterCons (CCons _ _ n v tys   : cs) c@(CommentedConsOp n' cms _ _ ai)
-  | n =~= n' && v == Public = let [ty1, ty2] = tys in
-    Just (CommentedConsOp n cms ty1 ty2 ai)
-  | otherwise               = filterCons cs c
-filterCons (CRecord _ _ n v fs : cs) c@(CommentedRecord n' cms _ fs' ai)
-  | n =~= n' && v == Public =
-    Just (CommentedRecord n cms (map cFieldType fs)
-      (mapMaybe (filterFields fs) fs') ai)
-  | otherwise               = filterCons cs c
-filterCons (CCons _ _ _ _ _    : cs) c@(CommentedRecord _ _ _ _ _)
-  = filterCons cs c
-filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConsOp _ _ _ _ _)
-  = filterCons cs c
-filterCons (CRecord _ _ _ _ _  : cs) c@(CommentedConstr   _ _ _ _)
-  = filterCons cs c
+addAbstractCurryConsInfo :: [CConsDecl] -> [CommentedConstr] -> [CurryDocCons]
+addAbstractCurryConsInfo []                              _   = []
+addAbstractCurryConsInfo (CCons   _ _ n Public  tys : cs) cds =
+  maybe (createConsInfo n tys) (transformConstructor n tys)
+    (lookupCons n cds)
+    : addAbstractCurryConsInfo cs cds
+addAbstractCurryConsInfo (CRecord _ _ n Public  fs  : cs) cds =
+  maybe (createRecordInfo n fs) (transformRecord n fs)
+    (lookupRecord n cds)
+    : addAbstractCurryConsInfo cs cds
+addAbstractCurryConsInfo (CCons   _ _ _ Private _   : cs) cds =
+  addAbstractCurryConsInfo cs cds
+addAbstractCurryConsInfo (CRecord _ _ _ Private _   : cs) cds =
+  addAbstractCurryConsInfo cs cds
 
-filterFields :: [CFieldDecl] -> CommentedField -> Maybe CommentedField
-filterFields [] _ = Nothing
-filterFields (CField n Public  _ : fs) f@([n'], a, b)
-  | n =~= n'  = Just ([n], a, b)
-  | otherwise = filterFields fs f
-filterFields (CField _ Public  _ : _) ([], _, _)
-  = error "CurryDoc.filterFields: field with no qname"
-filterFields (CField _ Public  _ : _) ((_:_:_), _, _)
-  = error "CurryDoc.filterFields: field with more than one qname"
-filterFields (CField _ Private _ : fs) f
-  = filterFields fs f
+createConsInfo :: QName -> [CTypeExpr] -> CurryDocCons
+createConsInfo n tys
+  | isOperator && length tys == 2 =
+            let [ty1, ty2] = tys
+            in  CurryDocConsOp n ty1 ty2 NoAnalysisInfo []
+  | otherwise = CurryDocConstr n tys     NoAnalysisInfo []
+  where isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") (snd n)
 
-cFieldDeclToCommentedField :: CFieldDecl -> CommentedField
-cFieldDeclToCommentedField (CField n _ ty) = ([n], [], ty)
+createRecordInfo :: QName -> [CFieldDecl] -> CurryDocCons
+createRecordInfo n fs =
+  CurryDocRecord n (map cFieldType fs) (addAbstractCurryField fs [])
+                 NoAnalysisInfo []
 
-filterNewCons :: CConsDecl -> Maybe CommentedNewtypeConstr -> Maybe CommentedNewtypeConstr
-filterNewCons _ Nothing  = Nothing
-filterNewCons c (Just c') =  case (c, c') of
-  (CCons   _ _ n Public [ty] , CommentedNewConstr _ a _ ai)
-      -> Just (CommentedNewConstr n a ty ai)
-  (CRecord _ _ n Public [f], CommentedNewRecord _ a _ _ b)
-      -> Just (CommentedNewRecord n a (cFieldType f) f' b)
-    where f' = if isPublicField f
-                 then Just (cFieldDeclToCommentedField f)
-                 else Nothing
-  _ -> Nothing
+transformConstructor :: QName -> [CTypeExpr] -> CommentedConstr -> CurryDocCons
+transformConstructor n tys c = case c of
+  CommentedConstr _ cs -> CurryDocConstr n tys                   NoAnalysisInfo cs
+  CommentedConsOp _ cs -> CurryDocConsOp n (head tys) (last tys) NoAnalysisInfo cs
+  _                    -> error "CurryDoc.Info.AbstractCurry. transformConstructor"
 
-createConsInfos :: [CConsDecl] -> [CommentedConstr]
-createConsInfos [] = []
-createConsInfos (CCons _ _ n Public tys : cs)
-  | isOperator && length tys == 2 = let [ty1, ty2] = tys in
-                 CommentedConsOp n [] ty1 ty2 NoAnalysisInfo : rest
-  | otherwise  = CommentedConstr n [] tys     NoAnalysisInfo : rest
-  where rest = createConsInfos cs
-        isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") (snd n)
-createConsInfos (CRecord _ _ n Public fs : cs) =
-  CommentedRecord n [] (map cFieldType fs)
-    (map createFieldInfo (filter isPublicField fs))
-    NoAnalysisInfo : createConsInfos cs
-createConsInfos (CCons _ _ _ Private _ : cs) =
-  createConsInfos cs
-createConsInfos (CRecord _ _ _ Private _ : cs) =
-  createConsInfos cs
+transformRecord :: QName -> [CFieldDecl] -> CommentedConstr -> CurryDocCons
+transformRecord n fs c = case c of
+  CommentedRecord _ cs fs' -> CurryDocRecord n (map cFieldType fs)
+                                             (addAbstractCurryField fs fs')
+                                             NoAnalysisInfo cs
+  _                        -> error "CurryDoc.Info.AbstractCurry. transformRecord"
 
-createFieldInfo :: CFieldDecl -> CommentedField
-createFieldInfo (CField n _ ty) = ([n], [], ty)
-
-createNewConsInfos :: CConsDecl -> Maybe CommentedNewtypeConstr
-createNewConsInfos (CCons _ _ n Public tys) =
-  Just $ CommentedNewConstr n [] (head tys) NoAnalysisInfo
-createNewConsInfos (CRecord _ _ n Public fs) =
-  Just $ CommentedNewRecord n [] (head (map cFieldType fs))
-           (listToMaybe (map createFieldInfo (filter isPublicField fs)))
-           NoAnalysisInfo
-createNewConsInfos (CCons _ _ _ Private _) = Nothing
-createNewConsInfos (CRecord _ _ _ Private _) = Nothing
+addAbstractCurryField :: [CFieldDecl] -> [CommentedField] -> [CurryDocField]
+addAbstractCurryField []                         _   =  []
+addAbstractCurryField (CField n Public  ty : fs) cfs =
+  maybe (CurryDocField n ty NoAnalysisInfo [])
+    (\(_,cs) -> CurryDocField n ty NoAnalysisInfo cs) (lookupField n cfs)
+    : addAbstractCurryField fs cfs
+addAbstractCurryField (CField _ Private _  : fs) cfs =
+  addAbstractCurryField fs cfs
 
 -------------------------------------------------------------------------------
 -- Collecting instance informations
 
-collectInstanceInfo :: [CTypeDecl] -> [CommentedDecl] -> [CommentedDecl]
-collectInstanceInfo tydecl ds = concatMap generateDerivingInstances tydecl ++
-                                filter isCommentedInstanceDecl ds
-
-generateDerivingInstances :: CTypeDecl -> [CommentedDecl]
+generateDerivingInstances :: CTypeDecl -> [CurryDocInstanceDecl]
 generateDerivingInstances (CType    n Public vs _ der) =
   map (generateDerivingInstanceFor n vs) der
 generateDerivingInstances (CNewType n Public vs _ der) =
@@ -181,9 +151,9 @@ generateDerivingInstances (CTypeSyn _ _       _ _  ) = []
 generateDerivingInstances (CNewType _ Private _ _ _) = []
 generateDerivingInstances (CType    _ Private _ _ _) = []
 
-generateDerivingInstanceFor :: QName -> [CTVarIName] -> QName -> CommentedDecl
+generateDerivingInstanceFor :: QName -> [CTVarIName] -> QName -> CurryDocInstanceDecl
 generateDerivingInstanceFor t vs d =
-  CommentedInstanceDecl d (CContext (map (generateConstraintFor d) vs))
+  CurryDocInstanceDecl d (CContext (map (generateConstraintFor d) vs))
     (generateType t vs) [] []
 
 generateConstraintFor :: QName -> CTVarIName -> CConstraint
@@ -198,56 +168,74 @@ generateType n = foldl (\t v -> CTApply t (CTVar v)) (CTCons n)
 lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupClass _ []     = Nothing
 lookupClass n (d:ds) = case d of
-  CommentedClassDecl n' a b c ds'
-    | n =~= n' -> Just (CommentedClassDecl n' a b c ds')
+  CommentedClassDecl n' _ _
+    | n =~= n' -> Just d
   _            -> lookupClass n ds
 
 lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
 lookupInstance _ _  []     = Nothing
 lookupInstance n ty (d:ds) = case d of
-  CommentedInstanceDecl n' a ty' b c
-    | n =~= n' && ty =~~= ty' -> Just (CommentedInstanceDecl n' a ty b c)
+  CommentedInstanceDecl n' ty' _ _
+    | n =~= n' && ty =~~= ty' -> Just d
   _                           -> lookupInstance n ty ds
 
 lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupFunc _ []     = Nothing
 lookupFunc n (d:ds) = case d of
-  CommentedFunctionDecl n' a b c
-    | n =~= n' -> Just (CommentedFunctionDecl n' a b c)
+  CommentedFunctionDecl n' _
+    | n =~= n' -> Just d
   _            -> lookupFunc n ds
 
 lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupTypeDecl _ []     = Nothing
 lookupTypeDecl n (d:ds) = case d of
-  CommentedTypeDecl n' a b c
-    | n =~= n' -> Just (CommentedTypeDecl n' a b c)
+  CommentedTypeDecl n' _
+    | n =~= n' -> Just d
   _            -> lookupTypeDecl n ds
 
 lookupDataDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupDataDecl _ []     = Nothing
 lookupDataDecl n (d:ds) = case d of
-  CommentedDataDecl n' a b c
-    | n =~= n' -> Just (CommentedDataDecl n' a b c)
+  CommentedDataDecl n' _ _
+    | n =~= n' -> Just d
   _            -> lookupDataDecl n ds
 
 lookupNewDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupNewDecl _ []     = Nothing
 lookupNewDecl n (d:ds) = case d of
-  CommentedNewtypeDecl n' a b c
-    | n =~= n' -> Just (CommentedNewtypeDecl n' a b c)
+  CommentedNewtypeDecl n' _ _
+    | n =~= n' -> Just d
   _            -> lookupNewDecl n ds
 
-lookupClassDataFuncDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupClassDataFuncDecl _ []     = Nothing
-lookupClassDataFuncDecl n (d:ds) = case d of
-  CommentedClassDecl n' a b c ds'
-    | n =~= n' -> Just (CommentedClassDecl n' a b c ds')
-  CommentedTypeDecl n' a b c
-    | n =~= n' -> Just (CommentedTypeDecl n' a b c)
-  CommentedDataDecl n' a b c
-    | n =~= n' -> Just (CommentedDataDecl n' a b c)
-  CommentedNewtypeDecl n' a b c
-    | n =~= n' -> Just (CommentedNewtypeDecl n' a b c)
-  CommentedFunctionDecl n' a b c
-    | n =~= n' -> Just (CommentedFunctionDecl n' a b c)
-  _            -> lookupClassDataFuncDecl n ds
+lookupTypeSig :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupTypeSig _ []     = Nothing
+lookupTypeSig n (d:ds) = case d of
+  CommentedTypeSig [n'] _ _
+    | n =~= n' -> Just d
+  _            -> lookupTypeSig n ds
+
+lookupField :: QName -> [CommentedField] -> Maybe CommentedField
+lookupField _ []     = Nothing
+lookupField n (f:fs) = case f of
+  ([n'], _)
+    | n =~= n' -> Just f
+  _            -> lookupField n fs
+
+lookupRecord :: QName -> [CommentedConstr] -> Maybe CommentedConstr
+lookupRecord _ []     = Nothing
+lookupRecord n (c:cs) = case c of
+  CommentedRecord n' _ _
+    | n =~= n' -> Just c
+  _            -> lookupRecord n cs
+
+lookupCons :: QName -> [CommentedConstr] -> Maybe CommentedConstr
+lookupCons _ []     = Nothing
+lookupCons n (c:cs) = case c of
+  CommentedConstr n'  _
+    | n =~= n' -> Just c
+  CommentedConsOp n'  _
+    | n =~= n' -> Just c
+  _            -> lookupCons n cs
+
+getInstances :: QName -> [CurryDocInstanceDecl] -> [CurryDocInstanceDecl]
+getInstances n = filter (\(CurryDocInstanceDecl n' _ _ _ _) -> n =~= n')
