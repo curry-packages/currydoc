@@ -329,6 +329,8 @@ associateCurryDocDeclPre xs d@(TypeSig spi fs
                         (matchArgumentsPre ty (skipUntilAfter sp rest))
 associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
+associateCurryDocDeclPre xs (ExternalDataDecl _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
 associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
@@ -441,6 +443,8 @@ associateCurryDocDeclPost xs (TypeSig _ fs (QualTypeExpr _ cx ty)) =
 associateCurryDocDeclPost xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPost xs (DefaultDecl _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (ExternalDataDecl _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 
 matchNewConstrPost :: NewConstrDecl -> [(Span, CDocComment)]
