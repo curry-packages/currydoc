@@ -104,11 +104,11 @@ genTexType docopts d = case d of
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     (if null constrs
-      then ""
+      then "\\currynocons"
       else "\n\\currydatacons\n" ++
            concatMap (genTexCons docopts tcons vs) constrs) ++
     (if null insts
-      then ""
+      then "\\currynoinsts"
       else "\n\\currydatainsts\n" ++
            concatMap (genTexInst docopts tcmod) insts) ++
     "\\currydatastop\n"
@@ -117,9 +117,10 @@ genTexType docopts d = case d of
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
-    (maybe "" (\c -> "\n\\currydatacons\n" ++ genTexCons docopts tcons vs c) cons) ++
+    (maybe "\\currynoinsts"
+           (("\n\\currydatacons\n" ++) . genTexCons docopts tcons vs) cons) ++
     (if null insts
-      then ""
+      then "\\currynocons"
       else "\n\\currydatainsts\n" ++
            concatMap (genTexInst docopts tcmod) insts) ++
     "\\currydatastop\n"
