@@ -1,4 +1,5 @@
-module CurryDoc.Info.Analysis (addAnaInfoToCurryDocDecls) where
+module CurryDoc.Info.Analysis
+  (addAnaInfoToCurryDocDecls, addShortAnaInfoToCurryDocDecls) where
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
@@ -11,8 +12,13 @@ import List (find, partition, isPrefixOf)
 
 --- Adds analysis information to suitable CurryDocDecls
 addAnaInfoToCurryDocDecls :: AnaInfo -> [COpDecl] -> [CFuncDecl]
-                         -> [CurryDocDecl] -> [CurryDocDecl]
+                          -> [CurryDocDecl] -> [CurryDocDecl]
 addAnaInfoToCurryDocDecls ai cop funs = map (addAnaInfoToCurryDocDecl ai cop funs)
+
+--- Adds short analysis information to suitable CurryDocDecls
+addShortAnaInfoToCurryDocDecls :: [COpDecl] -> [CFuncDecl]
+                               -> [CurryDocDecl] -> [CurryDocDecl]
+addShortAnaInfoToCurryDocDecls cop funs = map (addShortAnaInfoToCurryDocDecl cop funs)
 
 addAnaInfoToCurryDocDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CurryDocDecl
                         -> CurryDocDecl
@@ -24,6 +30,21 @@ addAnaInfoToCurryDocDecl ai cop funs (CurryDocFunctionDecl n qty sig _ cs) =
 addAnaInfoToCurryDocDecl _  cop _ (CurryDocDataDecl  idt vs ins ex cns cs) =
   CurryDocDataDecl idt vs ins ex (map (addPrecedenceInfoToCurryDocCons cop) cns) cs
 addAnaInfoToCurryDocDecl _  cop _ (CurryDocNewtypeDecl idt vs ins cns cs) =
+  CurryDocNewtypeDecl idt vs ins
+                       (fmapMaybe (addPrecedenceInfoToCurryDocCons cop) cns) cs
+  where fmapMaybe _ Nothing  = Nothing
+        fmapMaybe f (Just x) = Just  (f x)
+
+addShortAnaInfoToCurryDocDecl :: [COpDecl] -> [CFuncDecl] -> CurryDocDecl
+                              -> CurryDocDecl
+addShortAnaInfoToCurryDocDecl _   _ d@(CurryDocTypeDecl          _ _ _ _) = d
+addShortAnaInfoToCurryDocDecl cop _ (CurryDocClassDecl         a b c d e) =
+  CurryDocClassDecl a b c (map (addPrecedenceInfoToCurryDocDecl cop) d) e
+addShortAnaInfoToCurryDocDecl cop funs (CurryDocFunctionDecl n qty sig _ cs) =
+  CurryDocFunctionDecl n qty sig (createShortAnalysisInfoFun cop funs n) cs
+addShortAnaInfoToCurryDocDecl cop _ (CurryDocDataDecl  idt vs ins ex cns cs) =
+  CurryDocDataDecl idt vs ins ex (map (addPrecedenceInfoToCurryDocCons cop) cns) cs
+addShortAnaInfoToCurryDocDecl cop _ (CurryDocNewtypeDecl idt vs ins cns cs) =
   CurryDocNewtypeDecl idt vs ins
                        (fmapMaybe (addPrecedenceInfoToCurryDocCons cop) cns) cs
   where fmapMaybe _ Nothing  = Nothing
@@ -55,6 +76,13 @@ createAnalysisInfoFun ai cop funs n = AnalysisInfo {
     indet  = getIndetInfo ai n,
     opComplete = getOpCompleteInfo ai n,
     complete = getCompleteInfo ai n,
+    ext = getExternalInfo funs n,
+    precedence = genPrecedenceInfo cop n,
+    property = genPropertyInfo funs n
+  }
+
+createShortAnalysisInfoFun :: [COpDecl] -> [CFuncDecl] -> QName -> AnalysisInfo
+createShortAnalysisInfoFun cop funs n = ShortAnalysisInfo {
     ext = getExternalInfo funs n,
     precedence = genPrecedenceInfo cop n,
     property = genPropertyInfo funs n

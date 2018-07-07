@@ -70,9 +70,9 @@ genTexForExport doc (ExportSection c nesting ex : rest) =
      htmlString2Tex doc (commentString c) ++ "\n\n" ++
      innerTex ++ "\n\n" ++ outerTex
   where getSubsectionCommand n = case n of
-                    2 -> "\\paragraph*"
                     1 -> "\\subsubsection*"
-                    3 -> "\\subparagraph*"
+                    2 -> "\\paragraph*"
+                    _ -> "\\subparagraph*"
 genTexForExport doc (ExportEntryModule _ : rest) =
   genTexForExport doc rest -- TODO: show export of modules
 genTexForExport doc (ExportEntry decl : rest)

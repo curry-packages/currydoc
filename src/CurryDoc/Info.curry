@@ -30,7 +30,8 @@ generateCurryDocInfosWithAnalysis mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) ai
 
 generateCurryDocInfos :: String -> [(Span, Comment)] -> Module a -> CurryProg
                       -> CurryDoc
-generateCurryDocInfos = genCDoc id -- TODO: dont skip all analysis
+generateCurryDocInfos mn cs m acy@(CurryProg _ _ _ _ _ _ fs os)
+  = genCDoc (addShortAnaInfoToCurryDocDecls os fs) mn cs m acy
 
 genCDoc :: ([CurryDocDecl] -> [CurryDocDecl])
         -> String -> [(Span, Comment)] -> Module a -> CurryProg

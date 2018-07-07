@@ -283,17 +283,26 @@ genParamComments docopts fmod sym ((ty, cs) : xs) =
     : genParamComments docopts fmod "->" xs
 
 genFurtherInfos :: QName -> AnalysisInfo -> [HtmlExp]
-genFurtherInfos _  NoAnalysisInfo            = []
-genFurtherInfos _  (PrecedenceInfo Nothing)  = []
-genFurtherInfos _  (PrecedenceInfo (Just p)) =
-  [dlist [([explainCat "Further infos:"],
-          genPrecedenceText p)]]
-genFurtherInfos qn ai@(AnalysisInfo {}) =
-  concatMap (showProperty qn) (property ai) ++
-  if null content
-    then []
-    else [dlist [([explainCat "Further infos:"], content)]]
+genFurtherInfos qn ai = case ai of
+    NoAnalysisInfo          -> []
+    PrecedenceInfo Nothing  -> []
+    PrecedenceInfo (Just p) -> [dlist [([explainCat "Further infos:"],
+                                         genPrecedenceText p)]]
+    ShortAnalysisInfo {}    -> concatMap (showProperty qn) (property ai) ++
+                               if null shortContent
+                                 then []
+                                 else [dlist [([explainCat "Further infos:"],
+                                                shortContent)]]
+    AnalysisInfo {}         -> concatMap (showProperty qn) (property ai) ++
+                               if null content
+                                 then []
+                                 else [dlist [([explainCat "Further infos:"],
+                                                content)]]
   where
+    shortContent =
+      maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
+      catMaybes [externalInfo]
+
     content =
       maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
       catMaybes
@@ -302,6 +311,7 @@ genFurtherInfos qn ai@(AnalysisInfo {}) =
          opcompleteInfo,
          externalInfo]
 
+    -- comment about partial/incomplete definition
     completenessInfo = let ci = complete ai in
       if ci == Complete
        then Nothing
@@ -317,7 +327,7 @@ genFurtherInfos qn ai@(AnalysisInfo {}) =
         then Just (htxt "might behave indeterministically")
         else Nothing
 
-    -- comment about the indeterminism of a function:
+    -- comment about the solution completeness of a function:
     opcompleteInfo =
        if opComplete ai
          then Just (htxt "solution complete, i.e., able to compute all solutions")
@@ -370,9 +380,10 @@ showProperty qn (sp, rule) = case (sp, rule) of
 
 --- Generates icons for particular properties of functions.
 genFuncPropIcons :: AnalysisInfo -> [HtmlExp]
-genFuncPropIcons    NoAnalysisInfo    = []
-genFuncPropIcons    PrecedenceInfo {} = []
-genFuncPropIcons ai@AnalysisInfo   {} =
+genFuncPropIcons    NoAnalysisInfo       = []
+genFuncPropIcons    PrecedenceInfo    {} = []
+genFuncPropIcons    ShortAnalysisInfo {} = []
+genFuncPropIcons ai@AnalysisInfo      {} =
    [detPropIcon, nbsp]
  where
    --(non)deterministically defined property:

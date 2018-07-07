@@ -66,13 +66,17 @@ getFunctionInfo ((fn,fi):fnis) n = if fn =~= n then fi
 
 --------------------------------------------------------------------------
 
-data AnalysisInfo = AnalysisInfo { nondet, indet, opComplete, ext :: Bool,
-                                   complete :: Completeness,
-                                   precedence :: Maybe (CFixity, Int),
-                                   property :: [(Property, CRule)]
-                                 }
+data AnalysisInfo = AnalysisInfo      { nondet, indet, opComplete, ext :: Bool,
+                                        complete :: Completeness,
+                                        precedence :: Maybe (CFixity, Int),
+                                        property :: [(Property, CRule)]
+                                      }
+                  | ShortAnalysisInfo { ext :: Bool,
+                                        precedence :: Maybe (CFixity, Int),
+                                        property :: [(Property, CRule)]
+                                      }
+                  | PrecedenceInfo    { precedence :: Maybe (CFixity, Int) }
                   | NoAnalysisInfo
-                  | PrecedenceInfo { precedence :: Maybe (CFixity, Int)}
   deriving Show
 
 data Property = PreSpec | PostSpec | Spec | Prop
