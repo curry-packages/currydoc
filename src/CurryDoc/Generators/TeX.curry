@@ -64,9 +64,13 @@ genTexForExport _   _     _        []                                  = ""
 genTexForExport doc insts typesigs (ExportSection c nesting ex : rest) =
   let innerTex = genTexForExport doc insts typesigs ex
       outerTex = genTexForExport doc insts typesigs rest
-  in "\\" ++ concat (replicate (min nesting 3) "sub") ++ "section" ++
+  in getSubsectionCommand nesting ++
      htmlString2Tex doc (commentString c) ++ "\n\n" ++
      innerTex ++ "\n\n" ++ outerTex
+  where getSubsectionCommand n = case n of
+                    1 -> "\\subsubsection*"
+                    2 -> "\\paragraph*"
+                    3 -> "\\subparagraph*"
 genTexForExport doc insts typesigs (ExportEntryModule _ : rest) =
   genTexForExport doc insts typesigs rest -- TODO: show export of modules
 genTexForExport doc insts typesigs (ExportEntry decl : rest)
