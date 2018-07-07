@@ -30,3 +30,11 @@ getSrcSpan :: HasSpanInfo a
 getSrcSpan a = case getSpanInfo a of
   NoSpanInfo   -> NoSpan
   SpanInfo s _ -> s
+
+-- | Get the src info points of the entity
+getSrcInfoPoints :: HasSpanInfo a
+                 => a     -- ^ The entity with SpanInfos
+                 -> [Span] -- ^ SrcInfoPoints
+getSrcInfoPoints a = case getSpanInfo a of
+  NoSpanInfo    -> []
+  SpanInfo _ ss -> ss

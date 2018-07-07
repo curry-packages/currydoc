@@ -44,12 +44,10 @@ infixl 0 `withTitle`
 --- Generates the documentation of a module in HTML format where the comments
 --- are already analyzed.
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
-generateHtmlDocs opts (CurryDoc mname mhead insts typesigs ex _) = do
+generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let
-    navigation = [block (genHtmlExportSections ex) `addClass` "nav nav-sidebar"]
-    content =
-      genHtmlModule opts mhead ++
-      snd (genHtmlForExport 0 opts insts typesigs ex)
+    navigation = [block (genHtmlExportSections ex) `addClass` "nav nav-sidebar"] -- TODO: no sections in the export list will look bad
+    content = genHtmlModule opts mhead ++ snd (genHtmlForExport 0 opts ex)
   mainPage title [htmltitle] [] rightTopMenu navigation content
    where
     title = "Module " ++ mname
@@ -58,13 +56,12 @@ generateHtmlDocs opts (CurryDoc mname mhead insts typesigs ex _) = do
                    , href (mname ++ "_curry.html") [htxt mname]
                    ]
 
-genHtmlForExport :: Int -> DocOptions -> [CommentedDecl] -> [CommentedDecl]
-                 -> [ExportEntry CommentedDecl] -> (Int, [HtmlExp])
-genHtmlForExport num _   _     _        []                                  =
-  (num, [])
-genHtmlForExport num doc insts typesigs (ExportSection c nesting ex : rest) =
-  let (num' , innerHtml) = genHtmlForExport (num  + 1) doc insts typesigs ex
-      (num'', outerHtml) = genHtmlForExport (num' + 1) doc insts typesigs rest
+genHtmlForExport :: Int -> DocOptions -> [ExportEntry CurryDocDecl]
+                 -> (Int, [HtmlExp])
+genHtmlForExport num _   []                                  = (num, [])
+genHtmlForExport num doc (ExportSection c nesting ex : rest) =
+  let (num' , innerHtml) = genHtmlForExport (num  + 1) doc ex
+      (num'', outerHtml) = genHtmlForExport (num' + 1) doc rest
   in (num'', anchoredSection ("g" ++ show num)
                ((hnest nesting [htxt (commentString c)]) : hrule
                  : innerHtml)
@@ -74,13 +71,14 @@ genHtmlForExport num doc insts typesigs (ExportSection c nesting ex : rest) =
                     2 -> h3
                     3 -> h4
                     _ -> h5
-genHtmlForExport num doc insts typesigs (ExportEntryModule _ : rest) =
-  genHtmlForExport num doc insts typesigs rest -- TODO: show export of modules
-genHtmlForExport num doc insts typesigs (ExportEntry decl : rest)
-  | isCommentedFuncDecl decl  = (num', genHtmlFunc  doc typesigs decl ++ restHtml)
-  | isCommentedClassDecl decl = (num', genHtmlClass doc          decl ++ restHtml)
-  | otherwise                 = (num', genHtmlType  doc insts    decl ++ restHtml)
-  where (num', restHtml) = genHtmlForExport num doc insts typesigs rest
+genHtmlForExport num doc (ExportEntryModule _ : rest) =
+  genHtmlForExport num doc rest -- TODO: show export of modules
+genHtmlForExport num doc (ExportEntry decl : rest)
+  | isCurryDocFuncDecl  decl = (num', genHtmlFunc  "functionheader"
+                                                   doc decl ++ [hrule] ++ restHtml)
+  | isCurryDocClassDecl decl = (num', genHtmlClass doc decl ++ [hrule] ++ restHtml)
+  | otherwise                = (num', genHtmlType  doc decl ++ [hrule] ++ restHtml)
+  where (num', restHtml) = genHtmlForExport num doc rest
 
 --- Translate a documentation comment to HTML and use markdown translation
 --- if necessary
@@ -139,28 +137,24 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
           par [bold [htxt (show typ ++ ": ")], htxt value]
 
 --- generate HTML documentation for a datatype if it is exported:
-genHtmlType :: DocOptions -> [CommentedDecl] -> CommentedDecl -> [HtmlExp]
-genHtmlType docopts inst d = case d of
-  CommentedDataDecl n@(tmod,tcons) vs cs cns ->
+genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
+genHtmlType docopts d = case d of
+  CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs -> -- TODO: show External info
        [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
     ++ [par [explainCat "Known instances: "]]
-    ++ ulistOrEmpty (map (genHtmlInst docopts tmod)
-                         (filter ((n =~=) . instTypeName) inst))
-    ++ [hrule]
-  CommentedNewtypeDecl n@(tmod,tcons) vs cs cn ->
+    ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
+  CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
   -- TODO: distinguish from data
     [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
-    ++ genHtmlNewCons docopts n vs cn
+    ++ (maybe [] (genHtmlCons docopts n vs) cn)
     ++ [par [explainCat "Known instances: "]]
-    ++ ulistOrEmpty (map (genHtmlInst docopts tmod)
-                         (filter ((n =~=) . instTypeName) inst))
-    ++ [hrule]
-  CommentedTypeDecl (tmod,tcons) vs ty cs ->
+    ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
+  CurryDocTypeDecl (tmod,tcons) vs ty cs ->
        [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [ par [explainCat "Type synonym:"
@@ -169,18 +163,16 @@ genHtmlType docopts inst d = case d of
             case (tmod,tcons) of
               ("Prelude", "String")
                 -> "[" ++ showTypeCons docopts tmod (tmod,"Char") ++ "]"
-              _ -> showType docopts tmod False ty)]]
-       , hrule
-       ]
+              _ -> showType docopts tmod False ty)]]]
   _ -> []
 
 --- generate HTML documentation for a constructor if it is exported:
-genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CommentedConstr
+genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
             -> [HtmlExp]
-genHtmlCons docopts ds vs (CommentedConsOp (cmod, cname) cs ty1 ty2 ai) =
-  genHtmlCons docopts ds vs (CommentedConstr (cmod, "(" ++ cname ++ ")")
-                              cs [ty1, ty2] ai) -- TODO: maybe different?
-genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
+genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
+  genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
+                              [ty1, ty2] ai cs) -- TODO: maybe different?
+genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
   anchored (cname ++ "_CONS")
     [code [opnameDoc [htxt cname],
            HtmlText (" :: " ++
@@ -196,7 +188,7 @@ genHtmlCons docopts (_, tcons) vs (CommentedConstr (cmod, cname) cs tys ai) =
         fix = case ai of
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
-genHtmlCons docopts (_, tcons) vs (CommentedRecord (cmod,cname) cs tys fs ai) =
+genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
   anchored (cname ++ "_CONS")
     [code [opnameDoc [htxt cname],
           HtmlText (" :: " ++
@@ -214,10 +206,8 @@ genHtmlCons docopts (_, tcons) vs (CommentedRecord (cmod,cname) cs tys fs ai) =
           _              -> precedence ai
 
 -- generate HTML documentation for record fields
-genHtmlField :: DocOptions -> CommentedField -> [HtmlExp]
-genHtmlField _       ([]            , _ , _ ) = []
-genHtmlField _       ((_ : _ : _)   , _ , _ ) = []
-genHtmlField docopts ([(fmod,fname)], cs, ty) =
+genHtmlField :: DocOptions -> CurryDocField -> [HtmlExp]
+genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) = -- TODO: show precedence
   [anchored (fname ++ "_FIELD")
     ([ code [opnameDoc [htxt fname]]
      , HtmlText (" :: " ++ showType docopts fmod True ty)
@@ -225,33 +215,21 @@ genHtmlField docopts ([(fmod,fname)], cs, ty) =
             htxt " : " : removeTopPar (docComment2HTML docopts txt))]
   where txt = unwords (map commentString cs)
 
-genHtmlNewCons :: DocOptions -> QName -> [CTVarIName]
-               -> Maybe CommentedNewtypeConstr -> [HtmlExp]
-genHtmlNewCons _       _  _  Nothing = []
-genHtmlNewCons docopts dn vs (Just (CommentedNewConstr cn cs ty ai)) =
-  genHtmlCons docopts dn vs (CommentedConstr cn cs [ty] ai)
-genHtmlNewCons docopts dn vs (Just (CommentedNewRecord cn cs ty f ai)) =
-  genHtmlCons docopts dn vs (CommentedRecord cn cs [ty] fs ai)
-  where fs = case f of
-               Just f' -> [f']
-               Nothing -> []
-
 -- TODO: Add href to code
-genHtmlInst :: DocOptions -> String -> CommentedDecl -> [HtmlExp]
+genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
-  CommentedInstanceDecl (cmod, cname) cx ty _ _ ->
+  CurryDocInstanceDecl (cmod, cname) cx ty _ _ ->
     [code [htxt (if null cxString then [] else cxString ++ " "),
            href (docURL docopts cmod++".html#"++cname++"_CLASS")
                  [htxt cname]]] ++
     [code [HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)]]
     where cxString = showContext docopts cmod True cx
-  _ -> []
 
 -- generate HTML documentation for a function:
-genHtmlClass :: DocOptions -> CommentedDecl -> [HtmlExp]
+genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
-  CommentedClassDecl (cmod, cname) cx v cs ds ->
+  CurryDocClassDecl (cmod, cname) cx v ds cs ->
        [anchored (cname ++ "_CLASS")
          [style "classheader"
            [code
@@ -261,42 +239,41 @@ genHtmlClass docopts d = case d of
               [htxt (' ' : snd v)])]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
-    ++ [borderedTable (map ((:[]) . genHtmlFunc docopts typsigs) methods)]
+    ++ [borderedTable (map ((:[]) . genHtmlFunc "classfunctionheader" docopts) ds)]
     where cxString = showContext docopts cmod True cx
-          (typsigs, methods) = partition isCommentedTypeSig ds
   _ -> []
 
 -- generate HTML documentation for a function:
-genHtmlFunc :: DocOptions -> [CommentedDecl] -> CommentedDecl -> [HtmlExp]
-genHtmlFunc docopts types d = case d of
-  CommentedFunctionDecl (fmod,fname) cs (Just ty) ai ->
+genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [HtmlExp]
+genHtmlFunc cssclass docopts d = case d of
+  CurryDocFunctionDecl (fmod,fname) qty sig ai cs ->
      [anchoredDiv (fname ++ "_FUNC")
       [par $
         [code [opnameDoc [showCodeHRef fname],
-               HtmlText (" :: "++ showQualType docopts fmod ty)],
+               HtmlText (" :: "++ showQualType docopts fmod qty)]
+          `addClass` cssclass,
          nbsp, nbsp] ++
         genFuncPropIcons ai]] ++
-        genSigComment docopts (lookupTypeSig (fmod, fname) types) ++
+        genSigComment docopts sig ++
         docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
         genFurtherInfos (fmod, fname) ai
     where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
   _ -> []
 
-genSigComment :: DocOptions -> Maybe CommentedDecl -> [HtmlExp]
+genSigComment :: DocOptions -> Maybe CurryDocTypeSig -> [HtmlExp]
 genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
-  CommentedTypeSig [(fmod, _)] cs    (CContext []   ) ps ->
+  CurryDocTypeSig (fmod, _) (CContext []   ) ps cs ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
     ++ if all (null . snd) ps
          then []
          else [table (genParamComments docopts fmod "::" ps)]
-  CommentedTypeSig [(fmod, _)] cs cx@(CContext (_:_)) ps ->
+  CurryDocTypeSig (fmod, _) cx@(CContext (_:_)) ps cs ->
     [ par (docComment2HTML docopts (concatCommentStrings (map commentString cs)))]
     ++ if all (null . snd) ps
          then []
          else [table ([[code [HtmlText (":: " ++ showContext docopts fmod False cx)]]]
                 : genParamComments docopts fmod "=>" ps)]
-  _ -> []
 
 genParamComments :: DocOptions -> String -> String -> [(CTypeExpr, [Comment])] -> [[[HtmlExp]]]
 genParamComments _       _    _   []              = []
@@ -553,7 +530,6 @@ showModNameRef opts ty (modname,name) =
 sortNames :: [(a,String)] -> [(a,String)]
 sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
 
-
 --------------------------------------------------------------------------
 -- generate the constructor index page for the documentation directory:
 genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
@@ -650,7 +626,6 @@ genHtmlLibCats = concatMap gen
       let c = getCategoryWithDefault "general" xs
       in [anchoredSection (getCategoryWithDefault "general" xs)
             (h2 [htxt (genCatExplain c ++ ":")] : genHtmlLibCat mods)]
-
 
 genHtmlLibCat :: [(String, ModuleHeader)] -> [HtmlExp]
 genHtmlLibCat mods =
@@ -778,13 +753,6 @@ ehref url desc = href url desc `addAttr` ("target","_blank")
 
 --------------------------------------------------------------------------
 -- auxiliaries:
-
-lookupTypeSig :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupTypeSig _ []     = Nothing
-lookupTypeSig n (d:ds) = case d of
-  CommentedTypeSig [n'] _ _ _
-    | n =~= n' -> Just d
-  _            -> lookupTypeSig n ds
 
 ulistOrEmpty :: [[HtmlExp]] -> [HtmlExp]
 ulistOrEmpty items | null items = []

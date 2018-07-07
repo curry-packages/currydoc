@@ -1,7 +1,7 @@
-module CurryDoc.Info.Analysis (addAnaInfoToCommentDecls) where
+module CurryDoc.Info.Analysis (addAnaInfoToCurryDocDecls) where
 
 import CurryDoc.Data.AnaInfo
-import CurryDoc.Info.Comments
+import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Goodies
 
 import AbstractCurry.Types
@@ -9,44 +9,43 @@ import AbstractCurry.Select
 
 import List (find, partition, isPrefixOf)
 
---- Adds analysis information to suitable CommentedDecls
-addAnaInfoToCommentDecls :: AnaInfo -> [COpDecl] -> [CFuncDecl]
-                         -> [CommentedDecl] -> [CommentedDecl]
-addAnaInfoToCommentDecls ai cop funs = map (addAnaInfoToCommentDecl ai cop funs)
+--- Adds analysis information to suitable CurryDocDecls
+addAnaInfoToCurryDocDecls :: AnaInfo -> [COpDecl] -> [CFuncDecl]
+                         -> [CurryDocDecl] -> [CurryDocDecl]
+addAnaInfoToCurryDocDecls ai cop funs = map (addAnaInfoToCurryDocDecl ai cop funs)
 
-addAnaInfoToCommentDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CommentedDecl
-                        -> CommentedDecl
-addAnaInfoToCommentDecl _  _   _    d@(UnsupportedDecl                _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedExternalDecl    _ _ _ _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeDecl        _ _ _ _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedTypeSig         _ _ _ _) = d
-addAnaInfoToCommentDecl _  _   _    d@(CommentedInstanceDecl  _ _ _ _ _) = d
-addAnaInfoToCommentDecl _  cop _      (CommentedClassDecl     a b c d e) =
-  CommentedClassDecl a b c d (map (addPrecedenceInfoToCommentDecl cop) e)
-  -- CommentedClassDecl a b (addAnaInfoToCommentDecls ai cop c) -- not reasonably possible for classes
-addAnaInfoToCommentDecl ai cop funs    (CommentedFunctionDecl n qty cs _) =
-  CommentedFunctionDecl n qty cs (createAnalysisInfoFun ai cop funs n)
-addAnaInfoToCommentDecl _  cop _       (CommentedDataDecl     idt vs cs cns) =
-  CommentedDataDecl idt vs cs (map add cns)
-  where add (CommentedConstr c ccs tys _) =
-             CommentedConstr c ccs tys (createPrecInfo cop c)
-        add (CommentedRecord c ccs tys fs  _) =
-             CommentedRecord c ccs tys fs (createPrecInfo cop c)
-        add (CommentedConsOp c ccs ty1 ty2 _) =
-             CommentedConsOp c ccs ty1 ty2 (createPrecInfo cop c)
-addAnaInfoToCommentDecl _  cop _       (CommentedNewtypeDecl idt vs cs cns) =
-  CommentedNewtypeDecl idt vs cs (fmapMaybe add cns)
-  where add (CommentedNewConstr c ccs ty _) =
-             CommentedNewConstr c ccs ty (createPrecInfo cop c)
-        add (CommentedNewRecord c ccs ty f  _) =
-             CommentedNewRecord c ccs ty f (createPrecInfo cop c)
-        fmapMaybe _ Nothing  = Nothing
+addAnaInfoToCurryDocDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CurryDocDecl
+                        -> CurryDocDecl
+addAnaInfoToCurryDocDecl _  _   _ d@(CurryDocTypeDecl          _ _ _ _) = d
+addAnaInfoToCurryDocDecl _  cop _ (CurryDocClassDecl         a b c d e) =
+  CurryDocClassDecl a b c (map (addPrecedenceInfoToCurryDocDecl cop) d) e
+addAnaInfoToCurryDocDecl ai cop funs (CurryDocFunctionDecl n qty sig _ cs) =
+  CurryDocFunctionDecl n qty sig (createAnalysisInfoFun ai cop funs n) cs
+addAnaInfoToCurryDocDecl _  cop _ (CurryDocDataDecl  idt vs ins ex cns cs) =
+  CurryDocDataDecl idt vs ins ex (map (addPrecedenceInfoToCurryDocCons cop) cns) cs
+addAnaInfoToCurryDocDecl _  cop _ (CurryDocNewtypeDecl idt vs ins cns cs) =
+  CurryDocNewtypeDecl idt vs ins
+                       (fmapMaybe (addPrecedenceInfoToCurryDocCons cop) cns) cs
+  where fmapMaybe _ Nothing  = Nothing
         fmapMaybe f (Just x) = Just  (f x)
 
-addPrecedenceInfoToCommentDecl :: [COpDecl] -> CommentedDecl -> CommentedDecl
-addPrecedenceInfoToCommentDecl cop d = case d of
-  CommentedFunctionDecl n qty cs _ ->
-    CommentedFunctionDecl n qty cs (createPrecInfo cop n)
+addPrecedenceInfoToCurryDocCons :: [COpDecl] -> CurryDocCons -> CurryDocCons
+addPrecedenceInfoToCurryDocCons cop (CurryDocConstr c tys     _ cs) =
+  CurryDocConstr c tys     (createPrecInfo cop c) cs
+addPrecedenceInfoToCurryDocCons cop (CurryDocConsOp c ty1 ty2 _ cs) =
+  CurryDocConsOp c ty1 ty2 (createPrecInfo cop c) cs
+addPrecedenceInfoToCurryDocCons cop (CurryDocRecord c tys fs  _ cs) =
+  CurryDocRecord c tys fs' (createPrecInfo cop c) cs
+  where fs' = map (addPrecedenceInfoToField cop) fs
+
+addPrecedenceInfoToField :: [COpDecl] -> CurryDocField -> CurryDocField
+addPrecedenceInfoToField cop (CurryDocField n ty _ cs) =
+  CurryDocField n ty (createPrecInfo cop n) cs
+
+addPrecedenceInfoToCurryDocDecl :: [COpDecl] -> CurryDocDecl -> CurryDocDecl
+addPrecedenceInfoToCurryDocDecl cop d = case d of
+  CurryDocFunctionDecl n qty sig _ cs ->
+    CurryDocFunctionDecl n qty sig (createPrecInfo cop n) cs
   _                                -> d
 
 createAnalysisInfoFun :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> QName
