@@ -104,26 +104,29 @@ genTexType docopts d = case d of
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     (if null constrs
-      then "\\currynocons"
-      else "\n\\currydatacons\n" ++
-           concatMap (genTexCons docopts tcons vs) constrs) ++
+      then "\n\\currynocons"
+      else "\n\\currydataconsstart\n" ++
+           concatMap (genTexCons docopts tcons vs) constrs ++
+           "\\currydataconsstop") ++
     (if null insts
-      then "\\currynoinsts"
-      else "\n\\currydatainsts\n" ++
-           concatMap (genTexInst docopts tcmod) insts) ++
-    "\\currydatastop\n"
+      then "\n\\currynoinsts"
+      else "\n\\currydatainstsstart\n" ++
+           concatMap (genTexInst docopts tcmod) insts ++
+           "\n\\currydatainstsstop")
   CurryDocNewtypeDecl (tcmod,tcons) vs insts cons cs ->
   -- TODO: distinguish from data
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
-    (maybe "\\currynoinsts"
-           (("\n\\currydatacons\n" ++) . genTexCons docopts tcons vs) cons) ++
+    (maybe "\n\\currynocons"
+           (\c -> "\n\\currydataconsstart\n" ++
+                  genTexCons docopts tcons vs c ++
+                  "\n\\currydataconsstop\n") cons) ++
     (if null insts
-      then "\\currynocons"
-      else "\n\\currydatainsts\n" ++
-           concatMap (genTexInst docopts tcmod) insts) ++
-    "\\currydatastop\n"
+      then "\n\\currynoinsts"
+      else "\n\\currydatainstsstart\n" ++
+           concatMap (genTexInst docopts tcmod) insts ++
+           "\n\\currydatainstsstop")
   CurryDocTypeDecl (tcmod,tcons) vs ty cs ->
     "\\currytypesynstart{" ++ tcons ++ "}{" ++
     (if tcons=="String" && tcmod=="Prelude"

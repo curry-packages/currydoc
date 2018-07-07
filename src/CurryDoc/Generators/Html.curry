@@ -92,6 +92,7 @@ docComment2HTML opts cmt
   | withMarkdown opts = markdownText2HTML (replaceIdLinks opts cmt)
   | otherwise         = [par [HtmlText (replaceIdLinks opts cmt)]]
 
+-- TODO: not working correctly
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by HTML hyperrefences:
 replaceIdLinks :: DocOptions -> String -> String
