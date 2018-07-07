@@ -46,8 +46,11 @@ infixl 0 `withTitle`
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let
-    navigation = [block (genHtmlExportSections ex) `addClass` "nav nav-sidebar"] -- TODO: no sections in the export list will look bad
-    content = genHtmlModule opts mhead ++ snd (genHtmlForExport 0 opts ex)
+    moduleHeaderLink = [block [href "#moduleheader" [htxt title]]]
+    navigation = [block (moduleHeaderLink ++ genHtmlExportSections ex)
+                   `addClass` "nav nav-sidebar"]
+    content = [anchored "moduleheader" (genHtmlModule opts mhead)] ++ [hrule] ++
+              snd (genHtmlForExport 0 opts ex)
   mainPage title [htmltitle] [] rightTopMenu navigation content
    where
     title = "Module " ++ mname
@@ -231,12 +234,11 @@ genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v ds cs ->
        [anchored (cname ++ "_CLASS")
-         [style "classheader"
-           [code
-             ([(htxt "class ")] ++
-              (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
-              [classnameDoc [htxt cname]] ++
-              [htxt (' ' : snd v)])]]]
+         [(code
+           ([(htxt "class ")] ++
+             (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
+             [htxt cname] ++ [htxt (' ' : snd v)])
+           `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
     ++ [borderedTable (map ((:[]) . genHtmlFunc "classfunctionheader" docopts) ds)]
@@ -782,9 +784,6 @@ explainCat s = textstyle "explaincat" s
 -- style for function/constructor name shown in the documentation part:
 opnameDoc :: [HtmlExp] -> HtmlExp
 opnameDoc = style "opname"
-
-classnameDoc :: [HtmlExp] -> HtmlExp
-classnameDoc = style "classname"
 
 -- Sorts a list of strings.
 sortStrings :: [String] -> [String]

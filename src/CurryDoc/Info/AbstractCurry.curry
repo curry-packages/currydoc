@@ -50,7 +50,7 @@ addAbstractCurryFunInfo (CFunc n _ Public  qty _ : ds) cds =
         NoAnalysisInfo cs)
     (lookupFunc n cds)
     : addAbstractCurryFunInfo ds cds
-  where typesig = transformTypesig qty (lookupTypeSig n cds)
+  where typesig = transformTypesig qty (lookupTypeSig [n] cds)
 addAbstractCurryFunInfo (CFunc _ _ Private _   _ : ds) cds =
   addAbstractCurryFunInfo ds cds
 addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
@@ -162,81 +162,6 @@ generateConstraintFor n v = (n, CTVar v)
 
 generateType :: QName -> [CTVarIName] -> CTypeExpr
 generateType n = foldl (\t v -> CTApply t (CTVar v)) (CTCons n)
-
--------------------------------------------------------------------------------
--- lookup entries
-
-lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupClass _ []     = Nothing
-lookupClass n (d:ds) = case d of
-  CommentedClassDecl n' _ _
-    | n =~= n' -> Just d
-  _            -> lookupClass n ds
-
-lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
-lookupInstance _ _  []     = Nothing
-lookupInstance n ty (d:ds) = case d of
-  CommentedInstanceDecl n' ty' _ _
-    | n =~= n' && ty =~~= ty' -> Just d
-  _                           -> lookupInstance n ty ds
-
-lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupFunc _ []     = Nothing
-lookupFunc n (d:ds) = case d of
-  CommentedFunctionDecl n' _
-    | n =~= n' -> Just d
-  _            -> lookupFunc n ds
-
-lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupTypeDecl _ []     = Nothing
-lookupTypeDecl n (d:ds) = case d of
-  CommentedTypeDecl n' _
-    | n =~= n' -> Just d
-  _            -> lookupTypeDecl n ds
-
-lookupDataDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupDataDecl _ []     = Nothing
-lookupDataDecl n (d:ds) = case d of
-  CommentedDataDecl n' _ _
-    | n =~= n' -> Just d
-  _            -> lookupDataDecl n ds
-
-lookupNewDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupNewDecl _ []     = Nothing
-lookupNewDecl n (d:ds) = case d of
-  CommentedNewtypeDecl n' _ _
-    | n =~= n' -> Just d
-  _            -> lookupNewDecl n ds
-
-lookupTypeSig :: QName -> [CommentedDecl] -> Maybe CommentedDecl
-lookupTypeSig _ []     = Nothing
-lookupTypeSig n (d:ds) = case d of
-  CommentedTypeSig [n'] _ _
-    | n =~= n' -> Just d
-  _            -> lookupTypeSig n ds
-
-lookupField :: QName -> [CommentedField] -> Maybe CommentedField
-lookupField _ []     = Nothing
-lookupField n (f:fs) = case f of
-  ([n'], _)
-    | n =~= n' -> Just f
-  _            -> lookupField n fs
-
-lookupRecord :: QName -> [CommentedConstr] -> Maybe CommentedConstr
-lookupRecord _ []     = Nothing
-lookupRecord n (c:cs) = case c of
-  CommentedRecord n' _ _
-    | n =~= n' -> Just c
-  _            -> lookupRecord n cs
-
-lookupCons :: QName -> [CommentedConstr] -> Maybe CommentedConstr
-lookupCons _ []     = Nothing
-lookupCons n (c:cs) = case c of
-  CommentedConstr n'  _
-    | n =~= n' -> Just c
-  CommentedConsOp n'  _
-    | n =~= n' -> Just c
-  _            -> lookupCons n cs
 
 getInstances :: QName -> [CurryDocInstanceDecl] -> [CurryDocInstanceDecl]
 getInstances n = filter ((=~= n) . instTypeName)

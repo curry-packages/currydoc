@@ -118,7 +118,7 @@ genPrecedenceInfo (COp m fix prec : cop) n
 genPropertyInfo :: [CFuncDecl] -> QName -> [(Property, CRule)]
 genPropertyInfo funs n = getContracts ++ concatMap getProp props
   where
-    fprops = takeWhile isPropSpecFun $ tail $ dropWhile ((=~=n) . funcName) funs
+    fprops = takeWhile isPropSpecFun $ tail $ dropWhile (not . (=~=n) . funcName) funs
     (specs, props) = partition isSpecFun fprops
 
     getContracts = getContract (snd n ++ "'pre")  PreSpec  ++

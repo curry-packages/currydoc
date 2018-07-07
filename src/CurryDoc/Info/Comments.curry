@@ -2,6 +2,8 @@ module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
    isExportSection,
    splitNestedComment, commentString,
+   lookupFunc, lookupCons, lookupField, lookupClass, lookupRecord, lookupInstance,
+   lookupRecord, lookupTypeSig, lookupNewDecl, lookupDataDecl, lookupTypeDecl,
    Comment(..),
    CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
    where
@@ -482,11 +484,11 @@ merge (x1:x2:xs) = case (x1, x2) of
                                                (zipCons cns1 cns2) : xs)
    (CommentedClassDecl f1 cs1 ds1, CommentedClassDecl f2 cs2 ds2)
      | f1 == f2 -> merge (CommentedClassDecl f1 (cs1 ++ cs2)
-                                             (merge (ds1 ++ ds2)) : xs) -- TODO: merge wrong
+                                             (mergeLocal ds1 ds2) : xs)
    (CommentedInstanceDecl f1 ty1 cs1 ds1, CommentedInstanceDecl f2 ty2 cs2 ds2)
      | ty1 == ty2 &&
        f1 == f2 -> merge (CommentedInstanceDecl f1 ty1 (cs1 ++ cs2)
-                                                (merge (ds1 ++ ds2)) : xs) -- TODO: merge wrong
+                                                (mergeLocal ds1 ds2) : xs)
    (CommentedFunctionDecl f1 cs1, CommentedFunctionDecl f2 cs2)
      | f1 == f2 -> merge (CommentedFunctionDecl f1 (cs1 ++ cs2) : xs)
    (CommentedTypeSig f1 cs1 ps1, CommentedTypeSig f2 cs2 ps2)
@@ -510,6 +512,18 @@ merge (x1:x2:xs) = case (x1, x2) of
               -> CommentedConsOp n1 (cs1 ++ cs2)
       _       -> error "Comment.merge.zipCons: different constructors"
 
+-- | merge non-toplevel declarations,
+--   as the assumption from above does not hold there
+mergeLocal :: [CommentedDecl] -> [CommentedDecl] -> [CommentedDecl]
+mergeLocal []     _   = []
+mergeLocal (d:ds) ds' = (case d of
+  CommentedTypeSig      f _ _ -> maybe d (combine d) (lookupTypeSig f ds')
+  CommentedFunctionDecl f _   -> maybe d (combine d) (lookupFunc    f ds')
+  _                           -> d)
+  : mergeLocal ds ds'
+  where combine d1 d2 = head (merge [d1, d2])
+
+
 skipUntilAfter :: Span -> [(Span, a)] -> [(Span, a)]
 skipUntilAfter sp = filter (( `isAfter` sp) . fst)
 
@@ -525,6 +539,39 @@ getToMatch stop last ((sp, c) : cs) p =
     then add (sp, c) (getToMatch stop sp cs p)
     else ([], (sp, c) : cs)
   where add x (xs, rest) = (x:xs, rest)
+
+-------------------------------------------------------------------------------
+-- Splitting of TypeSigs with multiple idents and field decls inside DataDecls
+-- and filtering of UnsupportedDecls
+-- also translates CommentedExternalDecl/Data to CommmentedFunctionDecls/DataDecls
+
+cleanup :: [CommentedDecl] -> [CommentedDecl]
+cleanup [] = []
+cleanup (d@(CommentedTypeDecl                _ _) : ds) = d :  cleanup ds
+cleanup (d@(CommentedFunctionDecl            _ _) : ds) = d :  cleanup ds
+cleanup (d@(CommentedNewtypeDecl           _ _ _) : ds) = d :  cleanup ds
+cleanup (  (UnsupportedDecl                    _) : ds) =      cleanup ds
+cleanup (  (CommentedExternalData           f cs) : ds) =
+            CommentedDataDecl f cs []                       :  cleanup ds
+cleanup (  (CommentedDataDecl           f cs cns) : ds) =
+            CommentedDataDecl f cs (map cleanupConstr cns)  :  cleanup ds
+cleanup (  (CommentedClassDecl          f cs ds') : ds) =
+            CommentedClassDecl f cs (cleanup ds')           :  cleanup ds
+cleanup (  (CommentedInstanceDecl    f ty cs ds') : ds) =
+            CommentedInstanceDecl f ty cs (cleanup ds')     :  cleanup ds
+cleanup (  (CommentedExternalDecl          fs cs) : ds) =
+            map (\i -> CommentedFunctionDecl i cs) fs       ++ cleanup ds
+cleanup (  (CommentedTypeSig        idts cs args) : ds) =
+            map (\i -> CommentedTypeSig [i] cs args) idts   ++ cleanup ds
+
+cleanupConstr :: CommentedConstr -> CommentedConstr
+cleanupConstr c = case c of
+  CommentedRecord f cs fs
+    -> CommentedRecord f cs (concatMap cleanupField fs)
+  _ -> c
+
+cleanupField :: CommentedField -> [CommentedField]
+cleanupField (ns, cs) = map (\n -> ([n], cs)) ns
 
 -------------------------------------------------------------------------------
 -- utility for matching and conversions while matching
@@ -586,34 +633,77 @@ splitNestedComment c@(LineComment   _) = [c]
 splitNestedComment   (NestedComment s) = map LineComment $ lines s
 
 -------------------------------------------------------------------------------
--- Splitting of TypeSigs with multiple idents and field decls inside DataDecls
--- and filtering of UnsupportedDecls
--- also translates CommentedExternalDecl/Data to CommmentedFunctionDecls/DataDecls
+-- lookup entries
 
-cleanup :: [CommentedDecl] -> [CommentedDecl]
-cleanup [] = []
-cleanup (d@(CommentedTypeDecl                _ _) : ds) = d :  cleanup ds
-cleanup (d@(CommentedFunctionDecl            _ _) : ds) = d :  cleanup ds
-cleanup (d@(CommentedNewtypeDecl           _ _ _) : ds) = d :  cleanup ds
-cleanup (  (UnsupportedDecl                    _) : ds) =      cleanup ds
-cleanup (  (CommentedExternalData           f cs) : ds) =
-            CommentedDataDecl f cs []                       :  cleanup ds
-cleanup (  (CommentedDataDecl           f cs cns) : ds) =
-            CommentedDataDecl f cs (map cleanupConstr cns)  :  cleanup ds
-cleanup (  (CommentedClassDecl          f cs ds') : ds) =
-            CommentedClassDecl f cs (cleanup ds')           :  cleanup ds
-cleanup (  (CommentedInstanceDecl    f ty cs ds') : ds) =
-            CommentedInstanceDecl f ty cs (cleanup ds')     :  cleanup ds
-cleanup (  (CommentedExternalDecl          fs cs) : ds) =
-            map (\i -> CommentedFunctionDecl i cs) fs       ++ cleanup ds
-cleanup (  (CommentedTypeSig        idts cs args) : ds) =
-            map (\i -> CommentedTypeSig [i] cs args) idts   ++ cleanup ds
+lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupClass _ []     = Nothing
+lookupClass n (d:ds) = case d of
+  CommentedClassDecl n' _ _
+    | n =~= n' -> Just d
+  _            -> lookupClass n ds
 
-cleanupConstr :: CommentedConstr -> CommentedConstr
-cleanupConstr c = case c of
-  CommentedRecord f cs fs
-    -> CommentedRecord f cs (concatMap cleanupField fs)
-  _ -> c
+lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
+lookupInstance _ _  []     = Nothing
+lookupInstance n ty (d:ds) = case d of
+  CommentedInstanceDecl n' ty' _ _
+    | n =~= n' && ty =~~= ty' -> Just d
+  _                           -> lookupInstance n ty ds
 
-cleanupField :: CommentedField -> [CommentedField]
-cleanupField (ns, cs) = map (\n -> ([n], cs)) ns
+lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupFunc _ []     = Nothing
+lookupFunc n (d:ds) = case d of
+  CommentedFunctionDecl n' _
+    | n =~= n' -> Just d
+  _            -> lookupFunc n ds
+
+lookupTypeDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupTypeDecl _ []     = Nothing
+lookupTypeDecl n (d:ds) = case d of
+  CommentedTypeDecl n' _
+    | n =~= n' -> Just d
+  _            -> lookupTypeDecl n ds
+
+lookupDataDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupDataDecl _ []     = Nothing
+lookupDataDecl n (d:ds) = case d of
+  CommentedDataDecl n' _ _
+    | n =~= n' -> Just d
+  _            -> lookupDataDecl n ds
+
+lookupNewDecl :: QName -> [CommentedDecl] -> Maybe CommentedDecl
+lookupNewDecl _ []     = Nothing
+lookupNewDecl n (d:ds) = case d of
+  CommentedNewtypeDecl n' _ _
+    | n =~= n' -> Just d
+  _            -> lookupNewDecl n ds
+
+lookupTypeSig :: [QName] -> [CommentedDecl] -> Maybe CommentedDecl
+lookupTypeSig _ []     = Nothing
+lookupTypeSig n (d:ds) = case d of
+  CommentedTypeSig n' _ _
+    | all (uncurry (=~=)) (zip n n')
+       -> Just d
+  _    -> lookupTypeSig n ds
+
+lookupField :: QName -> [CommentedField] -> Maybe CommentedField
+lookupField _ []     = Nothing
+lookupField n (f:fs) = case f of
+  ([n'], _)
+    | n =~= n' -> Just f
+  _            -> lookupField n fs
+
+lookupRecord :: QName -> [CommentedConstr] -> Maybe CommentedConstr
+lookupRecord _ []     = Nothing
+lookupRecord n (c:cs) = case c of
+  CommentedRecord n' _ _
+    | n =~= n' -> Just c
+  _            -> lookupRecord n cs
+
+lookupCons :: QName -> [CommentedConstr] -> Maybe CommentedConstr
+lookupCons _ []     = Nothing
+lookupCons n (c:cs) = case c of
+  CommentedConstr n'  _
+    | n =~= n' -> Just c
+  CommentedConsOp n'  _
+    | n =~= n' -> Just c
+  _            -> lookupCons n cs
