@@ -76,9 +76,9 @@ genTexForExport doc (ExportSection c nesting ex : rest) =
 genTexForExport doc (ExportEntryModule _ : rest) =
   genTexForExport doc rest -- TODO: show export of modules
 genTexForExport doc (ExportEntry decl : rest)
-  | isCurryDocFuncDecl  decl = genTexFunc  doc decl ++ restTex
-  | isCurryDocClassDecl decl = genTexClass doc decl ++ restTex
-  | otherwise                = genTexType  doc decl ++ restTex
+  | isCurryDocFuncDecl  decl = genTexFunc  doc decl ++ "\n" ++ restTex
+  | isCurryDocClassDecl decl = genTexClass doc decl ++ "\n" ++ restTex
+  | otherwise                = genTexType  doc decl ++ "\n" ++ restTex
   where restTex = genTexForExport doc rest
 
 -- generate TeX documentation for a function
@@ -103,20 +103,25 @@ genTexType docopts d = case d of
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
-    "\n\\currydatacons\n" ++
-    concatMap (genTexCons docopts tcons vs) constrs ++
-    "\n\\currydatainsts\n" ++
-    concatMap (genTexInst docopts tcmod) insts ++
+    (if null constrs
+      then ""
+      else "\n\\currydatacons\n" ++
+           concatMap (genTexCons docopts tcons vs) constrs) ++
+    (if null insts
+      then ""
+      else "\n\\currydatainsts\n" ++
+           concatMap (genTexInst docopts tcmod) insts) ++
     "\\currydatastop\n"
   CurryDocNewtypeDecl (tcmod,tcons) vs insts cons cs ->
   -- TODO: distinguish from data
     "\\currydatastart{" ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
-    "\n\\currydatacons\n" ++
-    (maybe [] (genTexCons docopts tcons vs) cons) ++
-    "\n\\currydatainsts\n" ++
-    concatMap (genTexInst docopts tcmod) insts ++
+    (maybe "" (\c -> "\n\\currydatacons\n" ++ genTexCons docopts tcons vs c) cons) ++
+    (if null insts
+      then ""
+      else "\n\\currydatainsts\n" ++
+           concatMap (genTexInst docopts tcmod) insts) ++
     "\\currydatastop\n"
   CurryDocTypeDecl (tcmod,tcons) vs ty cs ->
     "\\currytypesynstart{" ++ tcons ++ "}{" ++
