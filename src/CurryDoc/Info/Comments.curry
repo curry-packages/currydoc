@@ -1,10 +1,7 @@
 module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
-   isCommentedTypeSig, isCommentedInstanceDecl,
-   isCommentedClassDecl, isCommentedFuncDecl,
    isExportSection,
    splitNestedComment, commentString,
-   commentedDeclName, instTypeName,
    Comment(..),
    CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
    where
@@ -587,48 +584,6 @@ commentString (NestedComment s) = s
 splitNestedComment :: Comment -> [Comment]
 splitNestedComment c@(LineComment   _) = [c]
 splitNestedComment   (NestedComment s) = map LineComment $ lines s
-
-isCommentedInstanceDecl :: CommentedDecl -> Bool
-isCommentedInstanceDecl d = case d of
-  CommentedInstanceDecl _ _ _ _ -> True
-  _                             -> False
-
-isCommentedTypeSig :: CommentedDecl -> Bool
-isCommentedTypeSig d = case d of
-  CommentedTypeSig _ _ _ -> True
-  _                      -> False
-
-isCommentedClassDecl :: CommentedDecl -> Bool
-isCommentedClassDecl d = case d of
-  CommentedClassDecl _ _ _ -> True
-  _                        -> False
-
-isCommentedFuncDecl :: CommentedDecl -> Bool
-isCommentedFuncDecl d = case d of
-  CommentedFunctionDecl _ _ -> True
-  _                         -> False
-
-instTypeName :: CommentedDecl -> QName
-instTypeName d = case d of
-  CommentedInstanceDecl _ ty _ _ ->
-    let Just (q,_) = tconsArgsOfType ty
-    in q
-  _ -> error "Eoment.instTypeName: No instance type"
-
-commentedDeclName :: CommentedDecl -> QName
-commentedDeclName (CommentedTypeDecl n _) = n
-commentedDeclName (CommentedDataDecl n _ _) = n
-commentedDeclName (CommentedNewtypeDecl n _ _) = n
-commentedDeclName (CommentedClassDecl n _ _) = n
-commentedDeclName (CommentedInstanceDecl n _ _ _) = n
-commentedDeclName (CommentedFunctionDecl n _) = n
-commentedDeclName (CommentedExternalData n _) = n
-commentedDeclName (CommentedTypeSig _ _ _) =
-  error "Comment.commentedDeclName: CommentedTypeSig"
-commentedDeclName (CommentedExternalDecl _ _) =
-  error "Comment.commentedDeclName: CommentedExternalDecl"
-commentedDeclName (UnsupportedDecl _) =
-  error "Comment.commentedDeclName: UnsupportedDecl"
 
 -------------------------------------------------------------------------------
 -- Splitting of TypeSigs with multiple idents and field decls inside DataDecls

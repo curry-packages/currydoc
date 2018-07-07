@@ -45,11 +45,12 @@ addAbstractCurryClassesInfo (CClass _ Private _  _  _  : cs) cds =
 addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryFunInfo []                             _   = []
 addAbstractCurryFunInfo (CFunc n _ Public  qty _ : ds) cds =
-  maybe (CurryDocFunctionDecl n qty Nothing NoAnalysisInfo [])
-    (\(CommentedFunctionDecl _ cs) -> CurryDocFunctionDecl n qty
-        (transformTypesig qty (lookupTypeSig n cds)) NoAnalysisInfo cs)
+  maybe (CurryDocFunctionDecl n qty typesig NoAnalysisInfo [])
+    (\(CommentedFunctionDecl _ cs) -> CurryDocFunctionDecl n qty typesig
+        NoAnalysisInfo cs)
     (lookupFunc n cds)
     : addAbstractCurryFunInfo ds cds
+  where typesig = transformTypesig qty (lookupTypeSig n cds)
 addAbstractCurryFunInfo (CFunc _ _ Private _   _ : ds) cds =
   addAbstractCurryFunInfo ds cds
 addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
@@ -238,4 +239,4 @@ lookupCons n (c:cs) = case c of
   _            -> lookupCons n cs
 
 getInstances :: QName -> [CurryDocInstanceDecl] -> [CurryDocInstanceDecl]
-getInstances n = filter (\(CurryDocInstanceDecl n' _ _ _ _) -> n =~= n')
+getInstances n = filter ((=~= n) . instTypeName)

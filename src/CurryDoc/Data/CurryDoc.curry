@@ -5,6 +5,7 @@ import CurryDoc.Info.Comments
 import CurryDoc.Data.AnaInfo
 
 import AbstractCurry.Types
+import AbstractCurry.Select (tconsArgsOfType)
 
 
 --- CurryDoc mName mhead exports imports
@@ -46,3 +47,8 @@ isCurryDocClassDecl d = case d of
 
 getTypesigComments :: CurryDocTypeSig -> [Comment]
 getTypesigComments (CurryDocTypeSig _ _ _ cs) = cs
+
+
+instTypeName :: CurryDocInstanceDecl -> QName
+instTypeName (CurryDocInstanceDecl _ _ ty _ _) = q
+  where Just (q,_) = tconsArgsOfType ty

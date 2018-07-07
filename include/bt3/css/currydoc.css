@@ -69,7 +69,16 @@ section {
 
 /* class signature at header positions */
 .classheader {
-  font-size: 20px;
+  font-size: 24px;
+}
+
+/* class signature at header positions */
+.functionheader {
+  font-size: 24px;
+}
+
+.classfunctionheader {
+  font-size: 16px;
 }
 
 /* function name in the documentation of a exported functions */
