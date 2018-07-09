@@ -4,6 +4,7 @@ module CurryDoc.Info.Comments
    splitNestedComment, commentString,
    lookupFunc, lookupCons, lookupField, lookupClass, lookupRecord, lookupInstance,
    lookupRecord, lookupTypeSig, lookupNewDecl, lookupDataDecl, lookupTypeDecl,
+   isOldStyleComment,
    Comment(..),
    CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
    where
@@ -627,6 +628,12 @@ classifyComment (LineComment   s)
 commentString :: Comment -> String
 commentString (LineComment   s) = s
 commentString (NestedComment s) = s
+
+isOldStyleComment :: Comment -> Bool
+isOldStyleComment (LineComment   s)
+  | s == "---" || "--- " `isPrefixOf` s = True
+  | otherwise                           = False
+isOldStyleComment (NestedComment _)     = False
 
 splitNestedComment :: Comment -> [Comment]
 splitNestedComment c@(LineComment   _) = [c]

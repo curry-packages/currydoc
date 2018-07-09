@@ -274,6 +274,8 @@ makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeDoc docopts recursive docdir modname = do
   putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
   cmts <- readComments modname
+  when (any (isOldStyleComment . snd) cmts)
+    (putStrLn ("Warning: The CurryDoc comment-style \"--- \" is deprecated"))
   putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
   prog <- readShortAST modname
   putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
