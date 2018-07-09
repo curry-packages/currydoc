@@ -144,7 +144,7 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs -> -- TODO: show External info
-       [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+       [anchored tcons [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
@@ -152,14 +152,14 @@ genHtmlType docopts d = case d of
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
   -- TODO: distinguish from data
-    [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+    [anchored tcons [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ (maybe [] (genHtmlCons docopts n vs) cn)
     ++ [par [explainCat "Known instances: "]]
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
   CurryDocTypeDecl (tmod,tcons) vs ty cs ->
-       [anchored (tcons++"_TYPE") [style "typeheader" [htxt tcons]]]
+       [anchored tcons [style "typeheader" [htxt tcons]]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [ par [explainCat "Type synonym:"
        , nbsp
@@ -177,7 +177,7 @@ genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
                               [ty1, ty2] ai cs) -- TODO: maybe different?
 genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
-  anchored (cname ++ "_CONS")
+  anchored cname
     [code [opnameDoc [htxt cname],
            HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
@@ -193,7 +193,7 @@ genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
 genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
-  anchored (cname ++ "_CONS")
+  anchored cname
     [code [opnameDoc [htxt cname],
           HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
@@ -224,7 +224,7 @@ genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
   CurryDocInstanceDecl (cmod, cname) cx ty _ _ ->
     [code [htxt (if null cxString then [] else cxString ++ " "),
-           href (docURL docopts cmod++".html#"++cname++"_CLASS")
+           href (docURL docopts cmod++".html#"++cname)
                  [htxt cname]]] ++
     [code [HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)]]
@@ -234,7 +234,7 @@ genHtmlInst docopts dn d = case d of
 genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v ds cs ->
-       [anchored (cname ++ "_CLASS")
+       [anchored cname
          [(code
            ([(htxt "class ")] ++
              (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
@@ -250,7 +250,7 @@ genHtmlClass docopts d = case d of
 genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlFunc cssclass docopts d = case d of
   CurryDocFunctionDecl (fmod,fname) qty sig ai cs ->
-     [anchoredDiv (fname ++ "_FUNC")
+     [anchoredDiv fname
       [par $
         [code [opnameDoc [showCodeHRef fname],
                HtmlText (" :: "++ showQualType docopts fmod qty)]
@@ -449,8 +449,8 @@ showTypeCons opts mod (mtc,tc) =
   then tc --"<a href=\"Prelude.html#"++tc++"\">"++tc++"</a>"
   else
     if mod == mtc
-    then "<a href=\"#"++tc++"_TYPE"++"\">"++tc++"</a>"
-    else "<a href=\""++docURL opts mtc++".html#"++tc++"_TYPE"++"\">"++tc++"</a>"
+    then "<a href=\"#"++tc++"\">"++tc++"</a>"
+    else "<a href=\""++docURL opts mtc++".html#"++tc++"\">"++tc++"</a>"
 
 showFixity :: CFixity -> String
 showFixity CInfixOp  = "non-associative"
