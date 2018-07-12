@@ -19,20 +19,20 @@
 
 module CurryDoc.Main (main, debug) where
 
-import AbstractCurry.Files
-import AbstractCurry.Types
 import Directory
 import Distribution
 import FileGoodies
 import FilePath        ((</>), (<.>), dropFileName, takeFileName)
-import FlatCurry.Types
-import FlatCurry.Files
-import FlatCurry.Read  (readFlatCurryWithImports)
 import Function
 import List
 import Maybe           (fromJust)
 import System
 import Time
+
+import AbstractCurry.Files
+import AbstractCurry.Types
+import FlatCurry.Files
+import FlatCurry.Types (Prog(..))
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.Type
@@ -278,6 +278,8 @@ makeDoc docopts recursive docdir modname = do
     (putStrLn ("Warning: The CurryDoc comment-style \"--- \" is deprecated"))
   putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
   prog <- readShortAST modname
+  putStrLn ("Reading flatcurry for module \"" ++ modname ++ "\"...")
+  fprog <- readFlatCurry modname
   putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
@@ -286,8 +288,10 @@ makeDoc docopts recursive docdir modname = do
            then do putStrLn ("Reading analysis information for module \""
                              ++ modname ++ "\"...")
                    ana <- readAnaInfo modname
-                   return $ generateCurryDocInfosWithAnalysis modname cmts prog acy ana
-           else    return $ generateCurryDocInfos             modname cmts prog acy
+                   return $ generateCurryDocInfosWithAnalysis modname cmts prog
+                                                              acy fprog ana
+           else    return $ generateCurryDocInfos             modname cmts prog
+                                                              acy fprog
   makeDocForType (docType docopts) docopts recursive docdir modname res
 
 makeDocForType :: DocType -> DocOptions -> Bool -> String -> String

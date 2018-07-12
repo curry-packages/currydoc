@@ -16,6 +16,7 @@ import CurryDoc.Info.Header
 import CurryDoc.Info.AbstractCurry
 import CurryDoc.Info.Goodies
 
+import FlatCurry.Types     (Prog)
 import AbstractCurry.Types (QName, MName, CurryProg(..))
 import AbstractCurry.Select
 
@@ -23,26 +24,26 @@ import List  (partition)
 import Maybe (fromMaybe)
 
 generateCurryDocInfosWithAnalysis :: String -> [(Span, Comment)] -> Module a
-                                  -> CurryProg -> AnaInfo
+                                  -> CurryProg -> Prog -> AnaInfo
                                   -> CurryDoc
-generateCurryDocInfosWithAnalysis mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) ai
-  = genCDoc (addAnaInfoToCurryDocDecls ai os fs) mn cs m acy
+generateCurryDocInfosWithAnalysis mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) fprog ai
+  = genCDoc (addAnaInfoToCurryDocDecls ai os fs) mn cs m acy fprog
 
 generateCurryDocInfos :: String -> [(Span, Comment)] -> Module a -> CurryProg
-                      -> CurryDoc
-generateCurryDocInfos mn cs m acy@(CurryProg _ _ _ _ _ _ fs os)
-  = genCDoc (addShortAnaInfoToCurryDocDecls os fs) mn cs m acy
+                      -> Prog -> CurryDoc
+generateCurryDocInfos mn cs m acy@(CurryProg _ _ _ _ _ _ fs os) fprog
+  = genCDoc (addShortAnaInfoToCurryDocDecls os fs) mn cs m acy fprog
 
 genCDoc :: ([CurryDocDecl] -> [CurryDocDecl])
-        -> String -> [(Span, Comment)] -> Module a -> CurryProg
+        -> String -> [(Span, Comment)] -> Module a -> CurryProg -> Prog
         -> CurryDoc
-genCDoc f mname cs m acy =
+genCDoc f mname cs m acy fprog =
   CurryDoc mname mhead (structureDecls (f decls)
                          (fromMaybe (genExportList acy) exportList))
            (imports acy)
   where
     (declsC, moduleC, exportList) = associateCurryDoc cs m
-    decls = addAbstractCurryProg acy declsC
+    decls = addAbstractCurryProg acy fprog declsC
     mhead = readModuleHeader moduleC
 
 genExportList :: CurryProg -> [ExportEntry QName]

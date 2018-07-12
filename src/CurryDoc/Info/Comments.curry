@@ -132,7 +132,7 @@ associateExportList cs (e : es) =
   if getSrcSpan e `isBeforeList` (map fst cs)
     then genExportEntry e : associateExportList cs es
     else let ((_,c):cs') = cs
-             es' = associateExportList cs' es
+             es' = associateExportList cs' (e:es)
          in case c of
               Section com n -> genExportSection n com es'
               _             -> es'
