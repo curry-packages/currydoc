@@ -9,15 +9,14 @@
 
 module CurryDoc.Html where
 
-import FilePath
-import FileGoodies     (getFileInPath)
-import List
-import Char
+import System.FilePath
+import System.Directory (getFileWithSuffix)
+import Data.List
+import Data.Char
+import Data.Time
+import Data.Maybe
 import Sort
-import Time
 import Distribution
-import Markdown
-import Maybe
 
 import AbstractCurry.Types
 import AbstractCurry.Files
@@ -31,6 +30,7 @@ import HTML.Base
 import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
 import Text.Pretty            (showWidth, empty)
+import Markdown
 
 import CurryDoc.AnaInfo
 import CurryDoc.Options
@@ -46,7 +46,7 @@ generateHtmlDocs :: DocOptions -> AnaInfo -> String -> String
                  -> [(SourceLine,String)] -> IO String
 generateHtmlDocs opts anainfo modname modcmts progcmts = do
   acyname <- getLoadPathForModule modname >>=
-             getFileInPath (abstractCurryFileName modname) [""]
+             getFileWithSuffix (abstractCurryFileName modname) [""]
   putStrLn $ "Reading AbstractCurry program \""++acyname++"\"..."
   (CurryProg _ imports _ _ _ types functions ops) <-
                                                 readAbstractCurryFile acyname

@@ -12,7 +12,7 @@ import CurryDoc.Read
 import FlatCurry.Types
 import FlatCurry.Files
 import FlatCurry.FlexRigid
-import List
+import Data.List
 import ReadShowTerm
 
 generateCDoc :: String  -> String -> [(SourceLine,String)] -> AnaInfo

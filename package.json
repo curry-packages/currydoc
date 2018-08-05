@@ -1,17 +1,17 @@
 {
     "name": "currydoc",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
-        "abstract-curry": ">= 2.0.0",
-        "cass-analysis" : ">= 2.0.0",
-        "cass"          : ">= 2.0.0",
-        "flatcurry"     : ">= 2.0.0",
-        "html"          : ">= 2.0.0",
-        "markdown"      : ">= 2.0.0",
-        "wl-pprint"     : ">= 0.0.1"
+        "abstract-curry": ">= 3.0.0",
+        "cass-analysis" : ">= 3.0.0",
+        "cass"          : ">= 3.0.0",
+        "flatcurry"     : ">= 3.0.0",
+        "html"          : ">= 3.0.0",
+        "markdown"      : ">= 3.0.0",
+        "wl-pprint"     : ">= 2.0.0"
     },
     "compilerCompatibility": {
         "pakcs": ">= 2.0.0",

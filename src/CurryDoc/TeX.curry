@@ -7,10 +7,10 @@
 
 module CurryDoc.TeX where
 
-import Char
+import Data.Char
+import Data.List
+import Data.Maybe
 import Distribution
-import List
-import Maybe
 
 import CurryDoc.Options
 import CurryDoc.Read

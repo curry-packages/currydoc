@@ -8,9 +8,9 @@
 module CurryDoc.Files ( generateModuleDocMapping )
  where
 
-import Directory    ( doesDirectoryExist, getDirectoryContents )
-import Distribution ( stripCurrySuffix )
-import FilePath     ( (</>), takeExtension )
+import System.Directory ( doesDirectoryExist, getDirectoryContents )
+import System.FilePath  ( (</>), takeExtension )
+import Distribution     ( stripCurrySuffix )
 
 --- Constructs a mapping from module names into locations where
 --- the documentation is stored. The argument is a list of pairs
@@ -22,7 +22,7 @@ generateModuleDocMapping pkglocs =
   genPkgMapping (srcroot,docroot) = do
     mods <- curryModulesInDir srcroot
     return $ map (\m -> (m,docroot)) mods
- 
+
 --- Gets the names of all Curry modules contained in a directory.
 --- Modules in subdirectories are returned as hierarchical modules.
 curryModulesInDir :: String -> IO [String]

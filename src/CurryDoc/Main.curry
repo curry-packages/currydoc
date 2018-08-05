@@ -28,19 +28,20 @@
 
 module CurryDoc.Main where
 
-import AbstractCurry.Files
-import Directory
+import System.Directory
+import System.FilePath
+import System.Process
+import System.Environment
+import Data.Function
+import Data.List
+import Data.Maybe         (fromJust)
+import Data.Time
 import Distribution
-import FileGoodies
-import FilePath        ((</>), (<.>), dropFileName, takeFileName)
+
+import AbstractCurry.Files
 import FlatCurry.Types
 import FlatCurry.Files
 import FlatCurry.Read  (readFlatCurryWithImports)
-import Function
-import List
-import Maybe           (fromJust)
-import System
-import Time
 
 import Analysis.Deterministic
 import Analysis.TotallyDefined
@@ -364,7 +365,7 @@ makeDocIfNecessary docopts recursive docdir modname =
 getImports :: String -> IO [String]
 getImports modname = do
   mbfintfile <- getLoadPathForModule modname >>=
-                lookupFileInPath (flatCurryIntName modname) [""]
+                findFileWithSuffix (flatCurryIntName modname) [""]
   (Prog _ imports _ _ _) <- maybe
                              (getFlatCurryFileInLoadPath modname >>=
                               readFlatCurryFile)
