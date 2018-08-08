@@ -26,7 +26,7 @@ vertDist (Span _  _ ) NoSpan       = 0
 vertDist (Span s1 e1) (Span s2 e2) =
   case rowDist e1 s2 of
     x | x >= 0    -> x
-      | otherwise -> if e1 < e2
+      | otherwise -> if e1 <= e2
                        then 0 -- they overlap
                        else - (rowDist e2 s1)
 
