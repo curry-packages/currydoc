@@ -9,13 +9,13 @@ import Char (isSpace)
 import List (isPrefixOf)
 
 data ModuleHeader = ModuleHeader [(HeaderField, String)] String
-  deriving Show
+  deriving (Show, Read)
 
 data HeaderField = Description
                  | Category
                  | Author
                  | Version
-  deriving Show
+  deriving (Show, Read)
 
 -- Parses a module header from comments
 readModuleHeader :: [Comment] -> ModuleHeader

@@ -55,6 +55,9 @@ constraintToCConstraint :: Constraint -> CConstraint
 constraintToCConstraint (Constraint _ qid ty) =
   (qIdentToQName qid, typeExprToCType ty)
 
+getImports :: Module a -> [ImportDecl]
+getImports (Module _ _ _ _ im _) = im
+
 getConstrName   :: ConstrDecl -- ^ ConstrDecl
   {- | Ident -} -> QName
 getConstrName (ConstrDecl _ _ _   idt _) = identToQName idt

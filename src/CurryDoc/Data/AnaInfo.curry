@@ -16,7 +16,6 @@ import Analysis.Indeterministic
 import Analysis.SolutionCompleteness
 import Analysis.Types (analysisName)
 import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
-
 import FlatCurry.Types
 import AbstractCurry.Types (CFixity, CRule)
 
@@ -77,12 +76,12 @@ data AnalysisInfo = AnalysisInfo      { nondet, indet, opComplete, ext :: Bool,
                                       }
                   | PrecedenceInfo    { precedence :: Maybe (CFixity, Int) }
                   | NoAnalysisInfo
-  deriving Show
-
-data Property = PreSpec | PostSpec | Spec | Prop
-  deriving Show
+  deriving (Show)
 
 instance Show Completeness where
   show   Complete   =   "Complete"
   show InComplete   = "InComplete"
   show InCompleteOr = "InCompleteOr"
+
+data Property = PreSpec | PostSpec | Spec | Prop
+  deriving (Show, Read)

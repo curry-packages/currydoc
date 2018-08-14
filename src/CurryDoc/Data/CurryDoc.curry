@@ -10,7 +10,7 @@ import AbstractCurry.Select (tconsArgsOfType)
 
 --- CurryDoc mName mhead exports imports
 data CurryDoc = CurryDoc String ModuleHeader [ExportEntry CurryDocDecl] [MName]
-  deriving Show
+  deriving (Show)
 
 data CurryDocDecl
   = CurryDocTypeDecl     QName [CTVarIName] CTypeExpr [Comment]
@@ -18,22 +18,22 @@ data CurryDocDecl
   | CurryDocNewtypeDecl  QName [CTVarIName] [CurryDocInstanceDecl] (Maybe CurryDocCons) [Comment]
   | CurryDocClassDecl    QName CContext CTVarIName [CurryDocDecl] [Comment]
   | CurryDocFunctionDecl QName CQualTypeExpr (Maybe CurryDocTypeSig) AnalysisInfo [Comment]
-  deriving Show
+  deriving (Show)
 
 data CurryDocCons
   = CurryDocConstr QName [CTypeExpr]                 AnalysisInfo [Comment]
   | CurryDocConsOp QName CTypeExpr CTypeExpr         AnalysisInfo [Comment]
   | CurryDocRecord QName [CTypeExpr] [CurryDocField] AnalysisInfo [Comment]
-  deriving Show
+  deriving (Show)
 
 data CurryDocTypeSig = CurryDocTypeSig QName CContext [(CTypeExpr, [Comment])] [Comment]
-  deriving Show
+  deriving (Show)
 
 data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext CTypeExpr [CurryDocDecl] [Comment]
-  deriving Show
+  deriving (Show)
 
 data CurryDocField = CurryDocField QName CTypeExpr AnalysisInfo [Comment]
-  deriving Show
+  deriving (Show)
 
 isCurryDocFuncDecl :: CurryDocDecl -> Bool
 isCurryDocFuncDecl d = case d of
@@ -52,3 +52,10 @@ getTypesigComments (CurryDocTypeSig _ _ _ cs) = cs
 instTypeName :: CurryDocInstanceDecl -> QName
 instTypeName (CurryDocInstanceDecl _ _ ty _ _) = q
   where Just (q,_) = tconsArgsOfType ty
+
+curryDocDeclName :: CurryDocDecl -> QName
+curryDocDeclName (CurryDocTypeDecl     n _ _ _    ) = n
+curryDocDeclName (CurryDocDataDecl     n _ _ _ _ _) = n
+curryDocDeclName (CurryDocNewtypeDecl  n _ _ _ _  ) = n
+curryDocDeclName (CurryDocClassDecl    n _ _ _ _  ) = n
+curryDocDeclName (CurryDocFunctionDecl n _ _ _ _  ) = n

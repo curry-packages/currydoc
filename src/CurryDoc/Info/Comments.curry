@@ -32,13 +32,12 @@ import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
 
 data Comment = NestedComment String
              | LineComment   String
-  deriving (Eq, Ord, Read, Show)
+  deriving (Show, Read)
 
 data CDocComment = Pre     { comment :: Comment }
                  | Post    { comment :: Comment }
                  | None    { comment :: Comment }
                  | Section { comment :: Comment, nest :: Int }
-  deriving Show
 
 data CommentedDecl
   = CommentedTypeDecl QName [Comment]
@@ -51,20 +50,18 @@ data CommentedDecl
   | CommentedExternalDecl [QName] [Comment]
   | CommentedExternalData QName [Comment]
   | UnsupportedDecl [Comment]
-  deriving Show
 
 data CommentedConstr
   = CommentedConstr QName [Comment]
   | CommentedConsOp QName [Comment]
   | CommentedRecord QName [Comment] [CommentedField]
-  deriving Show
 
 type CommentedField = ([QName], [Comment])
 
 data ExportEntry a = ExportEntry a
                    | ExportEntryModule MName
                    | ExportSection Comment Int [ExportEntry a]
-  deriving Show
+  deriving (Show, Read)
 
 -- Reads the comments from a specified module
 readComments :: String -> IO [(Span, Comment)]
