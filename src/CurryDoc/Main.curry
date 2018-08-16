@@ -71,7 +71,7 @@ main = do
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Info"]
+  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Test"]
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()

@@ -105,7 +105,8 @@ readCommentsFileRaw filename = do
 -- based on the source code positions
 associateCurryDoc :: [(Span, Comment)] -> Module a
                   -> ([CommentedDecl], [Comment], Maybe [ExportEntry QName])
-associateCurryDoc []       _                        = ([], [], Nothing)
+associateCurryDoc []       (Module _   _ _ ex _ _ ) =
+  ([], [], maybe Nothing (Just . associateExports []) ex)
 associateCurryDoc xs@(_:_) (Module spi _ _ ex _ ds) =
   let (header, rest) = associateCurryDocHeader spi sp xs'
       exportList     = maybe Nothing (Just . associateExports xs') ex
@@ -126,7 +127,7 @@ associateExports cs e = case e of
 associateExportList :: [(Span, CDocComment)] -> [Export] -> [ExportEntry QName]
 associateExportList _  []       = []
 associateExportList cs (e : es) =
-  if getSrcSpan e `isBeforeList` (map fst cs)
+  if getSrcSpan e `isBeforeList` (map fst cs) -- True for null cs
     then genExportEntry e : associateExportList cs es
     else let ((_,c):cs') = cs
              es' = associateExportList cs' (e:es)
