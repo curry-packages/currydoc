@@ -71,7 +71,7 @@ main = do
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Main"]
+  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Info"]
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
@@ -173,13 +173,15 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
   docdir <- makeAbsolute reldocdir
   prepareDocDir (docType docopts) docdir
   lookupModuleSourceInLoadPath modpath >>=
-   maybe (error $ "Source code of module '"++modpath++"' not found!")
+   maybe (error $ "Source code of module '" ++ modpath ++ "' not found!")
     (\ (moddir,_) -> do
       let modname = takeFileName modpath
       setCurrentDirectory moddir
       -- generate all necessary source representations
-      mapIO (callFrontendFor modname) [ACY, SAST, COMMS]
+      putStrLn "Compiling modules..."
+      mapIO (callFrontendFor modname) [ACY, SAST, COMMS, FCY]
       (alltypes,allfuns, allclasses) <- readTypesFuncsClassesWithImports modname
+      putStrLn "Start generating documentation"
       makeDocIfNecessary docopts recursive docdir modname
       when (withIndex docopts) $ do
         genMainIndexPage     docopts docdir [modname]
@@ -187,8 +189,8 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
         genConsIndexPage     docopts docdir alltypes
         genClassesIndexPage  docopts docdir allclasses
       -- change access rights to readable for everybody:
-      system ("chmod -R go+rX "++docdir)
-      putStrLn ("Documentation files written into directory "++docdir))
+      system ("chmod -R go+rX " ++ docdir)
+      putStrLn ("Documentation files written into directory " ++ docdir))
     where callFrontendFor modname target =
             rcParams >>= \params ->
             callFrontendWithParams target (setQuiet True params) modname
@@ -242,10 +244,10 @@ makeSystemLibsIndex docopts docdir modnames = do
       cats     = sortBy (<=) $ nub $ map category modInfos
   genSystemLibsPage docdir cats grpMods
  where
-  sortByCategory           = sortBy  ((<=) `on` category)
-  groupByCategory          = groupBy ((==) `on` category)
-  sortByName               = sortBy  ((<=) `on` fst)
-  genModHeader (cmt, prog) = readModuleHeader $ snd3 $ associateCurryDoc cmt prog
+  sortByCategory         = sortBy  ((<=) `on` category)
+  groupByCategory        = groupBy ((==) `on` category)
+  sortByName             = sortBy  ((<=) `on` fst)
+  genModHeader (cmt, pr) = readModuleHeader $ snd3 $ associateCurryDoc cmt pr
   category (_, ModuleHeader xs _) = getCategoryWithDefault "general" xs
   snd3 (_, b, _) = b
 

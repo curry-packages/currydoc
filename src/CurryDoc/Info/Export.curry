@@ -36,11 +36,9 @@ inlineExport im imD   (ExportSection c i ex   ) =
     [ExportSection c i (concatMap (inlineExport im imD) ex)]
 inlineExport im imD e@(ExportEntryModule mname)
   | isFullExport im mname = [e]
-  | otherwise             = let (real, spec) = getRealModuleNameAndSpec im mname
-                            in  maybe (error ("No CurryDoc for module \""
-                                              ++ real ++ "\" found"))
-                                      (inlineFromSpec spec)
-                                      (lookup real imD)
+  | otherwise             = case getRealModuleNameAndSpec im mname of
+    Just (real, spec) -> maybe [] (inlineFromSpec spec) (lookup real imD)
+    Nothing           -> []
 
 inlineFromSpec :: ImportSpec -> CurryDoc -> [ExportEntry CurryDocDecl]
 inlineFromSpec (Importing _ im) (CurryDoc mname _ ex _) =
@@ -48,7 +46,7 @@ inlineFromSpec (Importing _ im) (CurryDoc mname _ ex _) =
   filter (      (`elem` importQNames mname im) . curryDocDeclName)
          (flattenExport ex)
 inlineFromSpec (Hiding    _ im) (CurryDoc mname _ ex _) =
-  map ExportEntry $ 
+  map ExportEntry $
   filter (not . (`elem` importQNames mname im) . curryDocDeclName)
          (flattenExport ex)
 
@@ -77,12 +75,11 @@ isFullExport (ImportDecl _ mid _ Nothing    spec : im) mname
   | otherwise                  = isFullExport im mname
 isFullExport [] _              = True
 
-getRealModuleNameAndSpec :: [ImportDecl] -> MName -> (MName, ImportSpec)
+getRealModuleNameAndSpec :: [ImportDecl] -> MName -> Maybe (MName, ImportSpec)
 getRealModuleNameAndSpec (ImportDecl _ real _ (Just mid) spec : im) mname
-  | mname == mIdentToMName mid    = (mIdentToMName real, fromJust spec)
+  | mname == mIdentToMName mid    = Just (mIdentToMName real, fromJust spec)
   | otherwise                     = getRealModuleNameAndSpec im mname
 getRealModuleNameAndSpec (ImportDecl _ mid  _ Nothing    spec : im) mname
-  | mname == mIdentToMName mid    = (mIdentToMName mid, fromJust spec)
+  | mname == mIdentToMName mid    = Just (mIdentToMName mid, fromJust spec)
   | otherwise                     = getRealModuleNameAndSpec im mname
-getRealModuleNameAndSpec [] mname = error ("No imported module \"" ++ mname ++
-                                           "\" found")
+getRealModuleNameAndSpec [] _     = Nothing
