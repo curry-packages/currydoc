@@ -74,8 +74,10 @@ genHtmlForExport num doc (ExportSection c nesting ex : rest) =
                     2 -> h3
                     3 -> h4
                     _ -> h5
-genHtmlForExport num doc (ExportEntryModule _ : rest) =
-  genHtmlForExport num doc rest -- TODO: show export of modules
+genHtmlForExport num doc (ExportEntryModule mtc : rest) =
+  (num', par [code [htxt "module ", HtmlText doclink]] : restHtml)
+  where (num', restHtml) = genHtmlForExport num doc rest
+        doclink = "<a href=\""++docURL doc mtc++".html\">"++mtc++"</a>"
 genHtmlForExport num doc (ExportEntry decl : rest)
   | isCurryDocFuncDecl  decl = (num', genHtmlFunc  "functionheader"
                                                    doc decl ++ [hrule] ++ restHtml)
@@ -92,7 +94,7 @@ docComment2HTML opts cmt
   | withMarkdown opts = markdownText2HTML (replaceIdLinks opts cmt)
   | otherwise         = [par [HtmlText (replaceIdLinks opts cmt)]]
 
--- TODO: not working correctly
+-- TODO: not working correctly, may be ambigous
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by HTML hyperrefences:
 replaceIdLinks :: DocOptions -> String -> String
@@ -143,17 +145,17 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
 --- generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
-  CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs -> -- TODO: show External info
-       [anchored tcons [style "typeheader" [htxt tcons]]]
-    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+  CurryDocDataDecl n@(tmod,tcons) vs inst ext cns cs ->
+    code [anchored tcons [style "typeheader" [htxt (extT ++ "data " ++ tcons)]]]
+    :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
     ++ [par [explainCat "Known instances: "]]
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
+    where extT = if ext then "external " else ""
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
-  -- TODO: distinguish from data
-    [anchored tcons [style "typeheader" [htxt tcons]]]
-    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    code [anchored tcons [style "typeheader" [htxt ("newtype " ++ tcons)]]]
+    :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ (maybe [] (genHtmlCons docopts n vs) cn)
     ++ [par [explainCat "Known instances: "]]

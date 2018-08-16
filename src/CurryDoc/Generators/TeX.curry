@@ -99,8 +99,8 @@ genTexFunc docopts d = case d of
 --- generate TeX documentation for a datatype
 genTexType :: DocOptions -> CurryDocDecl -> String
 genTexType docopts d = case d of
-  CurryDocDataDecl (tcmod,tcons) vs insts _ constrs cs ->
-    "\\currydatastart{" ++ tcons ++ "}\n" ++
+  CurryDocDataDecl (tcmod,tcons) vs insts ext constrs cs ->
+    "\\currydatastart{" ++ extT ++ "data " ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     (if null constrs
@@ -113,9 +113,9 @@ genTexType docopts d = case d of
       else "\n\\currydatainstsstart\n" ++
            concatMap (genTexInst docopts tcmod) insts ++
            "\n\\currydatainstsstop")
+    where extT = if ext then "external " else ""
   CurryDocNewtypeDecl (tcmod,tcons) vs insts cons cs ->
-  -- TODO: distinguish from data
-    "\\currydatastart{" ++ tcons ++ "}\n" ++
+    "\\currydatastart{" ++ "newtype " ++ tcons ++ "}\n" ++
     htmlString2Tex docopts
       (concatCommentStrings (map commentString cs)) ++
     (maybe "\n\\currynocons"
