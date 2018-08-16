@@ -75,7 +75,8 @@ genHtmlForExport num doc (ExportSection c nesting ex : rest) =
                     3 -> h4
                     _ -> h5
 genHtmlForExport num doc (ExportEntryModule mtc : rest) =
-  (num', par [code [htxt "module ", HtmlText doclink]] : restHtml)
+  (num', (par [code [htxt "module ", HtmlText doclink]]
+            `addClass` "moduleexport") : hrule : restHtml)
   where (num', restHtml) = genHtmlForExport num doc rest
         doclink = "<a href=\""++docURL doc mtc++".html\">"++mtc++"</a>"
 genHtmlForExport num doc (ExportEntry decl : rest)

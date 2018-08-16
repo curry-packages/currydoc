@@ -63,8 +63,13 @@ section {
 
 /* type name at header positions */
 .typeheader {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
+}
+
+/* module export at header positions */
+.moduleexport {
+  font-size: 18px;
 }
 
 /* class signature at header positions */
