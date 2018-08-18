@@ -9,7 +9,7 @@ import AbstractCurry.Select (tconsArgsOfType)
 
 
 --- CurryDoc mName mhead exports imports
-data CurryDoc = CurryDoc String ModuleHeader [ExportEntry CurryDocDecl] [MName]
+data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl] [MName]
   deriving (Show)
 
 data CurryDocDecl

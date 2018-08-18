@@ -29,26 +29,29 @@ genExportList acy =
         funcs   = publicFuncNames  acy
         classes = publicClassNames acy
 
-inlineExport :: [ImportDecl] -> [(MName, CurryDoc)] -> ExportEntry CurryDocDecl
-             -> [ExportEntry CurryDocDecl]
-inlineExport _  _   e@(ExportEntry _          ) = [e]
-inlineExport im imD   (ExportSection c i ex   ) =
-    [ExportSection c i (concatMap (inlineExport im imD) ex)]
-inlineExport im imD e@(ExportEntryModule mname)
+inlineExport :: [ImportDecl] -> [(MName, CurryDoc)] -> [QName]
+             -> ExportEntry QName
+             -> [ExportEntry QName]
+inlineExport _  _   ds e@(ExportEntry _          ) = [e]
+inlineExport im imD ds   (ExportSection c i ex   ) =
+    [ExportSection c i (concatMap (inlineExport im imD ds) ex)]
+inlineExport im imD ds e@(ExportEntryModule mname)
   | isFullExport im mname = [e]
   | otherwise             = case getRealModuleNameAndSpec im mname of
     Just (real, spec) -> maybe [] (inlineFromSpec spec) (lookup real imD)
-    Nothing           -> []
+    Nothing           -> ds -- has to be current module, insert decls of it
 
-inlineFromSpec :: ImportSpec -> CurryDoc -> [ExportEntry CurryDocDecl]
+inlineFromSpec :: ImportSpec -> CurryDoc -> [ExportEntry QName]
 inlineFromSpec (Importing _ im) (CurryDoc mname _ ex _) =
   map ExportEntry $
-  filter (      (`elem` importQNames mname im) . curryDocDeclName)
-         (flattenExport ex)
+  filter (      (`elem` importQNames mname im))
+  map curryDocDeclName $
+  flattenExport ex
 inlineFromSpec (Hiding    _ im) (CurryDoc mname _ ex _) =
   map ExportEntry $
-  filter (not . (`elem` importQNames mname im) . curryDocDeclName)
-         (flattenExport ex)
+  filter (not . (`elem` importQNames mname im))
+  map curryDocDeclName $
+  flattenExport ex
 
 importQNames :: MName -> [Import] -> [QName]
 importQNames mname = map (importQName mname)
