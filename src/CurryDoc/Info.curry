@@ -44,9 +44,10 @@ genCDoc f mname cs m acy fprog importDoc =
   where
     (declsC, moduleC, exportList) = associateCurryDoc cs m
     exportStructure = fromMaybe (genExportList acy) exportList
+    importDecls = map (\(x,CurryDoc _ _ ex _) -> (x,flattenExport ex)) importDoc
     decls  = addAbstractCurryProg acy fprog declsC
     mhead  = readModuleHeader moduleC
-    export = structureDecls (f decls : importDoc) mname $
+    export = structureDecls ((mname, f decls) : importDecls) mname $
              concatMap (inlineExport (getImports m) importDoc
                                      (map curryDocDeclName decls))
                        exportStructure
@@ -55,18 +56,19 @@ structureDecls :: [(String, [CurryDocDecl])] -> MName
                -> [ExportEntry QName]
                -> [ExportEntry CurryDocDecl]
 structureDecls _  _     []                                 = []
-structureDecls ds mname (ExportSection c n ex      : rest) =
+structureDecls ds mname (ExportSection c n ex : rest) =
   ExportSection c n (structureDecls ds mname ex)
   : structureDecls ds mname rest
-structureDecls ds mname (ExportEntry q@(mname', _) : rest) =
+structureDecls ds mname (ExportEntry q        : rest) =
   maybe [] (:[]) (getFromModule ds q) ++
   structureDecls ds mname rest
-structureDecls ds mname (ExportEntryModule m       : rest) =
+structureDecls ds mname (ExportEntryModule m  : rest) =
   ExportEntryModule m : structureDecls ds mname rest
 
-getFromModule :: [(String, [CurryDocDecl])] -> QName -> Maybe (ExportEntry CurryDocDecl)
+getFromModule :: [(String, [CurryDocDecl])] -> QName
+              -> Maybe (ExportEntry CurryDocDecl)
 getFromModule im qname@(mname, _) =
-  lookup mname im >>= lookupCurryDocDecl qname
+  lookup mname im >>= lookupCurryDocDecl qname >>= return . ExportEntry
 
 lookupCurryDocDecl :: QName -> [CurryDocDecl] -> Maybe CurryDocDecl
 lookupCurryDocDecl _ []     = Nothing

@@ -34,13 +34,12 @@ generateTexDocs docopts (CurryDoc mname mhead ex _) =
            genTexForExport docopts ex
 
 --- Translate a documentation comment to LaTeX and use markdown translation
---- if necessary. If the string contains HTML tags, these are also
---- translated into LaTeX.
-htmlString2Tex :: DocOptions -> String -> String
-htmlString2Tex docopts cmt =
+--- if necessary.
+docStringToTex :: DocOptions -> String -> String
+docStringToTex docopts cmt =
   if withMarkdown docopts
   then markdownText2LaTeX (replaceIdLinks cmt)
-  else showLatexExps (parseHtmlString (replaceIdLinks cmt))
+  else replaceIdLinks cmt
 
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by code markdown:
@@ -67,7 +66,7 @@ genTexForExport doc (ExportSection c nesting ex : rest) =
   let innerTex = genTexForExport doc ex
       outerTex = genTexForExport doc rest
   in getSubsectionCommand nesting ++
-     htmlString2Tex doc (commentString c) ++ "\n\n" ++
+     docStringToTex doc (commentString c) ++ "\n\n" ++
      innerTex ++ "\n\n" ++ outerTex
   where getSubsectionCommand n = case n of
                     1 -> "\\subsubsection*"
@@ -88,10 +87,10 @@ genTexFunc docopts d = case d of
     -> "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
          showQualTexType docopts fmod ty ++ "}}\n" ++
-         htmlString2Tex docopts(
+         docStringToTex docopts(
            concatCommentStrings (map commentString
              (maybe [] getTypesigComments sig))) ++
-         htmlString2Tex docopts
+         docStringToTex docopts
            (concatCommentStrings (map commentString cs)) ++
        "\\curryfunctionstop\n"
   _ -> ""
@@ -99,9 +98,9 @@ genTexFunc docopts d = case d of
 --- generate TeX documentation for a datatype
 genTexType :: DocOptions -> CurryDocDecl -> String
 genTexType docopts d = case d of
-  CurryDocDataDecl (tcmod,tcons) vs insts ext constrs cs ->
-    "\\currydatastart{" ++ extT ++ "data " ++ tcons ++ "}\n" ++
-    htmlString2Tex docopts
+  CurryDocDataDecl (tcmod,tcons) vs insts _ constrs cs ->
+    "\\currydatastart{" ++ "data " ++ tcons ++ "}\n" ++
+    docStringToTex docopts
       (concatCommentStrings (map commentString cs)) ++
     (if null constrs
       then "\n\\currynocons"
@@ -113,10 +112,9 @@ genTexType docopts d = case d of
       else "\n\\currydatainstsstart\n" ++
            concatMap (genTexInst docopts tcmod) insts ++
            "\n\\currydatainstsstop")
-    where extT = if ext then "external " else ""
   CurryDocNewtypeDecl (tcmod,tcons) vs insts cons cs ->
     "\\currydatastart{" ++ "newtype " ++ tcons ++ "}\n" ++
-    htmlString2Tex docopts
+    docStringToTex docopts
       (concatCommentStrings (map commentString cs)) ++
     (maybe "\n\\currynocons"
            (\c -> "\n\\currydataconsstart\n" ++
@@ -133,7 +131,7 @@ genTexType docopts d = case d of
      then "String = [Char]"
      else tcons ++ " " ++ unwords (map snd vs) ++ "="
            ++ showTexType docopts tcmod False ty) ++ "}\n" ++
-    htmlString2Tex docopts
+    docStringToTex docopts
        (concatCommentStrings (map commentString cs)) ++
     "\\currytypesynstop\n\n"
   _ -> ""
@@ -156,12 +154,12 @@ genTexCons docopts tcons vs (CurryDocConstr (cmod, cname) tys _ cs) =
  "\\curryconsstart{" ++ cname ++ "}{" ++
       concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
       tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
-      htmlString2Tex docopts (unwords (map commentString cs))
+      docStringToTex docopts (unwords (map commentString cs))
 genTexCons docopts tcons vs (CurryDocRecord (cmod,cname) tys fs _ cs) =
  "\\curryconsstart{" ++ cname ++ "}{" ++
       concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
       tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
-      htmlString2Tex docopts (unwords (map commentString cs)) ++
+      docStringToTex docopts (unwords (map commentString cs)) ++
       intercalate "\n" (map (genTexField docopts) fs)
 
 -- generate Tex documentation for record fields
@@ -170,7 +168,7 @@ genTexField docopts (CurryDocField (fmod,fname) ty _ cs) =
   "\\curryfieldstart{" ++ fname ++ "}{" ++
     fname ++ " :: " ++ showTexType docopts fmod False ty ++ "}" ++
     if null txt then [] else
-      " : " ++ htmlString2Tex docopts txt
+      " : " ++ docStringToTex docopts txt
   where txt = unwords (map commentString cs)
 
 -- generate Tex documentation for a function:
@@ -180,7 +178,7 @@ genTexClass docopts d = case d of
     -> "\\curryclassstart{" ++ cname ++ " " ++
        (if null cxString then "" else cxString ++ " ") ++
        snd v ++ "}{" ++
-       htmlString2Tex docopts
+       docStringToTex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
        concatMap (genTexFunc docopts) ds ++
        "\\curryclassstop\n"
@@ -190,7 +188,7 @@ genTexClass docopts d = case d of
 --- generate Tex documentation for a module:
 genTexModule :: DocOptions -> ModuleHeader -> String
 genTexModule docopts (ModuleHeader fields maincmt) =
-  htmlString2Tex docopts maincmt ++
+  docStringToTex docopts maincmt ++
   concatMap fieldTex fields
   where fieldTex (typ, value) =
           "\\textbf{" ++ show typ ++ ": } " ++ value ++ "\n\n"

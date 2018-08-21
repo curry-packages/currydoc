@@ -32,27 +32,32 @@ genExportList acy =
 inlineExport :: [ImportDecl] -> [(MName, CurryDoc)] -> [QName]
              -> ExportEntry QName
              -> [ExportEntry QName]
-inlineExport _  _   ds e@(ExportEntry _          ) = [e]
+inlineExport _  _   _  e@(ExportEntry _          ) = [e]
 inlineExport im imD ds   (ExportSection c i ex   ) =
     [ExportSection c i (concatMap (inlineExport im imD ds) ex)]
 inlineExport im imD ds e@(ExportEntryModule mname)
-  | isFullExport im mname = [e]
+  | isFullImport im mname = [e]
   | otherwise             = case getRealModuleNameAndSpec im mname of
     Just (real, spec) -> maybe [] (inlineFromSpec spec) (lookup real imD)
-    Nothing           -> ds -- has to be current module, insert decls of it
+    Nothing           -> map ExportEntry ds -- has to be current module
 
 inlineFromSpec :: ImportSpec -> CurryDoc -> [ExportEntry QName]
 inlineFromSpec (Importing _ im) (CurryDoc mname _ ex _) =
   map ExportEntry $
-  filter (      (`elem` importQNames mname im))
+  filter (      (`elem` importQNames mname im)) $
   map curryDocDeclName $
   flattenExport ex
 inlineFromSpec (Hiding    _ im) (CurryDoc mname _ ex _) =
   map ExportEntry $
-  filter (not . (`elem` importQNames mname im))
+  filter (not . (`elem` importQNames mname im)) $
   map curryDocDeclName $
   flattenExport ex
 
+-- HACK the qualifier might be wrong if the identifier is re-exported
+-- and originally defined in another module.
+-- This has the nice side-effect, that those will not be in the
+-- documentation, even if mname is re-exported fully.
+-- (PACKS and KICS2 will not export them either)
 importQNames :: MName -> [Import] -> [QName]
 importQNames mname = map (importQName mname)
 
@@ -69,14 +74,14 @@ flattenEntry (ExportEntry        a) = [a]
 flattenEntry (ExportSection _ _ ex) = flattenExport ex
 flattenEntry (ExportEntryModule  _) = []
 
-isFullExport :: [ImportDecl] -> MName -> Bool
-isFullExport (ImportDecl _ _   _ (Just mid) spec : im) mname
+isFullImport :: [ImportDecl] -> MName -> Bool
+isFullImport (ImportDecl _ _   _ (Just mid) spec : im) mname
   | mname == mIdentToMName mid = isNothing spec
-  | otherwise                  = isFullExport im mname
-isFullExport (ImportDecl _ mid _ Nothing    spec : im) mname
+  | otherwise                  = isFullImport im mname
+isFullImport (ImportDecl _ mid _ Nothing    spec : im) mname
   | mname == mIdentToMName mid = isNothing spec
-  | otherwise                  = isFullExport im mname
-isFullExport [] _              = True
+  | otherwise                  = isFullImport im mname
+isFullImport [] _              = False
 
 getRealModuleNameAndSpec :: [ImportDecl] -> MName -> Maybe (MName, ImportSpec)
 getRealModuleNameAndSpec (ImportDecl _ real _ (Just mid) spec : im) mname

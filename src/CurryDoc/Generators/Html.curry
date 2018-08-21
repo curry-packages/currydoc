@@ -9,7 +9,7 @@ module CurryDoc.Generators.Html
   (generateHtmlDocs,
    genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage,
    genClassesIndexPage,
-   translateSource2ColoredHtml)
+   translateSource2ColoredHtml, replaceIdLinksMarkdown)
    where
 
 import FilePath
@@ -21,6 +21,7 @@ import Time
 import Distribution
 import Markdown
 import Maybe
+import Debug
 
 import AbstractCurry.Types
 import AbstractCurry.Files
@@ -75,10 +76,10 @@ genHtmlForExport num doc (ExportSection c nesting ex : rest) =
                     3 -> h4
                     _ -> h5
 genHtmlForExport num doc (ExportEntryModule mtc : rest) =
-  (num', (par [code [htxt "module ", HtmlText doclink]]
+  (num', (par [code [htxt "module ", href doclink [htxt mtc]]]
             `addClass` "moduleexport") : hrule : restHtml)
   where (num', restHtml) = genHtmlForExport num doc rest
-        doclink = "<a href=\""++docURL doc mtc++".html\">"++mtc++"</a>"
+        doclink = docURL doc mtc ++".html"
 genHtmlForExport num doc (ExportEntry decl : rest)
   | isCurryDocFuncDecl  decl = (num', genHtmlFunc  "functionheader"
                                                    doc decl ++ [hrule] ++ restHtml)
@@ -92,36 +93,55 @@ genHtmlForExport num doc (ExportEntry decl : rest)
 docComment2HTML :: DocOptions -> String -> [HtmlExp]
 docComment2HTML opts cmt
   | null cmt          = []
-  | withMarkdown opts = markdownText2HTML (replaceIdLinks opts cmt)
-  | otherwise         = [par [HtmlText (replaceIdLinks opts cmt)]]
+  | withMarkdown opts = markdownText2HTML (replaceIdLinksMarkdown opts cmt)
+  | otherwise         = [par (replaceIdLinksHtml opts cmt)]
 
--- TODO: not working correctly, may be ambigous
+-- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
+-- by markdown hyperrefences:
+replaceIdLinksMarkdown ::  DocOptions -> String -> String
+replaceIdLinksMarkdown opts = replaceIdLinks idCon otherCon
+  where idCon md fun = if null md
+                         then "[" ++ fun ++ "](#" ++ fun ++ ")"
+                         else "[" ++ fun ++ "](" ++
+                              docURL opts md ++ ".html#" ++ fun ++ ")"
+        otherCon = id
+
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by HTML hyperrefences:
-replaceIdLinks :: DocOptions -> String -> String
-replaceIdLinks opts str = case str of
+replaceIdLinksHtml ::  DocOptions -> String -> [HtmlExp]
+replaceIdLinksHtml opts = replaceIdLinks idCon otherCon
+  where idCon md fun = if null md
+                         then [href ('#':fun) [htxt fun]]
+                         else [href (docURL opts md ++ ".html#" ++ fun)
+                                    [htxt fun]]
+        otherCon = (:[]) . htxt
+
+-- TODO: not working correctly, may be ambigous
+replaceIdLinks :: (String -> String -> [a]) ->
+                  (String ->           [a]) ->
+                  String -> [a]
+replaceIdLinks idCon otherCon str = case str of
   [] -> []
-  ('\\':'\'':cs) -> '\'' : replaceIdLinks opts cs
+  ('\\':'\'':cs) -> otherCon "'" ++ replaceIdLinks idCon otherCon cs
   (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else c : replaceIdLinks opts cs
+                       else otherCon (c:"") ++ replaceIdLinks idCon otherCon cs
  where
-  tryReplaceIdLink ltxt [] = '\'' : reverse ltxt
+  tryReplaceIdLink ltxt [] = otherCon ('\'' : reverse ltxt)
   tryReplaceIdLink ltxt (c:cs)
-   | isSpace c
-   = '\'' : reverse ltxt ++ c : replaceIdLinks opts cs -- no space in id
+   | isSpace c -- no space in id
+   = otherCon ('\'' : reverse ltxt ++ [c]) ++ replaceIdLinks idCon otherCon cs
    | c == '\''
-   = checkId (reverse ltxt) ++ replaceIdLinks opts cs
+   = checkId ltxt ++ replaceIdLinks idCon otherCon cs
    | otherwise
    = tryReplaceIdLink (c:ltxt) cs
 
   checkId s =
     if ' ' `elem` s
-    then '\'' : s ++ ['\'']
-    else let (md,dotfun) = break (=='.') s
-          in "<code><a href=\"" ++
-             (if null dotfun then '#':s
-                             else docURL opts md ++ ".html#" ++ tail dotfun) ++
-             "\">"++s++"</a></code>"
+    then otherCon ('\'' : (reverse s) ++ ['\''])
+    else let (revfun, revmd) = break (=='.') s
+          in if null revmd
+               then idCon ""                     (reverse revfun)
+               else idCon (reverse $ tail revmd) (reverse revfun)
 
 genHtmlExportSections :: [ExportEntry a] -> [HtmlExp]
 genHtmlExportSections = genHtmlExportSections' 0
@@ -146,14 +166,13 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
 --- generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
-  CurryDocDataDecl n@(tmod,tcons) vs inst ext cns cs ->
-    code [anchored tcons [style "typeheader" [htxt (extT ++ "data " ++ tcons)]]]
+  CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
+    code [anchored tcons [style "typeheader" [htxt ("data " ++ tcons)]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
     ++ [par [explainCat "Known instances: "]]
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
-    where extT = if ext then "external " else ""
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
     code [anchored tcons [style "typeheader" [htxt ("newtype " ++ tcons)]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
