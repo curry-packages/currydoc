@@ -127,4 +127,6 @@ concatCommentStrings :: [String] -> String
 concatCommentStrings ss = unwords (map replaceEmptyLine ss)
  where  replaceEmptyLine ss | all isSpace ss = "\n"
                             | otherwise      = trimSpace ss
-        trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace
+
+trimSpace :: String -> String
+trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace
