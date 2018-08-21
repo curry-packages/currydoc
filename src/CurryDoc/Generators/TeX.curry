@@ -1,10 +1,9 @@
-----------------------------------------------------------------------
---- Functions to generate documentation in TeX format.
----
---- @author Michael Hanus
---- @version October 2017
-----------------------------------------------------------------------
+{- |
+     Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
+     Version : August 2018
 
+     Operations to generate documentation in LaTeX format.
+-}
 module CurryDoc.Generators.TeX (generateTexDocs) where
 
 import Char
@@ -24,17 +23,15 @@ import Markdown
  -- TODO: The generated .tex does not have all the information that .html has
  -- This has also been the case in prior versions
 
---------------------------------------------------------------------------
--- | Generates the documentation of a module in Tex format
---   from CurryDoc datastructure
+-- | Generates the documentation of a module in LaTeX format
 generateTexDocs :: DocOptions -> CurryDoc -> IO String
 generateTexDocs docopts (CurryDoc mname mhead ex _) =
   return $ "\\currymodule{"++mname++"}\n" ++
            genTexModule docopts mhead ++ "\n" ++
            genTexForExport docopts ex
 
---- Translate a documentation comment to LaTeX and use markdown translation
---- if necessary.
+-- Translate a documentation comment to LaTeX and use markdown translation
+-- if necessary.
 docStringToTex :: DocOptions -> String -> String
 docStringToTex docopts cmt =
   if withMarkdown docopts
@@ -95,7 +92,7 @@ genTexFunc docopts d = case d of
        "\\curryfunctionstop\n"
   _ -> ""
 
---- generate TeX documentation for a datatype
+-- generate TeX documentation for a datatype
 genTexType :: DocOptions -> CurryDocDecl -> String
 genTexType docopts d = case d of
   CurryDocDataDecl (tcmod,tcons) vs insts _ constrs cs ->
@@ -145,7 +142,7 @@ genTexInst docopts modname d = case d of
     showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++ "\n\n"
     where cxString = showTexContext docopts cmod cx
 
---- generate Tex documentation for a constructor if it is exported:
+-- generate Tex documentation for a constructor if it is exported:
 genTexCons :: DocOptions -> String -> [CTVarIName] -> CurryDocCons -> String
 genTexCons docopts vs ds (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genTexCons docopts vs ds (CurryDocConstr (cmod, "(" ++ cname ++ ")")
@@ -185,7 +182,7 @@ genTexClass docopts d = case d of
     where cxString = showTexContext docopts cmod cx
   _ -> ""
 
---- generate Tex documentation for a module:
+-- generate Tex documentation for a module:
 genTexModule :: DocOptions -> ModuleHeader -> String
 genTexModule docopts (ModuleHeader fields maincmt) =
   docStringToTex docopts maincmt ++
@@ -206,7 +203,7 @@ showTexContext opts mod (CContext ctxt@(_:_:_)) =
   bracketsIf True (intercalate ", " (map (showTexConstraint opts mod) ctxt))
     ++ " =>"
 
---- Pretty-print a single class constraint.
+-- Pretty-print a single class constraint.
 showTexConstraint :: DocOptions -> String -> CConstraint -> String
 showTexConstraint opts mod (cn,texp) =
   "\\textbf{" ++ snd cn ++ "} " ++ showTexType opts mod True texp

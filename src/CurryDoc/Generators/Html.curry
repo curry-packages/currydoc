@@ -1,10 +1,9 @@
-----------------------------------------------------------------------
---- Operations to generate documentation in HTML format.
----
---- @author Michael Hanus, Jan Tikovsky
---- @version December 2017
-----------------------------------------------------------------------
+{- |
+     Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
+     Version : August 2018
 
+     Operations to generate documentation in HTML format.
+-}
 module CurryDoc.Generators.Html
   (generateHtmlDocs,
    genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage,
@@ -41,9 +40,7 @@ import CurryDoc.Config
 
 infixl 0 `withTitle`
 
---------------------------------------------------------------------------
---- Generates the documentation of a module in HTML format where the comments
---- are already analyzed.
+-- | Generates the documentation of a module in HTML format 
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let

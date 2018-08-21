@@ -1,3 +1,10 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Operations to add analysis information
+     to the CurryDoc declarations.
+-}
 module CurryDoc.Info.Analysis
   (addAnaInfoToCurryDocDecls, addShortAnaInfoToCurryDocDecls) where
 
@@ -10,12 +17,12 @@ import AbstractCurry.Select
 
 import List (find, partition, isPrefixOf)
 
---- Adds analysis information to suitable CurryDocDecls
+-- | Adds analysis information to suitable CurryDocDecls
 addAnaInfoToCurryDocDecls :: AnaInfo -> [COpDecl] -> [CFuncDecl]
                           -> [CurryDocDecl] -> [CurryDocDecl]
 addAnaInfoToCurryDocDecls ai cop funs = map (addAnaInfoToCurryDocDecl ai cop funs)
 
---- Adds short analysis information to suitable CurryDocDecls
+-- |Adds short analysis information to suitable CurryDocDecls
 addShortAnaInfoToCurryDocDecls :: [COpDecl] -> [CFuncDecl]
                                -> [CurryDocDecl] -> [CurryDocDecl]
 addShortAnaInfoToCurryDocDecls cop funs = map (addShortAnaInfoToCurryDocDecl cop funs)

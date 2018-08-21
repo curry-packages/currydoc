@@ -3,7 +3,7 @@
     Description : Implementation of CurryDoc, a utility for the automatic
                   generation of HTML documentation from Curry programs.
     Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-    Version     : July 2018
+    Version     : August 2018
 -}
 --  * All comments prefixed by a CurryDoc comment ("-- |", "{- |",
 --    "-- ^" or "{- ^") are are considered for documentation.
@@ -13,6 +13,10 @@
 --
 --  * The comment of a module must occur before the first "module" or
 --    "import" line of this module.
+--
+--  * Headings and sub-headings can be inserted in the documentation via
+--    Comments starting with
+--    "-- \*" or "-- \*\*", ...
 --
 --  * The exact rules on how comments are associated with syntactic elements
 --    (similar to Haddock) are documented at: TODO
@@ -60,14 +64,14 @@ banner = unlines [bannerLine,bannerText,bannerLine]
 includeDir :: String
 includeDir = packagePath </> "include"
 
---------------------------------------------------------------------------
--- Check arguments and call main function:
+-- | Check arguments and call main function:
 main :: IO ()
 main = do
   args <- getArgs
   putStrLn banner
   processArgs defaultCurryDocOptions args
 
+-- | call CurryDoc with fixed parameters, used for debugging.
 debug :: IO ()
 debug = do
   dir <- getCurrentDirectory
@@ -154,20 +158,14 @@ createDir dir = do
   exdir <- doesDirectoryExist dir
   unless exdir $ system ("mkdir -p " ++ dir) >> done
 
---- Recursively copies a directory structure.
+-- Recursively copies a directory structure.
 copyDirectory :: String -> String -> IO ()
 copyDirectory src dst = do
   retCode <- system $ "cp -pR \"" ++ src ++ "\" \"" ++ dst ++ "\""
   when (retCode /= 0) $
     error $ "Copy failed with return code " ++ show retCode
 
---------------------------------------------------------------------------
---- The main function of the CurryDoc utility.
---- @param docopts   - the options for CurryDoc
---- @param recursive - True if the documentation for the imported modules
----                    should be also generated (if necessary)
---- @param docdir - the directory name containing all documentation files
---- @param modname - the name of the main module to be documented
+-- The main function of the CurryDoc utility.
 makeCompleteDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeCompleteDoc docopts recursive reldocdir modpath = do
   docdir <- makeAbsolute reldocdir
@@ -195,7 +193,7 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
             rcParams >>= \params ->
             callFrontendWithParams target (setQuiet True params) modname
 
---- Transform a file path into an absolute file path:
+-- Transform a file path into an absolute file path:
 makeAbsolute :: String -> IO String
 makeAbsolute f =
   if isAbsolute f
@@ -203,7 +201,7 @@ makeAbsolute f =
   else do curdir <- getCurrentDirectory
           return (curdir </> f)
 
---- Generate only the index pages for a list of (already compiled!) modules:
+-- Generate only the index pages for a list of (already compiled!) modules:
 makeIndexPages :: DocOptions -> String -> [String] -> IO ()
 makeIndexPages docopts docdir modnames = do
   prepareDocDir HtmlDoc docdir
@@ -228,8 +226,8 @@ makeIndexPages docopts docdir modnames = do
   system ("chmod -R go+rX "++docdir)
   done
 
---- Generate a system library index page categorizing the given
---- (already compiled!) modules
+-- Generate a system library index page categorizing the given
+-- (already compiled!) modules
 makeSystemLibsIndex :: DocOptions -> String -> [String] -> IO ()
 makeSystemLibsIndex docopts docdir modnames = do
   -- generate index pages (main index, function index, constructor index)
@@ -282,6 +280,7 @@ makeDoc docopts recursive docdir modname = do
   res <- makeAbstractDoc docopts modname imports
   makeDocForType (docType docopts) docopts docdir modname res
 
+-- generate abstract CUrryDoc for a single module
 makeAbstractDoc :: DocOptions -> String -> [String] -> IO CurryDoc
 makeAbstractDoc docopts modname imports = do
   putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
@@ -311,6 +310,7 @@ makeAbstractDoc docopts modname imports = do
   writeFile (replaceExtension acyname "cydoc") (showQTerm res)
   return res
 
+-- get the abstract CurryDoc for a file or generate it if necessary
 readOrGenerateCurryDoc :: DocOptions -> String -> IO (String, CurryDoc)
 readOrGenerateCurryDoc docopts modname =
   do cydoc <- getLoadPathForModule modname >>=
@@ -331,6 +331,7 @@ readOrGenerateCurryDoc docopts modname =
          res <- makeAbstractDoc docopts modname imports
          return (modname, res)
 
+-- convert abstract CurryDoc to the respective target type
 makeDocForType :: DocType -> DocOptions -> String -> String
                -> CurryDoc -> IO ()
 makeDocForType HtmlDoc docopts docdir modname cdoc = do
@@ -345,10 +346,10 @@ makeDocForType CDoc docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateCDoc docopts cdoc)
 
 
---- Generates the documentation for a module if it is necessary.
---- I.e., the documentation is generated if no previous documentation
---- file exists or if the existing documentation file is older than
---- the FlatCurry file.
+-- Generates the documentation for a module if it is necessary.
+-- I.e., the documentation is generated if no previous documentation
+-- file exists or if the existing documentation file is older than
+-- the FlatCurry file.
 makeDocIfNecessary :: DocOptions -> Bool -> String -> String -> IO ()
 makeDocIfNecessary docopts recursive docdir modname =
  when (modname `notElem` docMods docopts) $ do
@@ -383,9 +384,9 @@ copyOrMakeDoc docopts recursive docdir modname = do
   hasCopied <- copyDocIfPossible docopts docdir modname
   unless hasCopied $ makeDoc docopts recursive docdir modname
 
---- Copy the documentation file from standard documentation directoy "CDOC"
---- (used for documentation of system libraries) if possible.
---- Returns true if the copy was possible.
+-- Copy the documentation file from standard documentation directoy "CDOC"
+-- (used for documentation of system libraries) if possible.
+-- Returns true if the copy was possible.
 copyDocIfPossible :: DocOptions -> String -> String -> IO Bool
 copyDocIfPossible docopts docdir modname =
   if docType docopts == TexDoc
@@ -408,7 +409,6 @@ copyDocIfPossible docopts docdir modname =
             system ("cp " ++ docprogname ++ "_curry.html "++docdir)
             return True
 
------------------------------------------------------------------------
 -- auxiliaries:
 
 -- reads all types and function declarations (also imported ones) of
@@ -435,7 +435,6 @@ writeOutfile docopts docdir modname generate = do
   putStrLn ("Writing documentation to \"" ++ outfile ++ "\"...")
   writeFile outfile doc
 
+-- transform the path of a curry programm to the path of the abstract CurryDoc
 curryDocFileName :: FilePath -> FilePath
 curryDocFileName modname = inCurrySubdir (stripCurrySuffix modname) <.> "cydoc"
-
--- -----------------------------------------------------------------------

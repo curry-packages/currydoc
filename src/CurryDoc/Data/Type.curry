@@ -1,10 +1,7 @@
 -- |
--- Description: Description
--- Category   : Category
--- Author     : Author
--- Version    : Version
---
---
+-- Description: AST for curry code
+-- Author     : Kai-Oliver Prott
+-- Version    : August 2018
 --
 -- An implementation of the curry AST from curry-frontend without some types
 -- that cannot be in shortAST files
@@ -23,11 +20,12 @@ import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
                        , lookupModuleSourceInLoadPath, getLoadPathForModule
                        )
 
--- Reads the comments from a specified module
+-- | Reads the short AST from a specified module
 readShortAST :: String -> IO (Module ())
 readShortAST progname =
    readShortASTWithParseOptions progname (setQuiet True defaultParams)
 
+-- | Reads the short AST with further options from a specified module
 readShortASTWithParseOptions :: String -> FrontendParams -> IO (Module ())
 readShortASTWithParseOptions progname options = do
   mbsrc <- lookupModuleSourceInLoadPath progname
@@ -41,14 +39,17 @@ readShortASTWithParseOptions progname options = do
       callFrontendWithParams SAST options progname
       readShortASTFile (shortASTFileName (dir </> takeFileName progname))
 
+-- | Get the short-ast filename of a curry programm
 shortASTFileName :: String -> String
 shortASTFileName prog = inCurrySubdir (stripCurrySuffix prog) <.> "sast"
 
+-- | Reads the short AST from a specified file
 readShortASTFile :: String -> IO (Module ())
 readShortASTFile filename = do
   filecontents <- readShortASTFileRaw filename
   return (read filecontents)
 
+-- | Reads the text from a specified file containing a short ast
 readShortASTFileRaw :: String -> IO String
 readShortASTFileRaw filename = do
   extfcy <- doesFileExist filename
@@ -58,7 +59,7 @@ readShortASTFileRaw filename = do
            exdirtfcy <- doesFileExist subdirfilename
            if exdirtfcy
             then readFile subdirfilename
-            else error ("EXISTENCE ERROR: Comment file '" ++ filename ++
+            else error ("EXISTENCE ERROR: Short AST file '" ++ filename ++
                         "' does not exist")
 
 data Module a = Module SpanInfo [ModulePragma] ModuleIdent (Maybe ExportSpec)

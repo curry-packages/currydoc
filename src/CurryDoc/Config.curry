@@ -1,11 +1,9 @@
-----------------------------------------------------------------------
---- This module contains some configuration parameters for
---- the CurryDoc tool.
----
---- @author Michael Hanus, Jan Tikovsky
---- @version May 2018
-----------------------------------------------------------------------
+{- |
+     Author  : Michael Hanus, Jan Tikovsky
+     Version : May 2018
 
+     This module contains some configuration parameters for the CurryDoc tool.
+-}
 module CurryDoc.Config where
 
 import Distribution           (curryCompiler)

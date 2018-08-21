@@ -1,3 +1,10 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Operations and datatypes to read comment files and
+     match comments to declarations
+-}
 module CurryDoc.Info.Comments
   (readComments, associateCurryDoc,
    isExportSection,

@@ -1,3 +1,9 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Datatypes for identifiers from the curry-frontend
+-}
 module CurryDoc.Data.Ident where
 
 import CurryDoc.Data.SpanInfo

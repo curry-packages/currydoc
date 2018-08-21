@@ -1,10 +1,8 @@
 {- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
 
-    Description : A module for detailed positional information
-    Author      : Kai-Oliver Prott
-
-    This module provides a typeclass and a datatype to manage
-    exact positions of entities.
+     Datatype and operations to handle SoanInfos.
 -}
 module CurryDoc.Data.SpanInfo where
 

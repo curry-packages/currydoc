@@ -1,10 +1,9 @@
-----------------------------------------------------------------------
---- Some auxiliary operations to lookup Curry source files.
----
---- @author Michael Hanus
---- @version December 2017
-----------------------------------------------------------------------
+{- |
+     Author  : Michael Hanus
+     Version : December 2017
 
+     Some auxiliary operations to lookup Curry source files.
+-}
 module CurryDoc.Files ( generateModuleDocMapping )
  where
 

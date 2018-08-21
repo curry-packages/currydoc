@@ -1,3 +1,9 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Datastructures and operations to generate abstract CurryDoc.
+-}
 module CurryDoc.Info
   (generateCurryDocInfosWithAnalysis, generateCurryDocInfos,
    module CurryDoc.Info.Comments,
@@ -23,12 +29,14 @@ import AbstractCurry.Select
 import List  (partition, find)
 import Maybe (fromMaybe)
 
+-- | Generate the abstract CurryDoc with extended analysis
 generateCurryDocInfosWithAnalysis :: AnaInfo -> String -> [(Span, Comment)]
                                   -> Module a -> CurryProg -> Prog
                                   -> [(String, CurryDoc)] -> CurryDoc
 generateCurryDocInfosWithAnalysis ai mn cs m acy@(CurryProg _ _ _ _ _ _ fun ops)
   = genCDoc (addAnaInfoToCurryDocDecls ai ops fun) mn cs m acy
 
+-- | Generate the abstract CurryDoc with simple analysis
 generateCurryDocInfos ::            String -> [(Span, Comment)]
                       -> Module a -> CurryProg -> Prog
                       -> [(String, CurryDoc)] -> CurryDoc
@@ -52,6 +60,7 @@ genCDoc f mname cs m acy fprog importDoc =
                                      (map curryDocDeclName decls))
                        exportStructure
 
+-- insert the declarations into the export structure
 structureDecls :: [(String, [CurryDocDecl])] -> MName
                -> [ExportEntry QName]
                -> [ExportEntry CurryDocDecl]
@@ -65,6 +74,7 @@ structureDecls ds mname (ExportEntry q        : rest) =
 structureDecls ds mname (ExportEntryModule m  : rest) =
   ExportEntryModule m : structureDecls ds mname rest
 
+-- lookup the required declaration
 getFromModule :: [(String, [CurryDocDecl])] -> QName
               -> Maybe (ExportEntry CurryDocDecl)
 getFromModule im qname@(mname, _) =

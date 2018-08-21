@@ -1,3 +1,10 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Operations to add information from AbstactCurry to the
+     commented declarations.
+-}
 module CurryDoc.Info.AbstractCurry (addAbstractCurryProg) where
 
 import AbstractCurry.Types
@@ -16,10 +23,10 @@ import Maybe (listToMaybe)
 -- HACK due to external data decls not being in AbstractCurry, we augment the
 -- AbstractCurry with the nullary types from FlatCurry(those are external ones)
 -- and add a dummy-constructor to every empty data decl in AbstractCurry
---- Remove unexported entities and
---- add exported entities that did not have any comments.
---- Also translates into CurryDoc representations and sets a flag for
---- ExternalDataDecls
+-- | Remove unexported entities and
+--   add exported entities that did not have any comments.
+--   Also translates into CurryDoc representations and sets a flag for
+--   ExternalDataDecls
 addAbstractCurryProg :: CurryProg -> FC.Prog -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) fprog ds =
   let typ' = map augmentEmptyCons typ ++ (map flatToAbstract

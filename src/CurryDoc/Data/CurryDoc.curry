@@ -1,3 +1,9 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Datatype and operations for Abstract CurryDoc
+-}
 module CurryDoc.Data.CurryDoc where
 
 import CurryDoc.Info.Header
@@ -8,7 +14,7 @@ import AbstractCurry.Types
 import AbstractCurry.Select (tconsArgsOfType)
 
 
---- CurryDoc mName mhead exports imports
+-- | CurryDoc mName mhead exports imports
 data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl] [MName]
   deriving (Show)
 

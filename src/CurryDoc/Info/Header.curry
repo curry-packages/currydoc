@@ -1,3 +1,9 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Operations to parse the module comments into a usable format.
+-}
 module CurryDoc.Info.Header
   (ModuleHeader(..), HeaderField(..), readModuleHeader, getCategoryWithDefault)
   where
@@ -17,7 +23,7 @@ data HeaderField = Description
                  | Version
   deriving (Show, Read)
 
--- Parses a module header from comments
+-- | Parses a module header from comments
 readModuleHeader :: [Comment] -> ModuleHeader
 readModuleHeader cs =
   readHeaderField Description h1 ss1 (\h2 ss2 ->
@@ -66,6 +72,7 @@ readLongDescr :: ModuleHeader -> [String] -> ModuleHeader
 readLongDescr (ModuleHeader fs cs) ss = ModuleHeader fs (cs ++
   concatCommentStrings ss)
 
+-- | Get the category of a module Header or return the default value
 getCategoryWithDefault :: String -> [(HeaderField, String)] -> String
 getCategoryWithDefault def []             = def
 getCategoryWithDefault def ((cat,v):rest) = case cat of

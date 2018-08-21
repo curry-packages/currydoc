@@ -1,3 +1,9 @@
+{- |
+     Author  : Kai-Oliver Prott
+     Version : August 2018
+
+     Operations to inline module re-exports in export lists.
+-}
 module CurryDoc.Info.Export (genExportList, inlineExport, flattenExport) where
 
 import Maybe
@@ -11,6 +17,7 @@ import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
 import CurryDoc.Info.Goodies
 
+-- | Generate a default export list in case it is missing
 genExportList :: CurryProg -> [ExportEntry QName]
 genExportList acy =
   (if null types
@@ -29,6 +36,7 @@ genExportList acy =
         funcs   = publicFuncNames  acy
         classes = publicClassNames acy
 
+-- | inline module re-exports if the module is not imported completely
 inlineExport :: [ImportDecl] -> [(MName, CurryDoc)] -> [QName]
              -> ExportEntry QName
              -> [ExportEntry QName]
@@ -66,6 +74,7 @@ importQName mname (Import         _ (Ident _ s _)  ) = (mname, s)
 importQName mname (ImportTypeAll  _ (Ident _ s _)  ) = (mname, s)
 importQName mname (ImportTypeWith _ (Ident _ s _) _) = (mname, s)
 
+-- | Get all "normal" entries inside an export list
 flattenExport :: [ExportEntry a] -> [a]
 flattenExport = concatMap flattenEntry
 

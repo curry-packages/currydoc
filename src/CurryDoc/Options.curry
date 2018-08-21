@@ -1,34 +1,33 @@
--- Auxuiliaries to handle the options of the CurryDoc tool.
-
+{- |
+    Description : Auxuiliaries to handle the options of the CurryDoc tool.
+    Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
+    Version     : August 2018
+-}
 module CurryDoc.Options
   ( DocType(..), DocOptions(..), defaultCurryDocOptions )
  where
 
---------------------------------------------------------------------------
---- The kind of documentations which can be generated.
+-- | The kind of documentations which can be generated.
 data DocType = HtmlDoc | TexDoc | CDoc
   deriving Eq
 
---- The options for the documentation generator.
---- docType - the target format of the documentation
---- withIndex - True if the index pages should also be generated
---- withMarkdown - True if the comments should be processed as markdown code
---- mainTitle    - the main title of the docmentation
---- useDirURL    - "--use" options (i.e., source dir and corresponding doc URL)
---- docMods      - the list of already documented modules, i.e., where the
----                documentation does not need generated
---- docURL       - the mapping from module names into the URL of their docs
+-- | The options for the documentation generator.
 data DocOptions = DocOptions
-  { docType      :: DocType
-  , withIndex    :: Bool
-  , withMarkdown :: Bool
-  , withAnalysis :: Bool
-  , mainTitle    :: String
-  , useDirURL    :: [(String,String)]
-  , docMods      :: [String]
-  , docURL       :: String -> String
+  { docType      :: DocType -- ^ the target format of the documentation
+  , withIndex    :: Bool -- ^ True if index pages should also be generated
+  , withMarkdown :: Bool -- ^ True if comments should be processed as markdown
+  , withAnalysis :: Bool -- ^ True if extended analysis should be performed
+  , mainTitle    :: String -- ^ the main title of the docmentation
+  , useDirURL    :: [(String,String)] -- ^ "--use" options
+                                      --    (i.e., source dir and
+                                      --    corresponding doc URL)
+  , docMods      :: [String] -- ^  the list of already documented modules,
+                             --    i.e., where the
+                             --    documentation does not need generated
+  , docURL       :: String -> String -- ^ the mapping from module names into
+                                     --   the URL of their docs
   }
 
---- Default options
+-- | Default options
 defaultCurryDocOptions :: DocOptions
 defaultCurryDocOptions = DocOptions HtmlDoc True True True "" [] [] id
