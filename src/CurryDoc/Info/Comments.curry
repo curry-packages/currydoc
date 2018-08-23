@@ -6,12 +6,14 @@
      match comments to declarations
 -}
 module CurryDoc.Info.Comments
-  (readComments, associateCurryDoc,
-   isExportSection,
-   splitNestedComment, commentString,
+  (-- * Main functions
+   readComments, associateCurryDoc,
+   -- * Comment functions
+   splitNestedComment, commentString, isOldStyleComment, isExportSection,
+   -- * Lookup functions
    lookupFunc, lookupCons, lookupField, lookupClass, lookupRecord, lookupInstance,
    lookupRecord, lookupTypeSig, lookupNewDecl, lookupDataDecl, lookupTypeDecl,
-   isOldStyleComment,
+   -- * Datatypes
    Comment(..),
    CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
    where
@@ -70,11 +72,12 @@ data ExportEntry a = ExportEntry a
                    | ExportSection Comment Int [ExportEntry a]
   deriving (Show, Read)
 
--- Reads the comments from a specified module
+-- | Reads the comments from a specified module
 readComments :: String -> IO [(Span, Comment)]
 readComments progname =
    readCommentsWithParseOptions progname (setQuiet True defaultParams)
 
+-- | Reads the comments with further options from a specified module
 readCommentsWithParseOptions :: String -> FrontendParams -> IO [(Span, Comment)]
 readCommentsWithParseOptions progname options = do
   mbsrc <- lookupModuleSourceInLoadPath progname
@@ -88,14 +91,17 @@ readCommentsWithParseOptions progname options = do
       callFrontendWithParams COMMS options progname
       readCommentsFile (commentsFileName (dir </> takeFileName progname))
 
+-- | Get the comments filename of a curry programm
 commentsFileName :: String -> String
 commentsFileName prog = inCurrySubdir (stripCurrySuffix prog) <.> "cycom"
 
+-- | Reads the comments from a specified file
 readCommentsFile :: String -> IO [(Span, Comment)]
 readCommentsFile filename = do
   filecontents <- readCommentsFileRaw filename
   return (read filecontents)
 
+-- | Reads the text from a specified file containing comments
 readCommentsFileRaw :: String -> IO String
 readCommentsFileRaw filename = do
   extfcy <- doesFileExist filename

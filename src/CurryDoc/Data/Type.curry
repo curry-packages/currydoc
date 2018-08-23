@@ -20,17 +20,17 @@ import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
                        , lookupModuleSourceInLoadPath, getLoadPathForModule
                        )
 
--- | Reads the short AST from a specified module
+-- | Reads the short-AST from a specified module
 readShortAST :: String -> IO (Module ())
 readShortAST progname =
    readShortASTWithParseOptions progname (setQuiet True defaultParams)
 
--- | Reads the short AST with further options from a specified module
+-- | Reads the short-AST with further options from a specified module
 readShortASTWithParseOptions :: String -> FrontendParams -> IO (Module ())
 readShortASTWithParseOptions progname options = do
   mbsrc <- lookupModuleSourceInLoadPath progname
   case mbsrc of
-    Nothing -> do -- no source file, try to find Comments file in load path:
+    Nothing -> do -- no source file, try to find shortAST file in load path:
       loadpath <- getLoadPathForModule progname
       filename <- getFileInPath (shortASTFileName (takeFileName progname)) [""]
                                 loadpath
@@ -39,17 +39,17 @@ readShortASTWithParseOptions progname options = do
       callFrontendWithParams SAST options progname
       readShortASTFile (shortASTFileName (dir </> takeFileName progname))
 
--- | Get the short-ast filename of a curry programm
+-- | Get the short-AST filename of a curry programm
 shortASTFileName :: String -> String
 shortASTFileName prog = inCurrySubdir (stripCurrySuffix prog) <.> "sast"
 
--- | Reads the short AST from a specified file
+-- | Reads the short-AST from a specified file
 readShortASTFile :: String -> IO (Module ())
 readShortASTFile filename = do
   filecontents <- readShortASTFileRaw filename
   return (read filecontents)
 
--- | Reads the text from a specified file containing a short ast
+-- | Reads the text from a specified file containing ashort-AST
 readShortASTFileRaw :: String -> IO String
 readShortASTFileRaw filename = do
   extfcy <- doesFileExist filename

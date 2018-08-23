@@ -27,6 +27,8 @@ addShortAnaInfoToCurryDocDecls :: [COpDecl] -> [CFuncDecl]
                                -> [CurryDocDecl] -> [CurryDocDecl]
 addShortAnaInfoToCurryDocDecls cop funs = map (addShortAnaInfoToCurryDocDecl cop funs)
 
+-- Recursively descend the Declarations and fill in any AnalysisInfo
+
 addAnaInfoToCurryDocDecl :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> CurryDocDecl
                         -> CurryDocDecl
 addAnaInfoToCurryDocDecl _  _   _ d@(CurryDocTypeDecl          _ _ _ _) = d
@@ -74,8 +76,9 @@ addPrecedenceInfoToCurryDocDecl :: [COpDecl] -> CurryDocDecl -> CurryDocDecl
 addPrecedenceInfoToCurryDocDecl cop d = case d of
   CurryDocFunctionDecl n qty sig _ cs ->
     CurryDocFunctionDecl n qty sig (createPrecInfo cop n) cs
-  _                                -> d
+  _                                   -> d
 
+-- Full analysis for functions
 createAnalysisInfoFun :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> QName
                       -> AnalysisInfo
 createAnalysisInfoFun ai cop funs n = AnalysisInfo {
@@ -88,6 +91,7 @@ createAnalysisInfoFun ai cop funs n = AnalysisInfo {
     property = genPropertyInfo funs n
   }
 
+-- Short analysis for functions
 createShortAnalysisInfoFun :: [COpDecl] -> [CFuncDecl] -> QName -> AnalysisInfo
 createShortAnalysisInfoFun cop funs n = ShortAnalysisInfo {
     ext = getExternalInfo funs n,
@@ -95,6 +99,7 @@ createShortAnalysisInfoFun cop funs n = ShortAnalysisInfo {
     property = genPropertyInfo funs n
   }
 
+-- get External status of a function by checking number of rules
 getExternalInfo :: [CFuncDecl] -> QName -> Bool
 getExternalInfo []                             _
   = error "CurryDoc.Comment.getExternalInfo: Function not found!"
@@ -111,17 +116,21 @@ getExternalInfo (CmtFunc _ n _ _ _ (_:_) : fs) n'
   | n =~= n'  = False
   | otherwise = getExternalInfo fs n'
 
+-- only create a precedence info (e.g. for fields and constructors)
 createPrecInfo :: [COpDecl] -> QName -> AnalysisInfo
 createPrecInfo cop n = PrecedenceInfo {
     precedence = genPrecedenceInfo cop n
   }
 
+-- lookup precedence for a given name
 genPrecedenceInfo :: [COpDecl] -> QName -> Maybe (CFixity, Int)
 genPrecedenceInfo []                     _ = Nothing
 genPrecedenceInfo (COp m fix prec : cop) n
   | n =~= m   = Just (fix, prec)
   | otherwise = genPrecedenceInfo cop n
 
+-- Check for properties of a function
+-- (Code from Michael Hanus, modified by Kai Prott)
 genPropertyInfo :: [CFuncDecl] -> QName -> [(Property, CRule)]
 genPropertyInfo funs n = getContracts ++ concatMap getProp props
   where
