@@ -6,7 +6,8 @@
 -}
 module CurryDoc.Data.Position where
 
-data Position = Position Int Int
+
+data Position = Position Int Int -- ^ Position Row Column 
               | NoPos
   deriving (Eq, Ord, Show, Read)
 

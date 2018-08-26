@@ -43,11 +43,13 @@ data Comment = NestedComment String
              | LineComment   String
   deriving (Show, Read)
 
+-- | Classification of a comment
 data CDocComment = Pre     { comment :: Comment }
                  | Post    { comment :: Comment }
                  | None    { comment :: Comment }
                  | Section { comment :: Comment, nest :: Int }
 
+-- |
 data CommentedDecl
   = CommentedTypeDecl QName [Comment]
   | CommentedDataDecl QName [Comment] [CommentedConstr]
@@ -130,6 +132,7 @@ associateCurryDoc xs@(_:_) (Module spi _ _ ex _ ds) =
           (d:_) -> getSrcSpan d
           _     -> NoSpan
 
+-- Associate Export with comments
 associateExports :: [(Span, CDocComment)] -> ExportSpec -> [ExportEntry QName]
 associateExports cs e = case e of
   Exporting (SpanInfo _ (sp:_)) ex
@@ -137,6 +140,7 @@ associateExports cs e = case e of
   _ -> error $ "CurryDoc.Info.Comments.associateExports: " ++
                "Invalid SpanInfo in ExportList"
 
+-- Associate ExportList with comments
 associateExportList :: [(Span, CDocComment)] -> [Export] -> [ExportEntry QName]
 associateExportList _  []       = []
 associateExportList cs (e : es) =
@@ -152,12 +156,24 @@ associateExportList cs (e : es) =
         genExportEntry (ExportTypeWith _ q _) = ExportEntry       (qIdentToQName q)
         genExportEntry (ExportModule _ m)     = ExportEntryModule (mIdentToMName m)
 
+-- | generate ExportSection from given nesting, comment
+--   and the following ExportEntries
 genExportSection :: Int -> Comment -> [ExportEntry QName] -> [ExportEntry QName]
 genExportSection n c es =
   let (this, next) = span (\e -> not (isExportSection e) ||
-                                     (exportSectionNesting e >= n)) es
-  in ExportSection c n this : next
+                                     (sectionNesting e >= n)) es
+      newComment   = case c of
+        LineComment   s -> LineComment   $ drop n s
+        NestedComment s -> NestedComment $ drop n s
+  in  ExportSection newComment n this : next
 
+sectionNesting :: ExportEntry a -> Int
+sectionNesting e = case e of
+   ExportSection _ n _ -> n
+   _                   -> error $ "CurryDoc.Info.Comments.sectionNesting: "
+                                  ++ "No ExportSection"
+
+-- | Associates Comments to the header of the module (until the first declaration)
 associateCurryDocHeader :: SpanInfo                           -- ^ module SpanInfo
                         -> Span                               -- ^ first decl span
                         -> [(Span, CDocComment)]              -- ^ to be matched
@@ -189,9 +205,11 @@ associateCurryDocHeader (SpanInfo _ []) _ (c:cs) = ([], c:cs)
 associateCurryDocHeader NoSpanInfo      _ (c:cs) = ([], c:cs)
 associateCurryDocHeader _               _ []     = ([], [])
 
+-- | Associate the declarations of a module wih comments
+--   based on the comment type and the vertical distance to the declaration
 associateCurryDocDecls :: [(Span, CDocComment)]
                        -> [Decl a]
-                       -> Maybe (Decl a)
+                       -> Maybe (Decl a) -- ^ previous decl
                        -> [CommentedDecl]
 associateCurryDocDecls []               _      _    = []
 associateCurryDocDecls (c         : cs) []     prev = matchLast (c:cs) prev
@@ -223,6 +241,7 @@ associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
           []     -> NoSpan
           (d':_) -> getSrcSpan d'
 
+-- match any comments that are left after the last declaration
 matchLast :: [(Span, CDocComment)]
           -> Maybe (Decl a)
           -> [CommentedDecl]
@@ -236,6 +255,7 @@ matchLast ((_ , None    _  ) : cs) (Just d) = matchLast cs (Just d)
 matchLast ((_ , Pre     _  ) : cs) (Just d) = matchLast cs (Just d)
 matchLast ((_ , Section _ _) : cs) (Just d) = matchLast cs (Just d)
 
+-- Associate specific pre comments to a specific declaration
 associateCurryDocDeclPre :: [(Span, CDocComment)]
                          -> Decl a
                          -> CommentedDecl
@@ -306,6 +326,7 @@ associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
 associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
   error "associateCurryDocDeclPre: NoSpanInfo in QualTypeExpr"
 
+-- match pre comments to arguments in a typesig
 matchArgumentsPre :: TypeExpr -> [(Span, CDocComment)] -> [(CTypeExpr, [Comment])]
 matchArgumentsPre ty cs = case ty of
   ArrowType _ ty1 ty2 ->
@@ -316,6 +337,7 @@ matchArgumentsPre ty cs = case ty of
     let (match, _) = getToMatch (getSrcSpan ty) NoSpan cs isPre
     in  [(typeExprToCType ty , map (comment . snd) match)]
 
+-- match pre comments to constructors
 matchConstructorsPre :: [ConstrDecl] -> [(Span, CDocComment)]
                      -> [CommentedConstr]
 matchConstructorsPre []       _  = []
@@ -336,6 +358,7 @@ matchConstructorsPre (ConOpDecl spi _ _ _ f _ :cns) cs =
   in  CommentedConsOp (identToQName f) (map (comment . snd) match)
         : matchConstructorsPre cns (skipUntilAfter stop rest)
 
+-- match pre comments to record fields
 matchFieldsPre :: [FieldDecl] -> [(Span, CDocComment)] -> [CommentedField]
 matchFieldsPre []                            _  = []
 matchFieldsPre (f@(FieldDecl _ idts _) : fs) cs =
@@ -602,7 +625,7 @@ isPost Section {}    = False
 isNone Pre     {} = False
 isNone Post    {} = False
 isNone None    {} = True
-isNone Section {} = False
+isNone Section {} = True
 
 isSection Pre     {} = False
 isSection Post    {} = False
@@ -614,26 +637,21 @@ isExportSection e = case e of
   ExportSection _ _ _-> True
   _                  -> False
 
-exportSectionNesting :: ExportEntry a -> Int
-exportSectionNesting e = case e of
-  ExportSection _ i _ -> i
-  _ -> error "CurryDoc.Info.Comments.exportSectionNesting: Not an ExportSection"
-
 classifyComment :: Comment -> CDocComment
 classifyComment (NestedComment s)
-  | "{- |" `isPrefixOf` s = Pre     $ NestedComment $ dropLast2 $ drop 4     s
-  | "{- ^" `isPrefixOf` s = Post    $ NestedComment $ dropLast2 $ drop 4     s
-  | "{- *" `isPrefixOf` s = Section ( NestedComment $ dropLast2 $ drop (3+n) s) n
-  | otherwise             = None    $ NestedComment $ dropLast2 $ drop 2     s
+  | "{- |" `isPrefixOf` s = Pre     $ NestedComment $ dropLast2 $ drop 4 s
+  | "{- ^" `isPrefixOf` s = Post    $ NestedComment $ dropLast2 $ drop 4 s
+  | "{- *" `isPrefixOf` s = Section ( NestedComment $ dropLast2 $ drop 3 s ) n
+  | otherwise             = None    $ NestedComment $ dropLast2 $ drop 2 s
   where n = length $ takeWhile (=='*') $ drop 3 s
         dropLast2 = init . init
 classifyComment (LineComment   s)
-  | "---"      ==       s = Pre     $ LineComment               $ drop 3     s
-  | "--- " `isPrefixOf` s = Pre     $ LineComment               $ drop 4     s
-  | "-- |" `isPrefixOf` s = Pre     $ LineComment               $ drop 4     s
-  | "-- ^" `isPrefixOf` s = Post    $ LineComment               $ drop 4     s
-  | "-- *" `isPrefixOf` s = Section ( LineComment               $ drop (3+n) s) n
-  | otherwise             = None    $ LineComment               $ drop 2     s
+  | "---"      ==       s = Pre     $ LineComment               $ drop 3 s
+  | "--- " `isPrefixOf` s = Pre     $ LineComment               $ drop 4 s
+  | "-- |" `isPrefixOf` s = Pre     $ LineComment               $ drop 4 s
+  | "-- ^" `isPrefixOf` s = Post    $ LineComment               $ drop 4 s
+  | "-- *" `isPrefixOf` s = Section ( LineComment               $ drop 3 s ) n
+  | otherwise             = None    $ LineComment               $ drop 2 s
   where n = length $ takeWhile (=='*') $ drop 3 s
 
 commentString :: Comment -> String

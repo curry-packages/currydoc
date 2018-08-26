@@ -13,11 +13,11 @@ import CurryDoc.Data.AnaInfo
 import AbstractCurry.Types
 import AbstractCurry.Select (tconsArgsOfType)
 
-
 -- | CurryDoc mName mhead exports imports
 data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl] [MName]
   deriving (Show)
 
+-- | Documented Curry declarations
 data CurryDocDecl
   = CurryDocTypeDecl     QName [CTVarIName] CTypeExpr [Comment]
   | CurryDocDataDecl     QName [CTVarIName] [CurryDocInstanceDecl] Bool [CurryDocCons] [Comment]
@@ -26,18 +26,22 @@ data CurryDocDecl
   | CurryDocFunctionDecl QName CQualTypeExpr (Maybe CurryDocTypeSig) AnalysisInfo [Comment]
   deriving (Show)
 
+-- | Documented Curry constructors
 data CurryDocCons
   = CurryDocConstr QName [CTypeExpr]                 AnalysisInfo [Comment]
   | CurryDocConsOp QName CTypeExpr CTypeExpr         AnalysisInfo [Comment]
   | CurryDocRecord QName [CTypeExpr] [CurryDocField] AnalysisInfo [Comment]
   deriving (Show)
 
+-- | Documented Curry type signatures
 data CurryDocTypeSig = CurryDocTypeSig QName CContext [(CTypeExpr, [Comment])] [Comment]
   deriving (Show)
 
+-- | Documented Curry instances
 data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext CTypeExpr [CurryDocDecl] [Comment]
   deriving (Show)
 
+-- | Documented Curry Record fields
 data CurryDocField = CurryDocField QName CTypeExpr AnalysisInfo [Comment]
   deriving (Show)
 

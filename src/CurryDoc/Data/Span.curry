@@ -11,7 +11,7 @@ module CurryDoc.Data.Span (
 
 import CurryDoc.Data.Position
 
-data Span = Span Position Position
+data Span = Span Position Position -- ^ Span StarPos EndPos
           | NoSpan
   deriving (Eq, Show, Read)
 

@@ -8,6 +8,7 @@ module CurryDoc.Data.Ident where
 
 import CurryDoc.Data.SpanInfo
 
+-- | Identifier for modules, from the curry-frontend.
 data ModuleIdent = ModuleIdent SpanInfo [String]
   deriving (Show, Read)
 
@@ -17,6 +18,7 @@ instance Eq ModuleIdent where
 instance Ord ModuleIdent where
   compare (ModuleIdent _ ss1) (ModuleIdent _ ss2) = compare ss1 ss2
 
+-- | Identifier, from the curry-frontend.
 data Ident = Ident SpanInfo String Int
   deriving (Show, Read)
 
@@ -26,6 +28,7 @@ instance Eq Ident where
 instance Ord Ident where
   compare (Ident _ s1 id1) (Ident _ s2 id2) = compare (s1, id1) (s2, id2)
 
+-- | Qualified identifier, from the curry-frontend.
 data QualIdent = QualIdent SpanInfo (Maybe ModuleIdent) Ident
   deriving (Show, Read)
 
