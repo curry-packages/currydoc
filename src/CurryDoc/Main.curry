@@ -37,6 +37,7 @@ import AnsiCodes    (red, blue)
 
 import AbstractCurry.Files
 import AbstractCurry.Types
+import AbstractCurry.Select
 import FlatCurry.Files
 import FlatCurry.Types (Prog(..))
 
@@ -277,12 +278,12 @@ makeDoc docopts recursive docdir modname = do
   imports <- getImports modname
   when recursive $
     mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
-  res <- makeAbstractDoc docopts modname imports
+  res <- makeAbstractDoc docopts modname
   makeDocForType (docType docopts) docopts docdir modname res
 
--- generate abstract CUrryDoc for a single module
-makeAbstractDoc :: DocOptions -> String -> [String] -> IO CurryDoc
-makeAbstractDoc docopts modname imports = do
+-- generate abstract CurryDoc for a single module
+makeAbstractDoc :: DocOptions -> MName -> IO CurryDoc
+makeAbstractDoc docopts modname = do
   putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
   cmts <- readComments modname
   when (any (isOldStyleComment . snd) cmts)
@@ -296,8 +297,9 @@ makeAbstractDoc docopts modname imports = do
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
   acy <- readAbstractCurryFile acyname
-  putStrLn ("Reading imported modules of \"" ++ modname ++ "\"...")
-  importsDoc <- mapIO (readOrGenerateCurryDoc docopts) imports
+  putStrLn ("Recursively reading imported modules of \"" ++ modname ++ "\"...")
+  allProg <- readCurryWithImports modname
+  importsDoc <- mapIO (readOrGenerateCurryDoc docopts . progName) $ tail allProg
   res <- if withAnalysis docopts
          then do putStrLn ("Reading analysis information for module \""
                            ++ modname ++ "\"...")
@@ -327,8 +329,7 @@ readOrGenerateCurryDoc docopts modname =
   where regenerate reason = do
          putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++
                          "\" is " ++ reason ++ " and will be regenerated..."))
-         imports <- getImports modname
-         res <- makeAbstractDoc docopts modname imports
+         res <- makeAbstractDoc docopts modname
          return (modname, res)
 
 -- convert abstract CurryDoc to the respective target type
