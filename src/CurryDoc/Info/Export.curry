@@ -37,42 +37,41 @@ genExportList acy =
         classes = publicClassNames acy
 
 -- | inline module re-exports if the module is not imported completely
-inlineExport :: [ImportDecl] -> [(MName, CurryDoc)] -> [QName]
-             -> ExportEntry QName
-             -> [ExportEntry QName]
-inlineExport _  _   _  e@(ExportEntry _          ) = [e]
-inlineExport im imD ds   (ExportSection c i ex   ) =
-    [ExportSection c i (concatMap (inlineExport im imD ds) ex)]
-inlineExport im imD ds e@(ExportEntryModule mname)
-  | isFullImport im mname = [e]
+inlineExport :: [ImportDecl]        -- ^ ImportDecls from AST
+             -> [(MName, CurryDoc)] -- ^ CurryDoc for all imports (inc. Prelude)
+             -> MName               -- ^ Name of current module
+             -> [QName]             -- ^ Declarations of current module
+             -> ExportEntry QName   -- ^ ExportStructure
+             -> [ExportEntry QName] -- ^ Inlined ExportStructure
+inlineExport _  _   _ _  e@(ExportEntry _          ) = [e]
+inlineExport im imD m ds   (ExportSection c i ex   ) =
+    [ExportSection c i (concatMap (inlineExport im imD m ds) ex)]
+inlineExport im imD m ds e@(ExportEntryModule mname)
+  | mname == m            = map ExportEntry ds
+  | isFullImport im mname = [e] -- This branch is taken, if the Prelude is not explicitly imported
   | otherwise             = case getRealModuleNameAndSpec im mname of
     Just (real, spec) -> maybe [] (inlineFromSpec spec) (lookup real imD)
-    Nothing           -> map ExportEntry ds -- has to be current module
+    Nothing           -> error $ "CurryDoc.Info.Export.inlineExport: "
+                                  ++ "Missing import for \"" ++ mname ++ "\""
 
 inlineFromSpec :: ImportSpec -> CurryDoc -> [ExportEntry QName]
-inlineFromSpec (Importing _ im) (CurryDoc mname _ ex _) =
+inlineFromSpec (Importing _ im) (CurryDoc _ _ ex _) =
   map ExportEntry $
-  filter (      (`elem` importQNames mname im)) $
+  filter (\e ->       any (=~=e) qnames) $
   map curryDocDeclName $
   flattenExport ex
-inlineFromSpec (Hiding    _ im) (CurryDoc mname _ ex _) =
+  where qnames = map importQName im
+inlineFromSpec (Hiding    _ im) (CurryDoc _ _ ex _) =
   map ExportEntry $
-  filter (not . (`elem` importQNames mname im)) $
+  filter (\e -> not $ any (=~=e) qnames) $
   map curryDocDeclName $
   flattenExport ex
+  where qnames = map importQName im
 
--- HACK the qualifier might be wrong if the identifier is re-exported
--- and originally defined in another module.
--- This has the nice side-effect, that those will not be in the
--- documentation, even if mname is re-exported fully.
--- (PACKS and KICS2 will not export them either)
-importQNames :: MName -> [Import] -> [QName]
-importQNames mname = map (importQName mname)
-
-importQName :: MName -> Import -> QName
-importQName mname (Import         _ (Ident _ s _)  ) = (mname, s)
-importQName mname (ImportTypeAll  _ (Ident _ s _)  ) = (mname, s)
-importQName mname (ImportTypeWith _ (Ident _ s _) _) = (mname, s)
+importQName :: Import -> QName
+importQName (Import         _ (Ident _ s _)  ) = ("", s)
+importQName (ImportTypeAll  _ (Ident _ s _)  ) = ("", s)
+importQName (ImportTypeWith _ (Ident _ s _) _) = ("", s)
 
 -- | Get all "normal" entries inside an export list
 flattenExport :: [ExportEntry a] -> [a]
@@ -90,7 +89,7 @@ isFullImport (ImportDecl _ _   _ (Just mid) spec : im) mname
 isFullImport (ImportDecl _ mid _ Nothing    spec : im) mname
   | mname == mIdentToMName mid = isNothing spec
   | otherwise                  = isFullImport im mname
-isFullImport [] _              = False
+isFullImport [] _              = True
 
 getRealModuleNameAndSpec :: [ImportDecl] -> MName -> Maybe (MName, ImportSpec)
 getRealModuleNameAndSpec (ImportDecl _ real _ (Just mid) spec : im) mname
