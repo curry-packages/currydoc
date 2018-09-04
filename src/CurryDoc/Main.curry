@@ -72,11 +72,11 @@ main = do
   putStrLn banner
   processArgs defaultCurryDocOptions args
 
--- | call CurryDoc with fixed parameters, used for debugging.
-debug :: IO ()
-debug = do
+-- | call CurryDoc with given parameters
+debug :: [String] -> IO ()
+debug opts = do
   dir <- getCurrentDirectory
-  processArgs defaultCurryDocOptions ["--noanalysis", "--html", "CurryDoc.Test"]
+  processArgs defaultCurryDocOptions opts
   setCurrentDirectory dir
 
 processArgs :: DocOptions -> [String] -> IO ()
@@ -106,10 +106,14 @@ processArgs opts args = do
     -- HTML index only
     ("--onlyindexhtml":docdir:modnames) -> do
         opts' <- processOpts opts
-        makeIndexPages opts' docdir (map stripCurrySuffix modnames)
+        let modpaths = map stripCurrySuffix modnames
+        prepareHtmlWithTargets [ACY] docdir modpaths
+        genIndexPages opts' docdir modpaths
     ("--libsindexhtml":docdir:modnames) -> do
         opts' <- processOpts opts
-        makeSystemLibsIndex opts' docdir modnames
+        let modpaths = map stripCurrySuffix modnames
+        prepareHtmlWithTargets [ACY, SAST, COMMS] docdir modpaths
+        genSystemLibsIndex opts' docdir modnames
     (('-':_):_) -> printUsageMessage
     -- module
     [modname] -> do
@@ -169,30 +173,19 @@ copyDirectory src dst = do
 -- The main function of the CurryDoc utility.
 makeCompleteDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeCompleteDoc docopts recursive reldocdir modpath = do
-  docdir <- makeAbsolute reldocdir
-  prepareDocDir (docType docopts) docdir
-  lookupModuleSourceInLoadPath modpath >>=
-   maybe (error $ "Source code of module '" ++ modpath ++ "' not found!")
-    (\ (moddir,_) -> do
-      let modname = takeFileName modpath
-      setCurrentDirectory moddir
-      -- generate all necessary source representations
-      putStrLn "Compiling modules..."
-      mapIO (callFrontendFor modname) [ACY, SAST, COMMS, FCY]
-      (alltypes,allfuns, allclasses) <- readTypesFuncsClassesWithImports modname
-      putStrLn "Start generating documentation"
-      makeDocIfNecessary docopts recursive docdir modname
-      when (withIndex docopts) $ do
-        genMainIndexPage     docopts docdir [modname]
-        genFunctionIndexPage docopts docdir allfuns
-        genConsIndexPage     docopts docdir alltypes
-        genClassesIndexPage  docopts docdir allclasses
-      -- change access rights to readable for everybody:
-      system ("chmod -R go+rX " ++ docdir)
-      putStrLn ("Documentation files written into directory " ++ docdir))
-    where callFrontendFor modname target =
-            rcParams >>= \params ->
-            callFrontendWithParams target (setQuiet True params) modname
+    docdir <- makeAbsolute reldocdir
+    prepareHtmlWithTargets targets docdir [modpath]
+    putStrLn "Start generating documentation"
+    let modname = takeFileName modpath
+    makeDocIfNecessary docopts recursive docdir modname
+    when (withIndex docopts) $ genIndexPages docopts docdir [modname]
+    -- change access rights to readable for everybody:
+    system ("chmod -R go+rX " ++ docdir)
+    putStrLn ("Documentation files written into directory " ++ docdir)
+  where targets = [ACY, SAST, COMMS, FCY] ++
+                  if withAnalysis docopts
+                    then [FINT]
+                    else []
 
 -- Transform a file path into an absolute file path:
 makeAbsolute :: String -> IO String
@@ -202,21 +195,27 @@ makeAbsolute f =
   else do curdir <- getCurrentDirectory
           return (curdir </> f)
 
+-- prepareDocDir and compile to the specified targets
+prepareHtmlWithTargets :: [FrontendTarget] -> String -> [String] -> IO ()
+prepareHtmlWithTargets targets docdir modnames = do
+    prepareDocDir HtmlDoc docdir
+    flip mapIO modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
+      maybe (error $ "Source code of module '"++modpath++"' not found!")
+        (\ (moddir,_) -> do
+          let modname = takeFileName modpath
+          setCurrentDirectory moddir
+          -- parsing source program
+          putStrLn "Compiling modules..."
+          mapIO (callFrontendFor modname) targets))
+    done
+  where callFrontendFor modname target = do
+          params <- rcParams
+          callFrontendWithParams target (setQuiet True params) modname
+
 -- Generate only the index pages for a list of (already compiled!) modules:
-makeIndexPages :: DocOptions -> String -> [String] -> IO ()
-makeIndexPages docopts docdir modnames = do
-  prepareDocDir HtmlDoc docdir
-  flip mapIO modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
-    maybe (error $ "Source code of module '"++modpath++"' not found!")
-      (\ (moddir,_) -> do
-        let modname = takeFileName modpath
-        setCurrentDirectory moddir
-        -- parsing source program:
-        callFrontend FCY modname
-        -- generate short ast representation
-        callFrontend SAST modname
-        -- generate comment stream
-        callFrontend COMMS modname))
+genIndexPages :: DocOptions -> String -> [String] -> IO ()
+genIndexPages docopts docdir modnames = do
+  putStrLn "Generating index pages ..."
   (alltypes,allfuns,allclasses) <-
     mapIO readTypesFuncsClassesWithImports modnames >>= return . unzip3
   genMainIndexPage     docopts docdir modnames
@@ -229,10 +228,10 @@ makeIndexPages docopts docdir modnames = do
 
 -- Generate a system library index page categorizing the given
 -- (already compiled!) modules
-makeSystemLibsIndex :: DocOptions -> String -> [String] -> IO ()
-makeSystemLibsIndex docopts docdir modnames = do
+genSystemLibsIndex :: DocOptions -> String -> [String] -> IO ()
+genSystemLibsIndex docopts docdir modnames = do
   -- generate index pages (main index, function index, constructor index)
-  makeIndexPages docopts docdir modnames
+  genIndexPages docopts docdir modnames
   putStrLn ("Reading module infos ...")
   cmts <- mapIO readComments modnames
   prog <- mapIO readShortAST modnames
