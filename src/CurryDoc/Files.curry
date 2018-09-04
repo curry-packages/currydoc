@@ -4,16 +4,15 @@
 
      Some auxiliary operations to lookup Curry source files.
 -}
-module CurryDoc.Files ( generateModuleDocMapping )
- where
+module CurryDoc.Files ( generateModuleDocMapping ) where
 
 import Directory    ( doesDirectoryExist, getDirectoryContents )
 import Distribution ( stripCurrySuffix )
 import FilePath     ( (</>), takeExtension )
 
---- Constructs a mapping from module names into locations where
---- the documentation is stored. The argument is a list of pairs
---- (root dir of Curry sources / documentation dir for these sources).
+-- | Constructs a mapping from module names into locations where
+--   the documentation is stored. The argument is a list of pairs
+--   (root dir of Curry sources / documentation dir for these sources).
 generateModuleDocMapping :: [(String,String)] -> IO [(String,String)]
 generateModuleDocMapping pkglocs =
   mapIO genPkgMapping pkglocs >>= return . concat
@@ -22,8 +21,8 @@ generateModuleDocMapping pkglocs =
     mods <- curryModulesInDir srcroot
     return $ map (\m -> (m,docroot)) mods
 
---- Gets the names of all Curry modules contained in a directory.
---- Modules in subdirectories are returned as hierarchical modules.
+-- | Gets the names of all Curry modules contained in a directory.
+--   Modules in subdirectories are returned as hierarchical modules.
 curryModulesInDir :: String -> IO [String]
 curryModulesInDir dir = getModules "" dir
  where

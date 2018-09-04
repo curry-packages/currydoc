@@ -76,12 +76,11 @@ importQName (ImportTypeWith _ (Ident _ s _) _) = ("", s)
 -- | Get all "normal" entries inside an export list
 flattenExport :: [ExportEntry a] -> [a]
 flattenExport = concatMap flattenEntry
+ where flattenEntry (ExportEntry        a) = [a]
+       flattenEntry (ExportSection _ _ ex) = flattenExport ex
+       flattenEntry (ExportEntryModule  _) = []
 
-flattenEntry :: ExportEntry a -> [a]
-flattenEntry (ExportEntry        a) = [a]
-flattenEntry (ExportSection _ _ ex) = flattenExport ex
-flattenEntry (ExportEntryModule  _) = []
-
+-- Is the module imported without ImportSpec? Assumes `True` if import is missing
 isFullImport :: [ImportDecl] -> MName -> Bool
 isFullImport (ImportDecl _ _   _ (Just mid) spec : im) mname
   | mname == mIdentToMName mid = isNothing spec
@@ -91,6 +90,7 @@ isFullImport (ImportDecl _ mid _ Nothing    spec : im) mname
   | otherwise                  = isFullImport im mname
 isFullImport [] _              = True
 
+-- Disambiguate alias (if present) and get the ImportSpec
 getRealModuleNameAndSpec :: [ImportDecl] -> MName -> Maybe (MName, ImportSpec)
 getRealModuleNameAndSpec (ImportDecl _ real _ (Just mid) spec : im) mname
   | mname == mIdentToMName mid    = Just (mIdentToMName real, fromJust spec)

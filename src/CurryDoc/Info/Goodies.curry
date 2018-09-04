@@ -125,8 +125,8 @@ isFunctionType t = case t of
 -- | Combine multiple comment strings to a single string
 concatCommentStrings :: [String] -> String
 concatCommentStrings ss = unwords (map replaceEmptyLine ss)
- where  replaceEmptyLine ss | all isSpace ss = "\n"
-                            | otherwise      = trimSpace ss
+ where  replaceEmptyLine s | all isSpace s = "\n"
+                           | otherwise     = trimSpace s
 
 trimSpace :: String -> String
 trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace

@@ -34,6 +34,7 @@ readModuleHeader cs =
   where ss1 = map commentString $ concatMap splitNestedComment cs
         h1 = ModuleHeader [] ""
 
+-- | Generic reader function for given Field in CPS-Style. (Because why not? :)
 readHeaderField :: HeaderField -> ModuleHeader -> [String]
                 -> (ModuleHeader -> [String] -> ModuleHeader)
                 -> ModuleHeader

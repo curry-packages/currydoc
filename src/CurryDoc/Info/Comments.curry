@@ -625,7 +625,7 @@ isPost Section {}    = False
 isNone Pre     {} = False
 isNone Post    {} = False
 isNone None    {} = True
-isNone Section {} = True
+isNone Section {} = True -- not a typo
 
 isSection Pre     {} = False
 isSection Post    {} = False

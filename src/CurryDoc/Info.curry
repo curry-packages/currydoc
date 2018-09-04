@@ -52,7 +52,7 @@ genCDoc f mname cs m acy fprog importDoc =
   where
     (declsC, moduleC, exportList) = associateCurryDoc cs m
     exportStructure = fromMaybe (genExportList acy) exportList
-    importDecls = map (\(x,CurryDoc _ _ ex _ _) -> (x,flattenExport ex)) importDoc
+    importDecls = map (\(x,CurryDoc _ _ ex _) -> (x,flattenExport ex)) importDoc
     decls  = addAbstractCurryProg acy fprog declsC
     mhead  = readModuleHeader moduleC
     export = structureDecls ((mname, f decls) : importDecls) mname $
