@@ -165,29 +165,31 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
-    code [anchored tcons [style "typeheader" [htxt ("data " ++ tcons)]]]
+    code [anchored tcons [style "typeheader"
+       [htxt "data ", showCodeNameRef docopts n, htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
     ++ [par [explainCat "Known instances: "]]
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
-    code [anchored tcons [style "typeheader" [htxt ("newtype " ++ tcons)]]]
+    code [anchored tcons [style "typeheader"
+       [htxt "newtype ",showCodeNameRef docopts n,htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Constructors: "]]
     ++ (maybe [] (genHtmlCons docopts n vs) cn)
     ++ [par [explainCat "Known instances: "]]
     ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
-  CurryDocTypeDecl (tmod,tcons) vs ty cs ->
-       [anchored tcons [style "typeheader" [htxt tcons]]]
-    ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-    ++ [ par [explainCat "Type synonym:"
-       , nbsp
-       , code [HtmlText (tcons ++ " " ++ unwords (map snd vs) ++ " = " ++
-            case (tmod,tcons) of
-              ("Prelude", "String")
-                -> "[" ++ showTypeCons docopts tmod (tmod,"Char") ++ "]"
-              _ -> showType docopts tmod False ty)]]]
+  CurryDocTypeDecl n@(tmod,tcons) vs ty cs ->
+    code [anchored tcons [style "typeheader"
+       [htxt "type ", showCodeNameRef docopts n,
+        htxt (" " ++ unwords (map snd vs)),
+        htxt " = ", HtmlText rhs]]]
+    :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
+    where rhs = case (tmod,tcons) of
+                  ("Prelude", "String")
+                    -> "[" ++ showTypeCons docopts tmod (tmod,"Char") ++ "]"
+                  _ -> showType docopts tmod False ty
   _ -> []
 
 -- | generate HTML documentation for a constructor if it is exported:
@@ -196,9 +198,9 @@ genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
                               [ty1, ty2] ai cs) -- TODO: maybe different?
-genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
+genHtmlCons docopts (_, tcons) vs (CurryDocConstr c@(cmod, cname) tys ai cs) =
   anchored cname
-    [code [opnameDoc [htxt cname],
+    [code [opnameDoc [showCodeNameRef docopts c],
            HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
@@ -212,9 +214,9 @@ genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
         fix = case ai of
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
-genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
+genHtmlCons docopts (_, tcons) vs (CurryDocRecord c@(cmod,cname) tys fs ai cs) =
   anchored cname
-    [code [opnameDoc [htxt cname],
+    [code [opnameDoc [showCodeNameRef docopts c],
           HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
@@ -230,10 +232,11 @@ genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
           _              -> precedence ai
 
 -- generate HTML documentation for record fields
+ -- TODO: show precedence
 genHtmlField :: DocOptions -> CurryDocField -> [HtmlExp]
-genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) = -- TODO: show precedence
-  [anchored (fname ++ "_FIELD")
-    ([ code [opnameDoc [htxt fname]]
+genHtmlField docopts (CurryDocField f@(fmod,fname) ty _ cs) =
+  [anchored fname
+    ([ code [opnameDoc [showCodeNameRef docopts f]]
      , HtmlText (" :: " ++ showType docopts fmod True ty)
      ] ++ if null txt then [] else
             htxt " : " : removeTopPar (docComment2HTML docopts txt))]
@@ -242,13 +245,12 @@ genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) = -- TODO: show preced
 -- TODO: Add href to code
 genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
-  CurryDocInstanceDecl (cmod, cname) cx ty _ _ ->
+  CurryDocInstanceDecl i@(imod, _) cx ty _ _ ->
     [code [htxt (if null cxString then [] else cxString ++ " "),
-           href (docURL docopts cmod++".html#"++cname)
-                 [htxt cname]]] ++
-    [code [HtmlText (showType docopts dn
+           showCodeNameRef docopts i,
+           HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)]]
-    where cxString = showContext docopts cmod True cx
+    where cxString = showContext docopts imod True cx
 
 -- generate HTML documentation for a function:
 genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
@@ -258,7 +260,7 @@ genHtmlClass docopts d = case d of
          [(code
            ([(htxt "class ")] ++
              (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
-             [htxt cname] ++ [htxt (' ' : snd v)])
+             [showCodeNameRef docopts (cmod, cname)] ++ [htxt (' ' : snd v)])
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ [par [explainCat "Methods: "]]
@@ -269,18 +271,15 @@ genHtmlClass docopts d = case d of
 -- generate HTML documentation for a function:
 genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlFunc cssclass docopts d = case d of
-  CurryDocFunctionDecl (fmod,fname) qty sig ai cs ->
-     [anchoredDiv fname
-      [par $
-        [code [opnameDoc [showCodeHRef fname],
-               HtmlText (" :: "++ showQualType docopts fmod qty)]
-          `addClass` cssclass,
-         nbsp, nbsp] ++
-        genFuncPropIcons ai]] ++
-        genSigComment docopts sig ++
-        docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
-        genFurtherInfos (fmod, fname) ai
-    where showCodeHRef fn = href (fmod++"_curry.html#"++fn) [htxt (showId fn)]
+  CurryDocFunctionDecl f@(fmod,fname) qty sig ai cs ->
+    [par ([code [anchored fname [style cssclass
+             [opnameDoc [showCodeNameRef docopts f],
+              HtmlText (" :: "++ showQualType docopts fmod qty)]]],
+           nbsp, nbsp] ++
+           genFuncPropIcons ai)] ++
+    genSigComment docopts sig ++
+    docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
+    genFurtherInfos (fmod, fname) ai
   _ -> []
 
 genSigComment :: DocOptions -> Maybe CurryDocTypeSig -> [HtmlExp]
@@ -546,20 +545,24 @@ genFunctionIndexPage :: DocOptions -> String -> [CFuncDecl] -> IO ()
 genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
   simplePage "Index to all operations" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts "FUNC" (sortNames expfuns))
+             (htmlIndex opts (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
    expfuns = nub $ map funcName $ filter ((== Public) . funcVis) funs
 
-htmlIndex :: DocOptions -> String -> [QName] -> [HtmlExp]
-htmlIndex opts ty = categorizeByItemKey . map (showModNameRef opts ty)
+htmlIndex :: DocOptions -> [QName] -> [HtmlExp]
+htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
-showModNameRef :: DocOptions -> String -> QName -> (String,[HtmlExp])
-showModNameRef opts ty (modname,name) =
+showModNameRef :: DocOptions -> QName -> (String,[HtmlExp])
+showModNameRef opts (modname,name) =
   (name,
-   [href (docURL opts modname++".html#"++name++"_"++ty) [htxt name], nbsp, nbsp,
+   [href (docURL opts modname++".html#"++name) [htxt name], nbsp, nbsp,
     htxt "(", href (docURL opts modname ++ ".html") [htxt modname], htxt ")"]
   )
+
+showCodeNameRef :: DocOptions -> QName -> HtmlExp
+showCodeNameRef opts (modname,name) =
+   href (docURL opts modname++"_curry.html#"++name) [htxt name]
 
 sortNames :: [(a,String)] -> [(a,String)]
 sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
@@ -570,7 +573,7 @@ genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
 genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
   simplePage "Index to all constructors" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts "CONS" (sortNames expcons))
+             (htmlIndex opts (sortNames expcons))
     >>= writeFile (docdir++"/cindex.html")
  where
    consDecls (CType    _ _ _ cs _) = cs
@@ -585,7 +588,7 @@ genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
 genClassesIndexPage opts docdir cls = do
   putStrLn ("Writing typeclasses index page to \""++docdir++"/clsindex.html\"...")
   simplePage "Index to all typeclasses" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts "CLASS" (sortNames expclasses))
+             (htmlIndex opts (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
    expclasses = nub $ map    (\(CClass n _   _ _ _) -> n) $
