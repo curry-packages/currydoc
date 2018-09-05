@@ -37,12 +37,14 @@ The documentation syntax follows Haddock
 
 A \emph{documentation comment}%
 \index{documentation comment}\index{comment!documentation}
-starts
-with \ccode{-- | } or \ccode{-- \^} (also in literate programs!).
-\footnote{\ccode{---} can be used instead of \ccode{-- | } for compatibility}
+starts with \ccode{-{}- | } or \ccode{-{}- \textasciicircum }
+(also in literate programs!).
+\footnote{\ccode{-{}-{}- } can be used instead of
+          \ccode{-{}- | } for backwards compatibility}
 The former style can be used to write document comments preceding a declaration
 and the latter for comments following a declaration.
-Nested comments are also supported with  \ccode{\{- | } or \ccode{\{- \^}
+Nested comments are also supported with  \ccode{\{- | }
+or \ccode{\{- \textasciicircum}
 Other comments are also considered as documentation comments, if they are
 on a line directly below another documentation comment.
 
@@ -64,8 +66,14 @@ Specifies the category of a module
 Specifies the author of a module
 \item[\code{Version:}]\pindex{"Version:} \emph{comment}\\
 Specifies the version of a module
-
+\end{description}
 All text following the tags can be used for a longer module description.
+
+The ordering of the final documentation can be controlled via the export list
+in the module header.
+The user can insert section-headings via comments of the form \ccode{-{}- *} or
+\ccode{\{- * }. The amount of \* controls if it i a subsection,
+subsubsection, etc.
 
 The comment of a documented entity can be any string in
 \href{http://en.wikipedia.org/wiki/Markdown}{Markdown's syntax}\index{markdown}
@@ -81,7 +89,7 @@ quotations (lines prefixed by ``\verb!> !''),
 and web links of the form \ccode{<http://\ldots>}
 or \ccode{[link text](http://\ldots)}.
 If the Markdown syntax should not be used, one could run CurryDoc
-with the parameter \ccode{--nomarkdown}.
+with the parameter \ccode{-{}-nomarkdown}.
 
 The comments cannot contain markups in HTML format anymore,
 due to the possibility of XSS-Attacks.
