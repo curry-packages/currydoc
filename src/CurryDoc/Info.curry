@@ -51,14 +51,13 @@ genCDoc f mname cs m acy fprog importDoc =
   CurryDoc mname mhead export (imports acy)
   where
     (declsC, moduleC, exportList) = associateCurryDoc cs m
-    exportStructure = fromMaybe (genExportList acy) exportList
     importDecls = map (\(x,CurryDoc _ _ ex _) -> (x,flattenExport ex)) importDoc
     decls  = addAbstractCurryProg acy fprog declsC
     mhead  = readModuleHeader moduleC
     export = structureDecls ((mname, f decls) : importDecls) mname $
              concatMap (inlineExport (getImports m) importDoc
                                      mname (map curryDocDeclName decls))
-                       exportStructure
+                       (fromMaybe (genExportList acy) exportList)
 
 -- insert the declarations into the export structure
 structureDecls :: [(String, [CurryDocDecl])] -> MName

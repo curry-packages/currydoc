@@ -40,7 +40,7 @@ import CurryDoc.Config
 
 infixl 0 `withTitle`
 
--- | Generates the documentation of a module in HTML format 
+-- | Generates the documentation of a module in HTML format
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let
@@ -84,10 +84,11 @@ genHtmlForExport num doc (ExportEntry decl : rest)
   | otherwise                = (num', genHtmlType  doc decl ++ [hrule] ++ restHtml)
   where (num', restHtml) = genHtmlForExport num doc rest
 
---- Translate a documentation comment to HTML and use markdown translation
---- if necessary
---- @return: either a paragraph (`<p>`) element or an empty list.
-docComment2HTML :: DocOptions -> String -> [HtmlExp]
+-- | Translate a documentation comment to HTML and use markdown translation
+--   if necessary
+docComment2HTML :: DocOptions -> String
+                -> [HtmlExp] -- ^ either a paragraph (`<p>`) element
+                             --   or an empty list
 docComment2HTML opts cmt
   | null cmt          = []
   | withMarkdown opts = markdownText2HTML (replaceIdLinksMarkdown opts cmt)
@@ -152,7 +153,7 @@ genHtmlExportSections = genHtmlExportSections' 0
         genHtmlExportSections' num (ExportEntryModule _ : rest) =
           genHtmlExportSections' num rest
 
---- generate HTML documentation for a module:
+-- | generate HTML documentation for a module:
 genHtmlModule :: DocOptions -> ModuleHeader -> [HtmlExp]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
   docComment2HTML docopts maincmt ++
@@ -160,7 +161,7 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
   where fieldHtml (typ, value) =
           par [bold [htxt (show typ ++ ": ")], htxt value]
 
---- generate HTML documentation for a datatype if it is exported:
+-- | generate HTML documentation for a datatype if it is exported:
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
@@ -189,7 +190,7 @@ genHtmlType docopts d = case d of
               _ -> showType docopts tmod False ty)]]]
   _ -> []
 
---- generate HTML documentation for a constructor if it is exported:
+-- | generate HTML documentation for a constructor if it is exported:
 genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
             -> [HtmlExp]
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
@@ -400,7 +401,7 @@ showProperty qn (sp, rule) = case (sp, rule) of
    prettyWith ppfun = showWidth 78 . ppfun prettyOpts
    prettyOpts       = setNoQualification defaultOptions
 
---- Generates icons for particular properties of functions.
+-- | Generates icons for particular properties of functions.
 genFuncPropIcons :: AnalysisInfo -> [HtmlExp]
 genFuncPropIcons    NoAnalysisInfo       = []
 genFuncPropIcons    PrecedenceInfo    {} = []
@@ -428,7 +429,7 @@ showContext opts mod arr (CContext ctxt@(_:_:_)) =
   bracketsIf True (intercalate ", " (map (showConstraint opts mod) ctxt)) ++
   if arr then " =>" else ""
 
---- Pretty-print a single class constraint.
+-- | Pretty-print a single class constraint.
 showConstraint :: DocOptions -> String -> CConstraint -> String
 showConstraint opts mod (cn,texp) =
   showTypeCons opts mod cn ++ " " ++ showType opts mod True texp
@@ -671,15 +672,14 @@ genHtmlLibCat mods =
 --------------------------------------------------------------------------
 -- Auxiliary operation for general page style.
 
---- Generate the main page with the default documentation style.
---- @param title - the title of the page
---- @param htmltitle - the title in HTML format (shown as h1)
---- @param lefttopmenu - the menu shown at left of the top
---- @param righttopmenu - the menu shown at right of the top
---- @param sidemenu - the menu shown at the left-hand side
---- @param maindoc - the main contents of the page
-mainPage :: String -> [HtmlExp] -> [[HtmlExp]] -> [[HtmlExp]]
-         -> [HtmlExp] -> [HtmlExp] -> IO String
+-- | Generate the main page with the default documentation style.
+mainPage :: String      -- ^ The title of the page
+         -> [HtmlExp]   -- ^ The title of the pagethe title in HTML format
+         -> [[HtmlExp]] -- ^ The menu shown at left of the top
+         -> [[HtmlExp]] -- ^ The menu shown at left of the top
+         -> [HtmlExp]   -- ^ The menu shown at the left-hand side
+         -> [HtmlExp]   -- ^ The main contents of the page
+         -> IO String
 mainPage title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
@@ -693,17 +693,17 @@ cssIncludes = ["bootstrap.min","currydoc"]
 homeBrand :: (String,[HtmlExp])
 homeBrand = (currySystemURL, [homeIcon, nbsp, htxt currySystem])
 
---- Generate a page with the default documentation style.
---- @param title - the title of the page
---- @param body  - the main contents of the page
-showPageWithDocStyle :: String -> [HtmlExp] -> String
+-- | Generate a page with the default documentation style.
+showPageWithDocStyle :: String    -- ^ The title of the page
+                     -> [HtmlExp] -- ^ The main contents of the page
+                     -> String
 showPageWithDocStyle title body =
   showHtmlPage $
     HtmlPage title
              (map (\f -> pageCSS $ styleBaseURL++"/css/"++f++".css") cssIncludes)
              body
 
---- The standard right top menu.
+-- | The standard right top menu.
 rightTopMenu :: [[HtmlExp]]
 rightTopMenu =
   [ curryHomeItem
@@ -750,37 +750,38 @@ curryDocFooter time =
 curryHomeItem :: [HtmlExp]
 curryHomeItem = [ehref curryHomeURL [extLinkIcon, htxt " Curry Homepage"]]
 
---- Generate a simple page with the default documentation style.
---- @param title - the title of the page
---- @param htmltitle - maybe a specific title for h1 header
---- @param lefttopmenu - the menu shown at left of the top
---- @param doc - the main contents of the page
-simplePage :: String -> Maybe [HtmlExp] -> [[HtmlExp]] -> [HtmlExp] -> IO String
+-- | Generate a simple page with the default documentation style.
+simplePage :: String          -- ^ The title of the page
+           -> Maybe [HtmlExp] -- ^ Maybe a specific title for h1 header
+           -> [[HtmlExp]]     -- ^ The menu shown at left of the top
+           -> [HtmlExp]       -- ^ The main contents of the page
+           -> IO String
 simplePage title htmltitle lefttopmenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPage styleBaseURL cssIncludes title homeBrand lefttopmenu rightTopMenu 0 []
+      bootstrapPage styleBaseURL cssIncludes title homeBrand lefttopmenu
+                    rightTopMenu 0 []
                     [h1 (maybe [htxt title] id htmltitle)]
                     maindoc
                     (curryDocFooter time)
 
---- An anchored section in the document:
+-- | An anchored section in the document:
 anchoredSection :: String -> [HtmlExp] -> HtmlExp
 anchoredSection tag doc = section doc `addAttr` ("id",tag)
 
---- An anchored element in the document:
+-- | An anchored element in the document:
 anchored :: String -> [HtmlExp] -> HtmlExp
 anchored tag doc = style "anchored" doc `addAttr` ("id",tag)
 
---- An anchored element in the document:
+-- | An anchored element in the document:
 anchoredDiv :: String -> [HtmlExp] -> HtmlExp
 anchoredDiv tag doc = block doc `addAttr` ("id",tag)
 
---- A bordered table:
+-- | A bordered table:
 borderedTable :: [[[HtmlExp]]] -> HtmlExp
 borderedTable rows = table rows `addClass` "table table-bordered table-hover"
 
---- An external reference
+-- | An external reference
 ehref :: String -> [HtmlExp] -> HtmlExp
 ehref url desc = href url desc `addAttr` ("target","_blank")
 

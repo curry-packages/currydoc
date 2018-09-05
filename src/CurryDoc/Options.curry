@@ -17,6 +17,8 @@ data DocOptions = DocOptions
   , withIndex    :: Bool -- ^ True if index pages should also be generated
   , withMarkdown :: Bool -- ^ True if comments should be processed as markdown
   , withAnalysis :: Bool -- ^ True if extended analysis should be performed
+  , recursive    :: Bool -- ^ True if documentation for imported modules
+                         --   should be generated
   , mainTitle    :: String -- ^ the main title of the docmentation
   , useDirURL    :: [(String,String)] -- ^ "--use" options
                                       --    (i.e., source dir and
@@ -30,4 +32,4 @@ data DocOptions = DocOptions
 
 -- | Default options
 defaultCurryDocOptions :: DocOptions
-defaultCurryDocOptions = DocOptions HtmlDoc True True True "" [] [] id
+defaultCurryDocOptions = DocOptions HtmlDoc True True True True "" [] [] id
