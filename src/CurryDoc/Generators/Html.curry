@@ -265,7 +265,7 @@ genHtmlClass docopts d = case d of
          [(code
            ([bold [htxt "class "]] ++
              (if null cxString then [] else [HtmlText cxString]) ++
-             [nbsp] ++ 
+             [nbsp] ++
              [showCodeNameRef docopts (cmod, cname)] ++ [htxt (' ' : snd v)])
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
@@ -459,9 +459,9 @@ showType opts mod nested texp = case texp of
 showTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
 showTConsType opts mod nested tc ts
  | ts==[]  = showTypeCons opts mod tc
- | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
+ | tc=~=("Prelude","[]") && (head ts =~= CTCons ("Prelude","Char"))
    = "String"
- | tc==("Prelude","[]")
+ | tc=~=("Prelude","[]")
    = "[" ++ showType opts mod False (head ts) ++ "]" -- list type
  | take 2 (snd tc) == "(,"                      -- tuple type
    = "(" ++ concat (intersperse "," (map (showType opts mod False) ts)) ++ ")"

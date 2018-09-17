@@ -101,7 +101,7 @@ addAbstractCurryFunInfo (CFunc _ _ Private _   _ : ds) cds =
 addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
   addAbstractCurryFunInfo (CFunc a b c d e : ds) cds
 
--- transform the content od a typesig to CurryDocTypeSig
+-- transform the content of a typesig to CurryDocTypeSig
 transformTypesig :: CQualTypeExpr -> Maybe CommentedDecl -> Maybe CurryDocTypeSig
 transformTypesig (CQualType cx _) d = case d of
   Just (CommentedTypeSig [n] cs ps) -> Just (CurryDocTypeSig n cx ps cs)
