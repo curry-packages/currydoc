@@ -20,7 +20,6 @@ section {
 
 /* The sidebar menu */
 .nav-sidebar {
-    width: 300px;
     position: fixed;
     z-index: 1;
     top: 100px;
@@ -30,6 +29,7 @@ section {
     padding-top: 5px;
     padding-bottom: 5px;
     line-height: 15px;
+    display: flex;
 }
 
 .nav-sidebar > div > a:hover {
@@ -50,11 +50,11 @@ section {
     color: #064579;
 }
 
-/* On smaller screens, where height is less than 450px,
-   change the style of the sidebar (less padding and a smaller font size) */
-@media screen and (max-height: 450px) {
-    .nav-sidebar {padding-top: 15px;}
-    .nav-sidebar > div > a {font-size: 12px;}
+/* On smaller screens, remove sidebar*/
+@media (max-width: 767px) {
+    .navbar {
+        display:none;
+    }
 }
 
 .anchored {
@@ -64,7 +64,6 @@ section {
 /* type name at header positions */
 .typeheader {
   font-size: 18px;
-  font-weight: bold;
 }
 
 /* module export at header positions */
@@ -117,8 +116,10 @@ section {
   text-indent: 25px;
 }
 
-
-code { color:black }
+code {
+  color:black;
+  background-color: #f0f0f0
+}
 
 .keyword { color:blue }
 .constructorname_constrpattern { color : #ff00ff }

@@ -166,23 +166,27 @@ genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
     code [anchored tcons [style "typeheader"
-       [htxt "data ", showCodeNameRef docopts n, htxt (unwords (map snd vs))]]]
+       [bold [htxt "data "],
+        showCodeNameRef docopts n, htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
-    ++ [par [explainCat "Constructors: "]]
-    ++ ulistOrEmpty (map (genHtmlCons docopts n vs) cns)
-    ++ [par [explainCat "Known instances: "]]
-    ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
+    ++ ifNotNull cns  [par [explainCat "Constructors: "]]
+                      (ulistOrEmpty . map (genHtmlCons docopts n vs))
+    ++ ifNotNull inst [par [explainCat "Known instances: "]]
+                      (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
     code [anchored tcons [style "typeheader"
-       [htxt "newtype ",showCodeNameRef docopts n,htxt (unwords (map snd vs))]]]
+       [bold [htxt "newtype "],
+        showCodeNameRef docopts n,
+        htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
-    ++ [par [explainCat "Constructors: "]]
-    ++ (maybe [] (genHtmlCons docopts n vs) cn)
-    ++ [par [explainCat "Known instances: "]]
-    ++ ulistOrEmpty (map (genHtmlInst docopts tmod) inst)
+    ++ (maybe [] ((par [explainCat "Constructor: "] :) .
+                  genHtmlCons docopts n vs) cn)
+    ++ ifNotNull inst [par [explainCat "Known instances: "]]
+                      (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocTypeDecl n@(tmod,tcons) vs ty cs ->
     code [anchored tcons [style "typeheader"
-       [htxt "type ", showCodeNameRef docopts n,
+       [bold [htxt "type "],
+        showCodeNameRef docopts n,
         htxt (" " ++ unwords (map snd vs)),
         htxt " = ", HtmlText rhs]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
@@ -198,14 +202,14 @@ genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
                               [ty1, ty2] ai cs) -- TODO: maybe different?
-genHtmlCons docopts (_, tcons) vs (CurryDocConstr c@(cmod, cname) tys ai cs) =
+genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
   anchored cname
-    [code [opnameDoc [showCodeNameRef docopts c],
+    [code [opnameDoc [htxt cname],
            HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
-    (if null txt then [] else removeTopPar (docComment2HTML docopts txt)) ++
+    (ifNotNull txt [] (removeTopPar . docComment2HTML docopts)) ++
     maybe []
       (\(fixity, prec) -> [par [htxt ("defined as " ++ showFixity fixity ++
                                       " infix operator with precedence " ++
@@ -214,16 +218,16 @@ genHtmlCons docopts (_, tcons) vs (CurryDocConstr c@(cmod, cname) tys ai cs) =
         fix = case ai of
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
-genHtmlCons docopts (_, tcons) vs (CurryDocRecord c@(cmod,cname) tys fs ai cs) =
+genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
   anchored cname
-    [code [opnameDoc [showCodeNameRef docopts c],
+    [code [opnameDoc [htxt cname],
           HtmlText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
-    (if null txt then [] else removeTopPar (docComment2HTML docopts txt)) ++
-    par [explainCat "Fields:"] :
-    ulistOrEmpty (map (genHtmlField docopts) fs) ++
+    (ifNotNull txt [] (removeTopPar . docComment2HTML docopts)) ++
+    ifNotNull fs [par [explainCat "Fields: "]]
+                 (ulistOrEmpty . map (genHtmlField docopts)) ++
     maybe []
       (\p -> genPrecedenceText p) fix
   where txt = unwords (map commentString cs)
@@ -234,22 +238,23 @@ genHtmlCons docopts (_, tcons) vs (CurryDocRecord c@(cmod,cname) tys fs ai cs) =
 -- generate HTML documentation for record fields
  -- TODO: show precedence
 genHtmlField :: DocOptions -> CurryDocField -> [HtmlExp]
-genHtmlField docopts (CurryDocField f@(fmod,fname) ty _ cs) =
+genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
   [anchored fname
-    ([ code [opnameDoc [showCodeNameRef docopts f]]
+    ([ code [opnameDoc [htxt fname]]
      , HtmlText (" :: " ++ showType docopts fmod True ty)
-     ] ++ if null txt then [] else
-            htxt " : " : removeTopPar (docComment2HTML docopts txt))]
+     ] ++ ifNotNull txt [htxt " : "]
+                        (removeTopPar . docComment2HTML docopts))]
   where txt = unwords (map commentString cs)
 
 -- TODO: Add href to code
 genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
   CurryDocInstanceDecl i@(imod, _) cx ty _ _ ->
-    [code [htxt (if null cxString then [] else cxString ++ " "),
-           showCodeNameRef docopts i,
-           HtmlText (showType docopts dn
-                       (isApplyType ty || isFunctionType ty) ty)]]
+    [code ((if null cxString then [] else [HtmlText cxString]) ++
+           [nbsp] ++
+           [showCodeNameRef docopts i] ++
+           [HtmlText (showType docopts dn
+                       (isApplyType ty || isFunctionType ty) ty)])]
     where cxString = showContext docopts imod True cx
 
 -- generate HTML documentation for a function:
@@ -258,13 +263,16 @@ genHtmlClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v ds cs ->
        [anchored cname
          [(code
-           ([(htxt "class ")] ++
-             (if null cxString then [] else [HtmlText (cxString ++ " ")]) ++
+           ([bold [htxt "class "]] ++
+             (if null cxString then [] else [HtmlText cxString]) ++
+             [nbsp] ++ 
              [showCodeNameRef docopts (cmod, cname)] ++ [htxt (' ' : snd v)])
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
-    ++ [par [explainCat "Methods: "]]
-    ++ [borderedTable (map ((:[]) . genHtmlFunc "classfunctionheader" docopts) ds)]
+    ++ ifNotNull ds
+         [par [explainCat "Methods: "]]
+         ((:[]) . borderedTable
+                . map ((:[]) . genHtmlFunc "classfunctionheader" docopts))
     where cxString = showContext docopts cmod True cx
   _ -> []
 
@@ -464,10 +472,7 @@ showTConsType opts mod nested tc ts
 
 showTypeCons :: DocOptions -> String -> QName -> String
 showTypeCons opts mod (mtc,tc) =
-  if mtc == "Prelude"
-  then tc --"<a href=\"Prelude.html#"++tc++"\">"++tc++"</a>"
-  else
-    if mod == mtc
+  if mod == mtc
     then "<a href=\"#"++tc++"\">"++tc++"</a>"
     else "<a href=\""++docURL opts mtc++".html#"++tc++"\">"++tc++"</a>"
 
@@ -562,7 +567,9 @@ showModNameRef opts (modname,name) =
 
 showCodeNameRef :: DocOptions -> QName -> HtmlExp
 showCodeNameRef opts (modname,name) =
-   href (docURL opts modname++"_curry.html#"++name) [htxt name]
+  href (docURL opts modname++"_curry.html#"++name) [htxt name']
+  where name' = if isOperator then "(" ++ name ++ ")" else name
+        isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") name
 
 sortNames :: [(a,String)] -> [(a,String)]
 sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
@@ -796,10 +803,10 @@ ulistOrEmpty items | null items = []
                    | otherwise  = [ulist items]
 
 -- generate the html documentation for given comments ("param", "return",...)
-ifNotNull :: [a] -> ([a] -> [b]) -> [b]
-ifNotNull cmt genDoc
+ifNotNull :: [a] -> [b] -> ([a] -> [b]) -> [b]
+ifNotNull cmt doc genDoc
   | null cmt  = []
-  | otherwise = genDoc cmt
+  | otherwise = doc ++ genDoc cmt
 
 -- style for explanation categories, like "Constructors:", "Parameters:",...
 explainCat :: String -> HtmlExp
