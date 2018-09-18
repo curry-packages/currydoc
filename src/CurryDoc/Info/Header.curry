@@ -54,7 +54,7 @@ isModuleHeaderField ty text =
   ":" `isPrefixOf` (dropWhile isSpace (drop (length ty) text))
 
 getHeaderFieldValue :: Int -> String -> [String] -> (String, [String])
-getHeaderFieldValue intd s ss = (s' ++ unlines ssV, rest)
+getHeaderFieldValue intd s ss = (unlines (s' : ssV), rest)
   where
     s' = trimSpace $ safeTail $ dropWhile (/=':') s
     (ssV, rest) = splitWhileIndented intd ss

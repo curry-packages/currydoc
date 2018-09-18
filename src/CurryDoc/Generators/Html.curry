@@ -166,8 +166,9 @@ genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "data "],
-        showCodeNameRef docopts n, htxt (unwords (map snd vs))]]]
+       [bold [htxt "data"], nbsp,
+        showCodeNameRef docopts n, nbsp,
+        htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ ifNotNull cns  [par [explainCat "Constructors: "]]
                       (ulistOrEmpty . map (genHtmlCons docopts n vs))
@@ -175,8 +176,8 @@ genHtmlType docopts d = case d of
                       (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "newtype "],
-        showCodeNameRef docopts n,
+       [bold [htxt "newtype"], nbsp,
+        showCodeNameRef docopts n, nbsp,
         htxt (unwords (map snd vs))]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ (maybe [] ((par [explainCat "Constructor: "] :) .
@@ -185,9 +186,9 @@ genHtmlType docopts d = case d of
                       (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocTypeDecl n@(tmod,tcons) vs ty cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "type "],
+       [bold [htxt "type"], nbsp,
         showCodeNameRef docopts n,
-        htxt (" " ++ unwords (map snd vs)),
+        htxt (unwords (map snd vs)),
         htxt " = ", HtmlText rhs]]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     where rhs = case (tmod,tcons) of
@@ -250,9 +251,8 @@ genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
 genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
   CurryDocInstanceDecl i@(imod, _) cx ty _ _ ->
-    [code ((if null cxString then [] else [HtmlText cxString]) ++
-           [nbsp] ++
-           [showCodeNameRef docopts i] ++
+    [code ((if null cxString then [] else [HtmlText cxString, nbsp]) ++
+           [showCodeNameRef docopts i, nbsp] ++
            [HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)])]
     where cxString = showContext docopts imod True cx
@@ -308,7 +308,7 @@ genSigComment docopts (Just d) = case d of
 genParamComments :: DocOptions -> String -> String -> [(CTypeExpr, [Comment])] -> [[[HtmlExp]]]
 genParamComments _       _    _   []              = []
 genParamComments docopts fmod sym ((ty, cs) : xs) =
-  [[code [HtmlText (sym ++ " " ++ showType docopts fmod False ty)]],
+  [[code [HtmlText (sym ++ " " ++ showType docopts fmod False ty)], nbsp],
    removeTopPar (docComment2HTML docopts (unwords (map commentString cs)))]
     : genParamComments docopts fmod "->" xs
 
@@ -452,22 +452,23 @@ showType opts mod nested texp = case texp of
   CTCons tc -> showTConsType opts mod nested tc []
   CTApply t1 t2 ->
        maybe (bracketsIf nested $
-                showType opts mod True t1 ++ " " ++ showType opts mod True t2)
+                showType opts mod True t1 ++ "&nbsp;" ++
+                showType opts mod True t2)
              (\ (tc,ts) -> showTConsType opts mod nested tc ts)
              (tconsArgsOfType texp)
 
 showTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
 showTConsType opts mod nested tc ts
  | ts==[]  = showTypeCons opts mod tc
- | tc=~=("Prelude","[]") && (head ts =~= CTCons ("Prelude","Char"))
-   = "String"
+ | tc=~=("Prelude","[]") && (head ts == CTCons ("Prelude","Char")) -- TODO remove?
+   = showTypeCons opts mod ("Prelude", "String")
  | tc=~=("Prelude","[]")
    = "[" ++ showType opts mod False (head ts) ++ "]" -- list type
  | take 2 (snd tc) == "(,"                      -- tuple type
-   = "(" ++ concat (intersperse "," (map (showType opts mod False) ts)) ++ ")"
+   = "(" ++ concat (intersperse ", " (map (showType opts mod False) ts)) ++ ")"
  | otherwise
    = bracketsIf nested
-      (showTypeCons opts mod tc ++ " " ++
+      (showTypeCons opts mod tc ++ "&nbsp;" ++
        concat (intersperse " " (map (showType opts mod True) ts)))
 
 showTypeCons :: DocOptions -> String -> QName -> String

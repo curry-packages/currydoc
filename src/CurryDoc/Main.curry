@@ -202,13 +202,13 @@ makeAbsolute f =
 -- compile to the specified targets
 prepareWithTargets :: [FrontendTarget] -> [String] -> IO ()
 prepareWithTargets targets modnames = do
+    putStrLn "Compiling modules..."
     flip mapIO modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
       maybe (error $ "Source code of module '"++modpath++"' not found!")
         (\ (moddir,_) -> do
           let modname = takeFileName modpath
           setCurrentDirectory moddir
           -- parsing source program
-          putStrLn "Compiling modules..."
           callFrontendFor modname targets))
     done
   where callFrontendFor _       []             = return ()
@@ -337,8 +337,7 @@ readOrGenerateCurryDoc docopts modname =
 makeDocForType :: DocType -> DocOptions -> String -> String
                -> CurryDoc -> IO ()
 makeDocForType HtmlDoc docopts docdir modname cdoc = do
-  writeOutfile docopts docdir modname
-               (generateHtmlDocs docopts cdoc)
+  writeOutfile docopts docdir modname (generateHtmlDocs docopts cdoc)
   translateSource2ColoredHtml docdir modname
 
 makeDocForType TexDoc docopts docdir modname cdoc = do

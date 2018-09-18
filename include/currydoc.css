@@ -11,6 +11,14 @@ body {
 
 .jumbotron h1 {
   text-align: center;
+  font-size: 54px;
+}
+
+/* On smaller screens, remove sidebar*/
+@media (max-width: 991px) {
+    .jumbotron h1 {
+        font-size: 40px;
+    }
 }
 
 /* padding for in-page bookmarks and fixed navbar */
@@ -29,7 +37,6 @@ section {
     padding-top: 5px;
     padding-bottom: 5px;
     line-height: 15px;
-    display: flex;
 }
 
 .nav-sidebar > div > a:hover {
@@ -50,10 +57,24 @@ section {
     color: #064579;
 }
 
-/* On smaller screens, remove sidebar*/
+/* On middle screens, make sidebar smaller*/
+@media (max-width: 1199px) {
+    .nav-sidebar > div > a {
+       font-size: 14px;
+    }
+}
+
+/* On smaller screens, make sidebar even smaller*/
+@media (max-width: 991px) {
+    .nav-sidebar > div > a {
+       font-size: 10px;
+    }
+}
+
+/* On even smaller screens, remove sidebar*/
 @media (max-width: 767px) {
-    .navbar {
-        display:none;
+    .nav-sidebar {
+        display: none;
     }
 }
 
@@ -101,19 +122,19 @@ section {
 }
 
 .indent1 {
-  text-indent:  10px;
+  text-indent: 12px;
 }
 
 .indent2 {
-  text-indent:  15px;
+  text-indent: 24px;
 }
 
 .indent3 {
-  text-indent: 20px;
+  text-indent: 36px;
 }
 
 .indent4 {
-  text-indent: 25px;
+  text-indent: 48px;
 }
 
 code {

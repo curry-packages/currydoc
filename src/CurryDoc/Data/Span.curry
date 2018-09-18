@@ -33,9 +33,8 @@ vertDist (Span _  _ ) NoSpan       = 0
 vertDist (Span s1 e1) (Span s2 e2) =
   case rowDist e1 s2 of
     x | x >= 0    -> x
-      | otherwise -> if e1 <= e2
-                       then 0 -- they overlap
-                       else - (rowDist e2 s1)
+      | e1 <= e2  -> 0 -- they overlap
+      | otherwise -> - (rowDist e2 s1)
 
 -- | Checks if the first span is completely after the second span.
 isAfter :: Span -> Span -> Bool
