@@ -122,15 +122,16 @@ associateCurryDoc :: [(Span, Comment)] -> Module a
                   -> ([CommentedDecl], [Comment], Maybe [ExportEntry QName])
 associateCurryDoc []       (Module _   _ _ ex _ _ ) =
   ([], [], maybe Nothing (Just . associateExports []) ex)
-associateCurryDoc xs@(_:_) (Module spi _ _ ex _ ds) =
+associateCurryDoc xs@(_:_) (Module spi _ _ ex im ds) =
   let (header, rest) = associateCurryDocHeader spi sp xs'
       exportList     = maybe Nothing (Just . associateExports xs') ex
       matchings      = cleanup $ merge $ associateCurryDocDecls rest ds Nothing
   in  (matchings, header, exportList)
   where xs' = map (\(sp',c) -> (sp', classifyComment c)) xs
-        sp = case ds of
-          (d:_) -> getSrcSpan d
-          _     -> NoSpan
+        sp = case (im, ds) of
+          ((i:_), _   ) -> getSrcSpan i
+          (_    ,(d:_)) -> getSrcSpan d
+          _             -> NoSpan
 
 -- Associate Export with comments
 associateExports :: [(Span, CDocComment)] -> ExportSpec -> [ExportEntry QName]
@@ -180,27 +181,33 @@ associateCurryDocHeader :: SpanInfo                           -- ^ module SpanIn
                         -> ([Comment], [(Span, CDocComment)]) -- ^ (matched, rest)
 associateCurryDocHeader spi@(SpanInfo _ (spm : ss)) sp (c:cs) =
   case c of
-    (sp', Pre  c')
+    (sp', Pre  _)
+      | sp' `isAfter` sp      -> ([],c:cs)
       | vertDist sp' spm >= 0 ->
-        let (match, next)   = getToMatch spm sp' cs isPre
+        let (match, next)   = getToMatch spm sp' (c:cs) isPre
             (matched, rest) = associateCurryDocHeader spi sp next
-        in (c' : ((map (comment . snd) match) ++ matched), rest)
+        in (map (comment . snd) match ++ matched, rest)
       | otherwise             ->
         let (matched, rest) = associateCurryDocHeader spi sp cs
         in (matched, c:rest)
 
-    (sp', Post c')
+    (sp', Post _)
+      | sp' `isAfter` sp      -> ([],c:cs)
       | (vertDist sp' sp  >= 1
           || isNoSpan sp) &&
         isAfter sp' (last ss) ->
-          let (match, next)   = getToMatch sp sp' cs isPost
+          let (match, next)   = getToMatch sp sp' (c:cs) isPost
               (matched, rest) = associateCurryDocHeader spi sp next
-          in (c' : ((map (comment . snd) match) ++ matched), rest)
+          in (map (comment . snd) match ++ matched, rest)
       | otherwise             ->
-          ([], c:cs)
+          let (matched, rest) = associateCurryDocHeader spi sp cs
+          in  (matched, c:rest)
 
-    (_  , _      )             ->
-          associateCurryDocHeader spi sp cs
+    (sp'  , _      )
+      | sp' `isAfter` sp      -> ([],c:cs)
+      | otherwise             ->
+          let (matched, rest) = associateCurryDocHeader spi sp cs
+          in  (matched, c:rest)
 associateCurryDocHeader (SpanInfo _ []) _ (c:cs) = ([], c:cs)
 associateCurryDocHeader NoSpanInfo      _ (c:cs) = ([], c:cs)
 associateCurryDocHeader _               _ []     = ([], [])
@@ -211,31 +218,31 @@ associateCurryDocDecls :: [(Span, CDocComment)]
                        -> [Decl a]
                        -> Maybe (Decl a) -- ^ previous decl
                        -> [CommentedDecl]
-associateCurryDocDecls []               _      _    = []
-associateCurryDocDecls (c         : cs) []     prev = matchLast (c:cs) prev
-associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
+associateCurryDocDecls    []                _      _    = []
+associateCurryDocDecls cs@(_         : _  ) []     prev = matchLast cs prev
+associateCurryDocDecls cs@((sp, cdc) : cs') (d:ds) prev =
   case cdc of
     Pre  _ | vertDist sp spd >= 0 ->
-               let (match, next) = getToMatch spd sp cs isPre
-               in  associateCurryDocDeclPre ((sp, cdc) : match) d
-                     : associateCurryDocDecls next (d:ds) (Just d)
+               let (match, next) = getToMatch (stripStart spd) sp cs isPre
+               in  associateCurryDocDeclPre match d
+                     : associateCurryDocDecls next (d:ds) prev
            | otherwise ->
-               associateCurryDocDecls ((sp, cdc) : cs) ds (Just d)
+               associateCurryDocDecls cs ds (Just d)
 
     Post _ | vertDist sp spd >= 1 ->
                case prev of
                  Nothing -> associateCurryDocDecls cs (d:ds) prev
                  Just d' -> let (match, next) = getToMatch spd sp cs isPost
-                            in  associateCurryDocDeclPost ((sp, cdc) : match) d'
+                            in  associateCurryDocDeclPost match d'
                                   : associateCurryDocDecls next (d:ds) prev
            | vertDist sp spd == 0 ->
                let (match, next) = getToMatch spNextd sp cs isPost
-               in  associateCurryDocDeclPost ((sp, cdc) : match) d
+               in  associateCurryDocDeclPost match d
                      : associateCurryDocDecls next (d:ds) prev
            | otherwise ->
-               associateCurryDocDecls ((sp, cdc) : cs) ds (Just d)
+               associateCurryDocDecls cs ds (Just d)
 
-    _ -> associateCurryDocDecls cs (d:ds) prev
+    _ -> associateCurryDocDecls cs' (d:ds) prev
   where spd  = getSrcSpan d
         spNextd = case ds of
           []     -> NoSpan
@@ -245,15 +252,15 @@ associateCurryDocDecls ((sp, cdc) : cs) (d:ds) prev =
 matchLast :: [(Span, CDocComment)]
           -> Maybe (Decl a)
           -> [CommentedDecl]
-matchLast []                       (Just _) = []
-matchLast _                        Nothing  = []
-matchLast ((sp, Post    c  ) : cs) (Just d) =
-  let (match, next) = getToMatch (getSrcSpan d) sp cs isPost
-  in  associateCurryDocDeclPost ((sp, Post c) : match) d
+matchLast []                        (Just _) = []
+matchLast _                         Nothing  = []
+matchLast (c@(_, Post    _  ) : cs) (Just d) =
+  let (match, next) = getToMatch (getSrcSpan d) NoSpan (c:cs) isPost
+  in  associateCurryDocDeclPost match d
         : matchLast next (Just d)
-matchLast ((_ , None    _  ) : cs) (Just d) = matchLast cs (Just d)
-matchLast ((_ , Pre     _  ) : cs) (Just d) = matchLast cs (Just d)
-matchLast ((_ , Section _ _) : cs) (Just d) = matchLast cs (Just d)
+matchLast (  (_, None    _  ) : cs) (Just d) = matchLast cs (Just d)
+matchLast (  (_, Pre     _  ) : cs) (Just d) = matchLast cs (Just d)
+matchLast (  (_, Section _ _) : cs) (Just d) = matchLast cs (Just d)
 
 -- Associate specific pre comments to a specific declaration
 associateCurryDocDeclPre :: [(Span, CDocComment)]

@@ -5,7 +5,12 @@
      Datatype and operations to handle Spans.
 -}
 module CurryDoc.Data.Span (
- Span(..), isSpan, isNoSpan,
+ Span(..),
+ -- * Selectors
+ start, end,
+ -- * Transformer,
+ isSpan, isNoSpan, fromPosition, stripStart,
+ -- * Distance management
  vertDist, isAfter, isBefore, isBeforeList
 ) where
 
@@ -15,6 +20,14 @@ data Span = Span Position Position -- ^ Span StarPos EndPos
           | NoSpan
   deriving (Eq, Show, Read)
 
+start :: Span -> Position
+start NoSpan      = NoPos
+start (Span st _) = st
+
+end :: Span -> Position
+end NoSpan      = NoPos
+end (Span _ ed) = ed
+
 isSpan :: Span -> Bool
 isSpan (Span _ _) = True
 isSpan NoSpan     = False
@@ -22,6 +35,13 @@ isSpan NoSpan     = False
 isNoSpan :: Span -> Bool
 isNoSpan (Span _ _) = False
 isNoSpan NoSpan     = True
+
+fromPosition :: Position -> Span
+fromPosition NoPos            = NoSpan
+fromPosition p@(Position _ _) = Span p p
+
+stripStart :: Span -> Span
+stripStart = fromPosition . end
 
 -- | Computes a "vertical distance" between two spans.
 -- It is either the row distance of the start end end positions or

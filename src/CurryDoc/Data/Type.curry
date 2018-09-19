@@ -220,6 +220,9 @@ data KnownExtension
 data Tool = KICS2 | PAKCS | CYMAKE | FRONTEND | UnknownTool String
   deriving (Eq, Read, Show)
 
+instance HasSpanInfo ImportDecl where
+  getSpanInfo (ImportDecl spi _ _ _ _) = spi
+
 instance HasSpanInfo (Decl a) where
   getSpanInfo (InfixDecl        spi _ _ _  ) = spi
   getSpanInfo (DataDecl         spi _ _ _ _) = spi
