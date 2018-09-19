@@ -73,7 +73,7 @@ mapMaybe :: (a -> Maybe b) -> [a] -> [b]
 mapMaybe f = catMaybes . map f
 
 -- | Monadic bind for Maybe.
---   Maybe can be interpreted as a monad where Nothing is interpreted
+--   Maybe can be interpreted as a monad where `Nothing` is interpreted
 --   as the error case by this monadic binding.
 (>>-) :: Maybe a        -- ^ Nothing or Just x
       -> (a -> Maybe b) -- ^ Function to be applied to x

@@ -151,12 +151,12 @@ genTexCons docopts tcons vs (CurryDocConstr (cmod, cname) tys _ cs) =
  "\\curryconsstart{" ++ cname ++ "}{" ++
       concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
       tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
-      docStringToTex docopts (unwords (map commentString cs))
+      docStringToTex docopts (concatCommentStrings (map commentString cs))
 genTexCons docopts tcons vs (CurryDocRecord (cmod,cname) tys fs _ cs) =
  "\\curryconsstart{" ++ cname ++ "}{" ++
       concatMap (\t-> showTexType docopts cmod True t ++ " $\\to$ ") tys ++
       tcons ++ " " ++ unwords (map snd vs) ++ "}\n" ++
-      docStringToTex docopts (unwords (map commentString cs)) ++
+      docStringToTex docopts (concatCommentStrings (map commentString cs)) ++
       intercalate "\n" (map (genTexField docopts) fs)
 
 -- generate Tex documentation for record fields
@@ -166,7 +166,7 @@ genTexField docopts (CurryDocField (fmod,fname) ty _ cs) =
     fname ++ " :: " ++ showTexType docopts fmod False ty ++ "}" ++
     if null txt then [] else
       " : " ++ docStringToTex docopts txt
-  where txt = unwords (map commentString cs)
+  where txt = concatCommentStrings (map commentString cs)
 
 -- generate Tex documentation for a function:
 genTexClass :: DocOptions -> CurryDocDecl -> String

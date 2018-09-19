@@ -215,7 +215,7 @@ genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
       (\(fixity, prec) -> [par [htxt ("defined as " ++ showFixity fixity ++
                                       " infix operator with precedence " ++
                                       show prec)]]) fix
-  where txt = unwords (map commentString cs)
+  where txt = concatCommentStrings (map commentString cs)
         fix = case ai of
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
@@ -231,7 +231,7 @@ genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
                  (ulistOrEmpty . map (genHtmlField docopts)) ++
     maybe []
       (\p -> genPrecedenceText p) fix
-  where txt = unwords (map commentString cs)
+  where txt = concatCommentStrings (map commentString cs)
         fix = case ai of
           NoAnalysisInfo -> Nothing
           _              -> precedence ai
@@ -245,7 +245,7 @@ genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
      , HtmlText (" :: " ++ showType docopts fmod True ty)
      ] ++ ifNotNull txt [htxt " : "]
                         (removeTopPar . docComment2HTML docopts))]
-  where txt = unwords (map commentString cs)
+  where txt = concatCommentStrings (map commentString cs)
 
 -- TODO: Add href to code
 genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
@@ -345,28 +345,29 @@ genFurtherInfos qn ai = case ai of
     completenessInfo = let ci = complete ai in
       if ci == Complete
        then Nothing
-       else Just (htxt
+       else Just (par [htxt
          (if ci == InComplete
             then "partially defined"
             else
-              "partially defined in each disjunction (but might be complete)"))
+              "partially defined in each disjunction (but might be complete)")])
 
     -- comment about the indeterminism of a function:
     indeterminismInfo =
       if indet ai
-        then Just (htxt "might behave indeterministically")
+        then Just (par [htxt "might behave indeterministically"])
         else Nothing
 
     -- comment about the solution completeness of a function:
     opcompleteInfo =
        if opComplete ai
-         then Just (htxt "solution complete, i.e., able to compute all solutions")
+         then Just (par
+               [htxt "solution complete, i.e., able to compute all solutions"])
          else Nothing
 
     -- comment about the external definition of a function:
     externalInfo  =
       if ext ai
-        then Just (htxt "externally defined")
+        then Just (par [htxt "externally defined"])
         else Nothing
 
 genPrecedenceText :: (CFixity, Int) -> [HtmlExp]

@@ -1,13 +1,15 @@
-{- | Description: An example module for CurryDoc
-    Category   : Example
-    Author     : Kai-Oliver Prott,
-                 John Doe
-    Version    : September 2018
+{- |
+     Description: An example module for CurryDoc
+     Category   : Example
+     Author     : Kai-Oliver Prott,
+                  John Doe
+     Version    : September 2018
 
-    This Module shows how every Declaration can be documented.
-    All comments can be formatted using _markdown_.
-    The supported markdown syntax can be found at
-    <https://www.informatik.uni-kiel.de/~pakcs/markdown_syntax.html>.
+     This Module shows how every Declaration can be documented.
+     All comments can be formatted using _markdown_.
+
+     The supported markdown syntax can be found at
+     <https://www.informatik.uni-kiel.de/~pakcs/markdown_syntax.html>.
 -}
 module Guide (
   -- * Some datatypes

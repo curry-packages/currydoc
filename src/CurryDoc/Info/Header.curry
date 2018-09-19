@@ -69,9 +69,30 @@ splitWhileIndented intd (s:ss) =
     else ([], s:ss)
   where (sp, text) = span isSpace s
 
+-- We have to take care of the indentation of a paragraph,
+-- because if a line in the paragraph is indented even further,
+-- then it might be markdown.
+-- This is why trimming space would be wrong, as markdown would be broken.
+-- Additionally, the comments should be concatenated with something like a
+-- unlines, thus the newlines in between.
 readLongDescr :: ModuleHeader -> [String] -> ModuleHeader
-readLongDescr (ModuleHeader fs cs) ss = ModuleHeader fs (cs ++
-  concatCommentStrings ss)
+readLongDescr (ModuleHeader fs cs) rest =
+  ModuleHeader fs (cs ++ readLongDescr' (getIndentation rest) rest)
+  where getIndentation []        = 0
+        getIndentation (s:ss)
+           | not (all isSpace s) = length $ takeWhile isSpace s
+           | otherwise           = getIndentation ss
+
+        readLongDescr' _    []     = []
+        readLongDescr' intd (s:ss)
+           | all isSpace s = "\n" ++ readLongDescr' (getIndentation ss) ss
+           | otherwise     = if spaceAmount > intd
+                               then drop intd s ++ "\n"++
+                                    readLongDescr' intd        ss
+                               else rest        ++ "\n" ++
+                                    readLongDescr' spaceAmount ss
+             where (space, rest) = span isSpace s
+                   spaceAmount   = length space
 
 -- | Get the category of a module Header or return the default value
 getCategoryWithDefault :: String -> [(HeaderField, String)] -> String
