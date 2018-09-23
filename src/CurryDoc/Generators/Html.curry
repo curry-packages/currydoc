@@ -252,7 +252,7 @@ genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
   CurryDocInstanceDecl i@(imod, _) cx ty _ _ ->
     [code ((if null cxString then [] else [HtmlText cxString, nbsp]) ++
-           [showCodeNameRef docopts i, nbsp] ++
+           [HtmlText (showType docopts dn False (CTCons i)), nbsp] ++
            [HtmlText (showType docopts dn
                        (isApplyType ty || isFunctionType ty) ty)])]
     where cxString = showContext docopts imod True cx
@@ -264,8 +264,7 @@ genHtmlClass docopts d = case d of
        [anchored cname
          [(code
            ([bold [htxt "class "]] ++
-             (if null cxString then [] else [HtmlText cxString]) ++
-             [nbsp] ++
+             (if null cxString then [] else [HtmlText cxString, nbsp]) ++
              [showCodeNameRef docopts (cmod, cname)] ++ [htxt (' ' : snd v)])
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
@@ -380,29 +379,29 @@ showProperty :: QName -> (Property, CRule) -> [HtmlExp]
 showProperty qn (sp, rule) = case (sp, rule) of
   (PreSpec, CRule _ (CSimpleRhs _ _)) ->
      let (lhs,rhs) = break (=='=') prettyRule
-     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+     in [par [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
          italic [htxt " requires "],
-         code [htxt (safeTail rhs)]]
+         code [htxt (safeTail rhs)]]]
   (PreSpec, _) -> -- we don't put much effort to format complex preconditions:
     [code [htxt prettyRule]]
   (PostSpec, CRule ps (CSimpleRhs _ _)) ->
     let (_,rhs) = break (=='=') prettyRule
-    in [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
+    in [par [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
                      prettyWith ppCPattern
                                  (CPComb qn (take (length ps - 1) ps)) ],
         italic [htxt " satisfies "],
-        code [htxt (safeTail rhs)]]
+        code [htxt (safeTail rhs)]]]
   (PostSpec, _) -> -- we don't put much effort to format complex postconditions:
-    [code [htxt prettyRule]]
+    [par [code [htxt prettyRule]]]
   (Spec, CRule _ (CSimpleRhs _ _)) ->
     let (lhs,rhs) = break (=='=') prettyRule
     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
         italic [htxt " is equivalent to "],
         code [htxt (safeTail rhs)]]
   (Spec, _) -> -- we don't put much effort to format complex specifications:
-    [code [htxt prettyRule]]
+    [par [code [htxt prettyRule]]]
   (Prop, _) ->
-    [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]
+    [par [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]]
  where
    safeTail xs      = if null xs then xs else tail xs
    prettyRule       = showWidth 78 (ppCRule prettyOpts qn rule)
