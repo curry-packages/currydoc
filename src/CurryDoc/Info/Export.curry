@@ -48,7 +48,8 @@ inlineExport im imD m ds   (ExportSection c i ex   ) =
     [ExportSection c i (concatMap (inlineExport im imD m ds) ex)]
 inlineExport im imD m ds e@(ExportEntryModule mname)
   | mname == m            = map ExportEntry ds
-  | isFullImport im mname = [e] -- This branch is taken, if the Prelude is not explicitly imported
+  | isFullImport im mname = [e]
+  -- ^ This branch is taken, if the Prelude is not explicitly imported
   | otherwise             = case getRealModuleNameAndSpec im mname of
     Just (real, spec) -> maybe [] (inlineFromSpec spec) (lookup real imD)
     Nothing           -> error $ "CurryDoc.Info.Export.inlineExport: "

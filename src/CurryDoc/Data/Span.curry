@@ -36,10 +36,12 @@ isNoSpan :: Span -> Bool
 isNoSpan (Span _ _) = False
 isNoSpan NoSpan     = True
 
+-- | Create a Span with the given Position as start and end
 fromPosition :: Position -> Span
 fromPosition NoPos            = NoSpan
 fromPosition p@(Position _ _) = Span p p
 
+-- | Sets the start position of a Span to its end position
 stripStart :: Span -> Span
 stripStart = fromPosition . end
 
@@ -70,7 +72,8 @@ isBefore (Span _ _) NoSpan     = False
 isBefore NoSpan     (Span _ _) = False
 isBefore (Span _ e) (Span s _) = e <= s
 
--- | Checks if the first span is completely before the first span of a list.
+-- | Checks if the first span is completely
+--   before the first span of a list.
 --   Reurns `True` if the list is empty
 isBeforeList :: Span -> [Span] -> Bool
 isBeforeList _   []      = True

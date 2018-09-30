@@ -3,8 +3,8 @@
 -- Author     : Kai-Oliver Prott
 -- Version    : August 2018
 --
--- An implementation of the curry AST from curry-frontend without some types
--- that cannot be in shortAST files
+-- An implementation of the curry AST from curry-frontend
+-- without some types that cannot be in shortAST files
 module CurryDoc.Data.Type where
 
 import CurryDoc.Data.SpanInfo
@@ -30,10 +30,10 @@ readShortASTWithParseOptions :: String -> FrontendParams -> IO (Module ())
 readShortASTWithParseOptions progname options = do
   mbsrc <- lookupModuleSourceInLoadPath progname
   case mbsrc of
-    Nothing -> do -- no source file, try to find shortAST file in load path:
+    Nothing -> do -- no source file, try to find shortAST file in load path
       loadpath <- getLoadPathForModule progname
-      filename <- getFileInPath (shortASTFileName (takeFileName progname)) [""]
-                                loadpath
+      filename <- getFileInPath (shortASTFileName (takeFileName progname))
+                                [""] loadpath
       readShortASTFile filename
     Just (dir,_) -> do
       callFrontendWithParams SAST options progname
@@ -62,8 +62,9 @@ readShortASTFileRaw filename = do
             else error ("EXISTENCE ERROR: Short AST file '" ++ filename ++
                         "' does not exist")
 
-data Module a = Module SpanInfo [ModulePragma] ModuleIdent (Maybe ExportSpec)
-                       [ImportDecl] [Decl a]
+-- | This datatype is copied from curry-base.
+data Module a = Module SpanInfo [ModulePragma] ModuleIdent
+                       (Maybe ExportSpec) [ImportDecl] [Decl a]
     deriving (Eq, Read, Show)
 
 data ModulePragma

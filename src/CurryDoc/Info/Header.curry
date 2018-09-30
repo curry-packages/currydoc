@@ -89,9 +89,9 @@ readLongDescr (ModuleHeader fs cs) rest =
            | otherwise     = if spaceAmount > intd
                                then drop intd s ++ "\n"++
                                     readLongDescr' intd        ss
-                               else rest        ++ "\n" ++
+                               else text        ++ "\n" ++
                                     readLongDescr' spaceAmount ss
-             where (space, rest) = span isSpace s
+             where (space, text) = span isSpace s
                    spaceAmount   = length space
 
 -- | Get the category of a module Header or return the default value

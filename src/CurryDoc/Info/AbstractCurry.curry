@@ -28,7 +28,8 @@ import Maybe (listToMaybe)
 --   All entities get a lot more information about thei type or ...
 --   Also translates into CurryDoc representations and sets a flag for
 --   ExternalDataDecls
-addAbstractCurryProg :: CurryProg -> FC.Prog -> [CommentedDecl] -> [CurryDocDecl]
+addAbstractCurryProg :: CurryProg -> FC.Prog -> [CommentedDecl]
+                     -> [CurryDocDecl]
 addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) fprog ds =
   let typ' = map augmentEmptyCons typ ++ (map flatToAbstract
                                                 $ filter externalType
@@ -44,8 +45,9 @@ addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) fprog ds =
     externalType ty = not (isTypeSyn ty) && null (typeConstr ty)
 
     augmentEmptyCons   (CType n vis vs cons deriv)
-      | null cons = CType n vis vs [CCons [] (CContext []) ("","dummy") Private []] deriv
-      | otherwise = CType n vis vs cons                                             deriv
+      | null cons = CType n vis vs
+                          [CCons [] (CContext []) ("","dummy") Private []] deriv
+      | otherwise = CType n vis vs cons                                    deriv
     augmentEmptyCons t@(CNewType _ _ _ _ _) = t
     augmentEmptyCons t@(CTypeSyn _ _ _ _  ) = t
 
@@ -67,7 +69,8 @@ addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) fprog ds =
 
 
 -- Currently ignores comments and declarations and just adds context and type
-addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl] -> [CurryDocInstanceDecl]
+addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl]
+                         -> [CurryDocInstanceDecl]
 addAbstractCurryInstInfo []                          _   = []
 addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
   maybe (CurryDocInstanceDecl n cx ty (addAbstractCurryFunInfo ds []) [])
@@ -102,7 +105,8 @@ addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
   addAbstractCurryFunInfo (CFunc a b c d e : ds) cds
 
 -- transform the content of a typesig to CurryDocTypeSig
-transformTypesig :: CQualTypeExpr -> Maybe CommentedDecl -> Maybe CurryDocTypeSig
+transformTypesig :: CQualTypeExpr -> Maybe CommentedDecl
+                 -> Maybe CurryDocTypeSig
 transformTypesig (CQualType cx _) d = case d of
   Just (CommentedTypeSig [n] cs ps) -> Just (CurryDocTypeSig n cx ps cs)
   _                                 -> Nothing
@@ -123,7 +127,8 @@ addAbstractCurryDataInfo (CNewType n Public vs con _ : ds) cds ins =
   maybe (CurryDocNewtypeDecl n vs (getInstances n ins)
           (listToMaybe (addAbstractCurryConsInfo [con] [])) [])
     (\(CommentedNewtypeDecl _ cs cn) -> CurryDocNewtypeDecl n vs
-        (getInstances n ins) (listToMaybe (addAbstractCurryConsInfo [con] [cn])) cs)
+        (getInstances n ins)
+        (listToMaybe (addAbstractCurryConsInfo [con] [cn])) cs)
     (lookupNewDecl n cds)
     : addAbstractCurryDataInfo ds cds ins
 addAbstractCurryDataInfo (CType n Public vs cons _   : ds) cds ins =
@@ -174,17 +179,19 @@ createRecordInfo n fs =
 -- add type to constructor
 transformConstructor :: QName -> [CTypeExpr] -> CommentedConstr -> CurryDocCons
 transformConstructor n tys c = case c of
-  CommentedConstr _ cs -> CurryDocConstr n tys                   NoAnalysisInfo cs
-  CommentedConsOp _ cs -> CurryDocConsOp n (head tys) (last tys) NoAnalysisInfo cs
-  _                    -> error "CurryDoc.Info.AbstractCurry. transformConstructor"
+  CommentedConstr _ cs
+    -> CurryDocConstr n tys                   NoAnalysisInfo cs
+  CommentedConsOp _ cs
+    -> CurryDocConsOp n (head tys) (last tys) NoAnalysisInfo cs
+  _ -> error "CurryDoc.Info.AbstractCurry. transformConstructor"
 
 -- adds type to record constructor and modifies fields (see below)
 transformRecord :: QName -> [CFieldDecl] -> CommentedConstr -> CurryDocCons
 transformRecord n fs c = case c of
-  CommentedRecord _ cs fs' -> CurryDocRecord n (map cFieldType fs)
-                                             (addAbstractCurryField fs fs')
-                                             NoAnalysisInfo cs
-  _                        -> error "CurryDoc.Info.AbstractCurry. transformRecord"
+  CommentedRecord _ cs fs'
+    -> CurryDocRecord n (map cFieldType fs) (addAbstractCurryField fs fs')
+                      NoAnalysisInfo cs
+  _ -> error "CurryDoc.Info.AbstractCurry. transformRecord"
 
 -- adds empty AnalysisInfo and type to record fields
 addAbstractCurryField :: [CFieldDecl] -> [CommentedField] -> [CurryDocField]
@@ -208,7 +215,8 @@ generateDerivingInstances (CTypeSyn _ _       _ _  ) = []
 generateDerivingInstances (CNewType _ Private _ _ _) = []
 generateDerivingInstances (CType    _ Private _ _ _) = []
 
-generateDerivingInstanceFor :: QName -> [CTVarIName] -> QName -> CurryDocInstanceDecl
+generateDerivingInstanceFor :: QName -> [CTVarIName] -> QName
+                            -> CurryDocInstanceDecl
 generateDerivingInstanceFor t vs d =
   CurryDocInstanceDecl d (CContext (map (generateConstraintFor d) vs))
     (generateType t vs) [] []

@@ -14,16 +14,20 @@ import AbstractCurry.Types
 import AbstractCurry.Select (tconsArgsOfType)
 
 -- | CurryDoc mName mhead exports imports
-data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl] [MName]
+data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl]
+                         [MName]
   deriving (Show)
 
 -- | Documented Curry declarations
 data CurryDocDecl
   = CurryDocTypeDecl     QName [CTVarIName] CTypeExpr [Comment]
-  | CurryDocDataDecl     QName [CTVarIName] [CurryDocInstanceDecl] Bool [CurryDocCons] [Comment]
-  | CurryDocNewtypeDecl  QName [CTVarIName] [CurryDocInstanceDecl] (Maybe CurryDocCons) [Comment]
+  | CurryDocDataDecl     QName [CTVarIName] [CurryDocInstanceDecl]
+                         Bool [CurryDocCons] [Comment]
+  | CurryDocNewtypeDecl  QName [CTVarIName] [CurryDocInstanceDecl]
+                         (Maybe CurryDocCons) [Comment]
   | CurryDocClassDecl    QName CContext CTVarIName [CurryDocDecl] [Comment]
-  | CurryDocFunctionDecl QName CQualTypeExpr (Maybe CurryDocTypeSig) AnalysisInfo [Comment]
+  | CurryDocFunctionDecl QName CQualTypeExpr (Maybe CurryDocTypeSig)
+                         AnalysisInfo [Comment]
   deriving (Show)
 
 -- | Documented Curry constructors
@@ -34,11 +38,13 @@ data CurryDocCons
   deriving (Show)
 
 -- | Documented Curry type signatures
-data CurryDocTypeSig = CurryDocTypeSig QName CContext [(CTypeExpr, [Comment])] [Comment]
+data CurryDocTypeSig = CurryDocTypeSig QName CContext
+                                       [(CTypeExpr, [Comment])] [Comment]
   deriving (Show)
 
 -- | Documented Curry instances
-data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext CTypeExpr [CurryDocDecl] [Comment]
+data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext CTypeExpr
+                                                 [CurryDocDecl] [Comment]
   deriving (Show)
 
 -- | Documented Curry Record fields
@@ -57,7 +63,6 @@ isCurryDocClassDecl d = case d of
 
 getTypesigComments :: CurryDocTypeSig -> [Comment]
 getTypesigComments (CurryDocTypeSig _ _ _ cs) = cs
-
 
 instTypeName :: CurryDocInstanceDecl -> QName
 instTypeName (CurryDocInstanceDecl _ _ ty _ _) = q

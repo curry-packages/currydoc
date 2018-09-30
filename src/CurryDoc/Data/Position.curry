@@ -7,11 +7,11 @@
 module CurryDoc.Data.Position where
 
 
-data Position = Position Int Int -- ^ Position Row Column 
+data Position = Position Int Int -- ^ Position Row Column
               | NoPos
   deriving (Eq, Ord, Show, Read)
 
--- | Diestance between the row of the first and the second argument
+-- | Distance between the row of the first and the second argument
 rowDist :: Position -> Position -> Int
 rowDist NoPos           NoPos           = 0
 rowDist (Position _  _) NoPos           = 0

@@ -139,7 +139,8 @@ genTexInst docopts modname d = case d of
     "\n" ++
     (if null cxString then "" else cxString ++ " ") ++
     "\\textbf{" ++ cname ++ "} " ++
-    showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++ "\n\n"
+    showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++
+    "\n\n"
     where cxString = showTexContext docopts cmod cx
 
 -- generate Tex documentation for a constructor if it is exported:
@@ -214,16 +215,19 @@ showTexType :: DocOptions -> String -> Bool -> CTypeExpr -> String
 showTexType opts mod nested texp = case texp of
   CTVar (_,n) -> n
   CFuncType t1 t2 ->
-    bracketsIf nested (showTexType opts mod (isFunctionalType t1) t1++" $\\to$ "++
-                     showTexType opts mod False t2)
+    bracketsIf nested
+      (showTexType opts mod (isFunctionalType t1) t1 ++" $\\to$ " ++
+       showTexType opts mod False                 t2)
   CTCons tc -> showTexTConsType opts mod nested tc []
   CTApply t1 t2 ->
        maybe (bracketsIf nested $
-                showTexType opts mod True t1 ++ " " ++ showTexType opts mod True t2)
+                showTexType opts mod True t1 ++ " " ++
+                showTexType opts mod True t2)
              (\ (tc,ts) -> showTexTConsType opts mod nested tc ts)
              (tconsArgsOfType texp)
 
-showTexTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
+showTexTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr]
+                 -> String
 showTexTConsType opts mod nested tc ts
  | ts==[]  = snd tc
  | tc==("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
@@ -231,7 +235,9 @@ showTexTConsType opts mod nested tc ts
  | tc==("Prelude","[]")
    = "[" ++ showTexType opts mod False (head ts) ++ "]" -- list type
  | take 2 (snd tc) == "(,"                      -- tuple type
-   = "(" ++ concat (intersperse "," (map (showTexType opts mod False) ts)) ++ ")"
+   = "(" ++
+     concat (intersperse "," (map (showTexType opts mod False) ts)) ++
+     ")"
  | otherwise
    = bracketsIf nested
       (snd tc ++ " " ++

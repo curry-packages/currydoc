@@ -152,10 +152,11 @@ associateExportList cs (e : es) =
          in case c of
               Section com n -> genExportSection n com es'
               _             -> es'
-  where genExportEntry (Export _ q)           = ExportEntry       (qIdentToQName q)
-        genExportEntry (ExportTypeAll _ q)    = ExportEntry       (qIdentToQName q)
-        genExportEntry (ExportTypeWith _ q _) = ExportEntry       (qIdentToQName q)
-        genExportEntry (ExportModule _ m)     = ExportEntryModule (mIdentToMName m)
+  where
+    genExportEntry (Export _ q)           = ExportEntry       (qIdentToQName q)
+    genExportEntry (ExportTypeAll _ q)    = ExportEntry       (qIdentToQName q)
+    genExportEntry (ExportTypeWith _ q _) = ExportEntry       (qIdentToQName q)
+    genExportEntry (ExportModule _ m)     = ExportEntryModule (mIdentToMName m)
 
 -- | generate ExportSection from given nesting, comment
 --   and the following ExportEntries
@@ -174,11 +175,13 @@ sectionNesting e = case e of
    _                   -> error $ "CurryDoc.Info.Comments.sectionNesting: "
                                   ++ "No ExportSection"
 
--- | Associates Comments to the header of the module (until the first declaration)
-associateCurryDocHeader :: SpanInfo                           -- ^ module SpanInfo
-                        -> Span                               -- ^ first decl span
-                        -> [(Span, CDocComment)]              -- ^ to be matched
-                        -> ([Comment], [(Span, CDocComment)]) -- ^ (matched, rest)
+-- | Associates comments to the header of the module
+--   (until the first declaration)
+associateCurryDocHeader
+                :: SpanInfo                           -- ^ module SpanInfo
+                -> Span                               -- ^ first decl span
+                -> [(Span, CDocComment)]              -- ^ to be matched
+                -> ([Comment], [(Span, CDocComment)]) -- ^ (matched, rest)
 associateCurryDocHeader spi@(SpanInfo _ (spm : ss)) sp (c:cs) =
   case c of
     (sp', Pre  _)
@@ -334,7 +337,8 @@ associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
   error "associateCurryDocDeclPre: NoSpanInfo in QualTypeExpr"
 
 -- match pre comments to arguments in a typesig
-matchArgumentsPre :: TypeExpr -> [(Span, CDocComment)] -> [(CTypeExpr, [Comment])]
+matchArgumentsPre :: TypeExpr -> [(Span, CDocComment)]
+                  -> [(CTypeExpr, [Comment])]
 matchArgumentsPre ty cs = case ty of
   ArrowType _ ty1 ty2 ->
     let (match, rest) = getToMatch (getSrcSpan ty) NoSpan cs isPre
@@ -447,7 +451,8 @@ matchNewConstrPost (NewRecordDecl spiR cn (idt, ty)) cs xs =
                                 (skipUntilAfter (getSrcSpan ty) xs)
     in CommentedRecord (identToQName cn) (map (comment . snd) cs) field
 
-matchArgumentsPost :: TypeExpr -> [(Span, CDocComment)] -> [(CTypeExpr, [Comment])]
+matchArgumentsPost :: TypeExpr -> [(Span, CDocComment)]
+                   -> [(CTypeExpr, [Comment])]
 matchArgumentsPost ty cs = case ty of
   ArrowType spi ty1 ty2 ->
     let SpanInfo _ [sp] = spi -- arrow span
@@ -501,7 +506,8 @@ matchFieldsPost :: Span -- ^ Until
                 -> [CommentedField]
 matchFieldsPost _  []                                  _  = []
 matchFieldsPost sp [f@(FieldDecl _ idts _)]            cs =
-  let (match, _) = getToMatch sp NoSpan (skipUntilAfter (getSrcSpan f) cs) isPost
+  let (match, _) = getToMatch sp NoSpan (skipUntilAfter (getSrcSpan f) cs)
+                              isPost
   in  [(map identToQName idts, map (comment . snd) match)]
 matchFieldsPost sp (f1@(FieldDecl _ idts _) : f2 : fs) cs =
   let (match, rest) = getToMatch (getSrcSpan f2) NoSpan
@@ -511,7 +517,8 @@ matchFieldsPost sp (f1@(FieldDecl _ idts _) : f2 : fs) cs =
 
 
 -- relies on the fact that for subsequent entries of the same decl,
--- all comments in the first are before the comments of the second and vice versa
+-- all comments in the first are before the comments of the second
+-- and vice versa
 merge :: [CommentedDecl] -> [CommentedDecl]
 merge []                                 = []
 merge [x]                                = [x]
@@ -572,7 +579,7 @@ skipUntilAfter sp = filter (( `isAfter` sp) . fst)
 getToMatch :: Span                  -- ^ until
            -> Span                  -- ^ last undiscarded comment span
            -> [(Span, CDocComment)] -- ^ next comments
-           -> (CDocComment -> Bool) -- ^ predicate to test for right comment type
+           -> (CDocComment -> Bool) -- ^ predicate to test the comment type
            -> ([(Span, CDocComment)], [(Span, CDocComment)])
 getToMatch _    _    []             _ = ([], [])
 getToMatch stop last ((sp, c) : cs) p =
@@ -585,7 +592,8 @@ getToMatch stop last ((sp, c) : cs) p =
 -------------------------------------------------------------------------------
 -- Splitting of TypeSigs with multiple idents and field decls inside DataDecls
 -- and filtering of UnsupportedDecls
--- also translates CommentedExternalDecl/Data to CommmentedFunctionDecls/DataDecls
+-- also translates CommentedExternalDecl/Data
+-- to CommmentedFunctionDecls/DataDecls
 
 cleanup :: [CommentedDecl] -> [CommentedDecl]
 cleanup [] = []

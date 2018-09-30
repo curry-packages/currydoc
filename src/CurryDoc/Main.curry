@@ -19,7 +19,7 @@
 --    "-- \*" or "-- \*\*", ...
 --
 --  * The exact rules on how comments are associated with syntactic elements
---    (similar to Haddock) are documented at: TODO
+--    (similar to Haddock) are documented at: docs/manual.tex
 
 module CurryDoc.Main (main, debug) where
 
