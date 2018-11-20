@@ -30,15 +30,16 @@ module CurryDoc.Main where
 
 import AbstractCurry.Files
 import Directory
-import Distribution
+import Distribution    ( stripCurrySuffix, lookupModuleSourceInLoadPath
+                       , getLoadPathForModule )
 import FileGoodies
-import FilePath        ((</>), (<.>), dropFileName, takeFileName)
+import FilePath        ( (</>), (<.>), dropFileName, takeFileName )
 import FlatCurry.Types
 import FlatCurry.Files
-import FlatCurry.Read  (readFlatCurryWithImports)
+import FlatCurry.Read  ( readFlatCurryWithImports )
 import Function
 import List
-import Maybe           (fromJust)
+import Maybe           ( fromJust )
 import System
 import Time
 
@@ -46,8 +47,9 @@ import Analysis.Deterministic
 import Analysis.TotallyDefined
 import Analysis.Indeterministic
 import Analysis.SolutionCompleteness
-import Analysis.Types (analysisName)
-import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
+import Analysis.Types ( analysisName )
+import CASS.Server    ( initializeAnalysisSystem, analyzeInterface )
+import System.FrontendExec ( FrontendTarget (..), callFrontend )
 
 import CurryDoc.AnaInfo
 import CurryDoc.Files   ( generateModuleDocMapping )
@@ -57,7 +59,7 @@ import CurryDoc.Html
 import CurryDoc.TeX
 import CurryDoc.CDoc
 import CurryDoc.Config
-import CurryDoc.PackageConfig (packagePath)
+import CurryDoc.PackageConfig ( packagePath )
 
 --------------------------------------------------------------------------
 -- Global definitions:

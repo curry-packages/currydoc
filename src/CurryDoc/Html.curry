@@ -10,12 +10,12 @@
 module CurryDoc.Html where
 
 import FilePath
-import FileGoodies     (getFileInPath)
+import FileGoodies     ( getFileInPath )
 import List
 import Char
 import Sort
 import Time
-import Distribution
+import Distribution    ( getLoadPathForModule )
 import Markdown
 import Maybe
 
@@ -28,9 +28,11 @@ import Analysis.TotallyDefined(Completeness(..))
 import qualified FlatCurry.Types as FC
 import qualified FlatCurry.Goodies as FCG
 import HTML.Base
-import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
+import HTML.Styles.Bootstrap3 ( bootstrapPage, glyphicon, homeIcon )
 import HTML.CategorizedList
-import Text.Pretty            (showWidth, empty)
+import System.FrontendExec    ( FrontendTarget (..), callFrontendWithParams
+                              , defaultParams, setHtmlDir, setQuiet )
+import Text.Pretty            ( showWidth, empty )
 
 import CurryDoc.AnaInfo
 import CurryDoc.Options
