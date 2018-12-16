@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2017
+--- @version December 2018
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -15,7 +15,6 @@ import List
 import Char
 import Sort
 import Time
-import Distribution    ( getLoadPathForModule )
 import Markdown
 import Maybe
 
@@ -30,6 +29,7 @@ import qualified FlatCurry.Goodies as FCG
 import HTML.Base
 import HTML.Styles.Bootstrap3 ( bootstrapPage, glyphicon, homeIcon )
 import HTML.CategorizedList
+import System.CurryPath       ( getLoadPathForModule )
 import System.FrontendExec    ( FrontendTarget (..), callFrontendWithParams
                               , defaultParams, setHtmlDir, setQuiet )
 import Text.Pretty            ( showWidth, empty )

@@ -2,13 +2,12 @@
 --- Functions to generate documentation in TeX format.
 ---
 --- @author Michael Hanus
---- @version October 2017
+--- @version December 2018
 ----------------------------------------------------------------------
 
 module CurryDoc.TeX where
 
 import Char
-import Distribution
 import List
 import Maybe
 

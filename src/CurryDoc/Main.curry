@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version May 2018
+--- @version December 2018
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -30,8 +30,6 @@ module CurryDoc.Main where
 
 import AbstractCurry.Files
 import Directory
-import Distribution    ( stripCurrySuffix, lookupModuleSourceInLoadPath
-                       , getLoadPathForModule )
 import FileGoodies
 import FilePath        ( (</>), (<.>), dropFileName, takeFileName )
 import FlatCurry.Types
@@ -47,8 +45,10 @@ import Analysis.Deterministic
 import Analysis.TotallyDefined
 import Analysis.Indeterministic
 import Analysis.SolutionCompleteness
-import Analysis.Types ( analysisName )
-import CASS.Server    ( initializeAnalysisSystem, analyzeInterface )
+import Analysis.Types      ( analysisName )
+import CASS.Server         ( initializeAnalysisSystem, analyzeInterface )
+import System.CurryPath    ( stripCurrySuffix, lookupModuleSourceInLoadPath
+                           , getLoadPathForModule )
 import System.FrontendExec ( FrontendTarget (..), callFrontend )
 
 import CurryDoc.AnaInfo
