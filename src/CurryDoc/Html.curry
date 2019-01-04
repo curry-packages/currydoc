@@ -291,19 +291,19 @@ getExportedFields = map fldName . filter isExportedField . concatMap getFields
   getFields (CCons   _ _ _ _ _ ) = []
   getFields (CRecord _ _ _ _ fs) = fs
 
--- Is a function definition a property?
+-- Is a function definition a property to be documented?
 isProperty :: CFuncDecl -> Bool
-isProperty fdecl = fst (funcName fdecl) /= easyCheckModule
-                   && isPropType (typeOfQualType (funcType fdecl))
+isProperty fdecl = fst (funcName fdecl)
+                     `notElem` [easyCheckModule, propModule, propTypesModule]
+                && isPropType (typeOfQualType (funcType fdecl))
  where
   isPropType :: CTypeExpr -> Bool
-  isPropType ct =  ct == baseType (easyCheckModule,"Prop") -- I/O test?
-                || ct == baseType (propModule,"Prop") -- I/O test?
-                || resultType ct == baseType (easyCheckModule,"Prop")
-                || resultType ct == baseType (propModule,"Prop")
+  isPropType ct =  ct == baseType (propTypesModule,"PropIO") -- I/O test?
+                || resultType ct == baseType (propTypesModule,"Prop")
 
   easyCheckModule = "Test.EasyCheck"
   propModule      = "Test.Prop"
+  propTypesModule = "Test.Prop.Types"
 
 -- Is a function definition part of a specification, i.e.,
 -- a full specification (suffix 'spec), a precondition (suffix 'pre),
