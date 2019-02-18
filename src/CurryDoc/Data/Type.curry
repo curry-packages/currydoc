@@ -11,14 +11,13 @@ import CurryDoc.Data.SpanInfo
 import CurryDoc.Data.Ident
 import CurryDoc.Data.Position
 
-import Directory       (doesFileExist)
-import FileGoodies     (getFileInPath, lookupFileInPath)
-import FilePath        (takeFileName, (</>), (<.>))
-import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
-                       , setQuiet, inCurrySubdir, stripCurrySuffix
-                       , callFrontend, callFrontendWithParams
-                       , lookupModuleSourceInLoadPath, getLoadPathForModule
-                       )
+import Directory           ( doesFileExist )
+import FileGoodies         ( getFileInPath, lookupFileInPath )
+import FilePath            ( takeFileName, (</>), (<.>) )
+import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
+                           , inCurrySubdir, stripCurrySuffix )
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
+                           , setQuiet, callFrontend, callFrontendWithParams )
 
 -- | Reads the short-AST from a specified module
 readShortAST :: String -> IO (Module ())

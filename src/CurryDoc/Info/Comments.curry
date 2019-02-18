@@ -33,11 +33,10 @@ import List            (partition, init, last, isPrefixOf)
 import Directory       (doesFileExist)
 import FileGoodies     (getFileInPath, lookupFileInPath)
 import FilePath        (takeFileName, (</>), (<.>))
-import Distribution    ( FrontendParams, FrontendTarget (..), defaultParams
-                       , setQuiet, inCurrySubdir, stripCurrySuffix
-                       , callFrontend, callFrontendWithParams
-                       , lookupModuleSourceInLoadPath, getLoadPathForModule
-                       )
+import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
+                           , inCurrySubdir, stripCurrySuffix )
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
+                           , setQuiet, callFrontend, callFrontendWithParams )
 
 data Comment = NestedComment String
              | LineComment   String

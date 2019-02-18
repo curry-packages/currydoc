@@ -17,7 +17,6 @@ import List
 import Char
 import Sort
 import Time
-import Distribution
 import Markdown
 import Maybe
 import Debug
@@ -31,6 +30,8 @@ import Analysis.TotallyDefined(Completeness(..))
 import HTML.Base
 import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
 import HTML.CategorizedList
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
+                           , setQuiet, setHtmlDir, callFrontendWithParams )
 import Text.Pretty            (showWidth, empty)
 
 import CurryDoc.Data.AnaInfo

@@ -24,7 +24,6 @@
 module CurryDoc.Main (main, debug) where
 
 import Directory
-import Distribution
 import FileGoodies  (getFileInPath, lookupFileInPath)
 import FilePath
 import Function
@@ -33,13 +32,17 @@ import Maybe        (fromJust)
 import System
 import Time
 import ReadShowTerm
-import AnsiCodes    (red, blue)
 
 import AbstractCurry.Files
 import AbstractCurry.Types
 import AbstractCurry.Select
 import FlatCurry.Files
 import FlatCurry.Types (Prog(..))
+import System.Console.ANSI.Codes (red, blue)
+import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
+                           , inCurrySubdir, stripCurrySuffix )
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
+                           , rcParams, setQuiet, callFrontendWithParams )
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.Type

@@ -7,8 +7,9 @@
 module CurryDoc.Files ( generateModuleDocMapping ) where
 
 import Directory    ( doesDirectoryExist, getDirectoryContents )
-import Distribution ( stripCurrySuffix )
 import FilePath     ( (</>), takeExtension )
+
+import System.CurryPath ( stripCurrySuffix )
 
 -- | Constructs a mapping from module names into locations where
 --   the documentation is stored. The argument is a list of pairs
