@@ -14,7 +14,7 @@
         "flatcurry"     : ">= 2.0.0, < 3.0.0",
         "frontend-exec" : ">= 0.0.1",
         "html"          : ">= 2.0.0, < 3.0.0",
-        "markdown"      : ">= 2.0.0, < 3.0.0",
+        "markdown"      : ">= 3.0.0, < 4.0.0",
         "wl-pprint"     : ">= 0.0.1, < 2.0.0",
         "xml"           : ">= 2.0.0, < 3.0.0"
     },
@@ -24,7 +24,7 @@
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
-        "name": "curry-doc",
+        "name": "curry-doc2",
         "main": "CurryDoc.Main"
     },
     "source": {

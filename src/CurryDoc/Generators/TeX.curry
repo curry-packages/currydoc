@@ -11,14 +11,15 @@ import Distribution
 import List
 import Maybe
 
-import CurryDoc.Options
-import CurryDoc.Info
 import AbstractCurry.Types
 import AbstractCurry.Select
 import HTML.Base
 import HTML.LaTeX  ( showLatexExps )
 import HTML.Parser
-import Markdown
+import Text.Markdown
+
+import CurryDoc.Options
+import CurryDoc.Info
 
  -- TODO: The generated .tex does not have all the information that .html has
  -- This has also been the case in prior versions
