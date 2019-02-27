@@ -10,9 +10,9 @@ import Maybe
 
 import AbstractCurry.Types (QName, MName, CurryProg(..))
 import AbstractCurry.Select
+import Curry.Types
+import Curry.Ident
 
-import CurryDoc.Data.Type
-import CurryDoc.Data.Ident
 import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
 import CurryDoc.Info.Goodies

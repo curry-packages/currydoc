@@ -10,8 +10,8 @@ module CurryDoc.Info.Goodies where
 import AbstractCurry.Types
 import AbstractCurry.Select
 
-import CurryDoc.Data.Type
-import CurryDoc.Data.Ident
+import Curry.Types
+import Curry.Ident
 
 import List (intercalate)
 import Char (isSpace)

@@ -18,9 +18,6 @@ module CurryDoc.Info.Comments
    CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
    where
 
-import CurryDoc.Data.Span
-import CurryDoc.Data.SpanInfo
-import CurryDoc.Data.Type
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Info.Goodies
 
@@ -37,6 +34,9 @@ import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
                            , inCurrySubdir, stripCurrySuffix )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, callFrontend, callFrontendWithParams )
+import Curry.Span
+import Curry.SpanInfo
+import Curry.Types
 
 data Comment = NestedComment String
              | LineComment   String

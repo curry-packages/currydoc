@@ -11,8 +11,6 @@ module CurryDoc.Info
    module CurryDoc.Info.Header,
    module CurryDoc.Data.CurryDoc) where
 
-import CurryDoc.Data.Span
-import CurryDoc.Data.Type
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
@@ -25,6 +23,8 @@ import CurryDoc.Info.Goodies
 import FlatCurry.Types     (Prog)
 import AbstractCurry.Types (QName, MName, CurryProg(..))
 import AbstractCurry.Select
+import Curry.Span
+import Curry.Types
 
 import List  (partition, find)
 import Maybe (fromMaybe)

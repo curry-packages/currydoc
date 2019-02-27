@@ -38,6 +38,8 @@ import AbstractCurry.Types
 import AbstractCurry.Select
 import FlatCurry.Files
 import FlatCurry.Types (Prog(..))
+import Curry.Types
+import Curry.Files
 import System.Console.ANSI.Codes (red, blue)
 import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
                            , inCurrySubdir, stripCurrySuffix )
@@ -45,7 +47,6 @@ import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
                            , rcParams, setQuiet, callFrontendWithParams )
 
 import CurryDoc.Data.AnaInfo
-import CurryDoc.Data.Type
 import CurryDoc.Files         (generateModuleDocMapping)
 import CurryDoc.Options
 import CurryDoc.Generators
