@@ -103,8 +103,8 @@ processArgs opts args = do
     ("--html"      : margs) -> processArgs opts { docType = HtmlDoc } margs
     ("--tex"       : margs) ->
       processArgs opts { docType = TexDoc, withIndex = False } margs
-    ("--cdoc"      : margs) ->
-      processArgs opts { docType = CDoc,   withIndex = False } margs
+    ("--json"      : margs) ->
+      processArgs opts { docType = JSON,   withIndex = False } margs
     -- HTML without index
     ["--noindexhtml",docdir,modname] -> do
         opts' <- processOpts opts { withIndex = False, docType = HtmlDoc }
@@ -149,7 +149,7 @@ printUsageMessage = do
    [ "ERROR: Illegal arguments for CurryDoc: " ++ unwords args
    , ""
    , "Usage:"
-   , "curry-doc <options> [--html|--tex|--cdoc] [<doc_dir>] <module>"
+   , "curry-doc <options> [--html|--tex|--json] [<doc_dir>] <module>"
    , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
    , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
    , "curry-doc <options> --libsindexhtml <doc_dir> <modules>"
@@ -270,7 +270,7 @@ prepareDocDir TexDoc docdir = do
   createDir docdir
   putStrLn $ "Copy macros into documentation directory '"++docdir++"'..."
   copyIncludeIfPresent docdir "currydoc.tex"
-prepareDocDir CDoc docdir = do
+prepareDocDir JSON docdir = do
   createDir docdir
   putStrLn "Directory was succesfully created"
 
@@ -296,8 +296,6 @@ makeAbstractDoc docopts modname = do
       "Warning: The CurryDoc comment-style \"--- \" is deprecated"))
   putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
   prog <- readShortAST modname
-  putStrLn ("Reading flatcurry for module \"" ++ modname ++ "\"...")
-  fprog <- readFlatCurry modname
   putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
   acyname <- getLoadPathForModule modname >>=
              getFileInPath (abstractCurryFileName modname) [""]
@@ -310,9 +308,9 @@ makeAbstractDoc docopts modname = do
                            ++ modname ++ "\"...")
                  ana <- readAnaInfo modname
                  return $ generateCurryDocInfosWithAnalysis
-                            ana modname cmts prog acy fprog importsDoc
+                            ana modname cmts prog acy importsDoc
          else    return $ generateCurryDocInfos
-                                modname cmts prog acy fprog importsDoc
+                                modname cmts prog acy importsDoc
   putStrLn ("Generating abstract CurryDoc for module \"" ++ modname ++ "\"...")
   writeFile (replaceExtension acyname "cydoc") (showQTerm res)
   return res
@@ -347,8 +345,8 @@ makeDocForType HtmlDoc docopts docdir modname cdoc = do
 makeDocForType TexDoc docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateTexDocs docopts cdoc)
 
-makeDocForType CDoc docopts docdir modname cdoc = do
-  writeOutfile docopts docdir modname (generateCDoc docopts cdoc)
+makeDocForType JSON docopts docdir modname cdoc = do
+  writeOutfile docopts docdir modname (generateJSON docopts cdoc)
 
 
 -- Generates the documentation for a module if it is necessary.
@@ -439,7 +437,7 @@ readTypesFuncsClassesWithImports modname = do
 fileExtension :: DocType -> String
 fileExtension HtmlDoc = "html"
 fileExtension TexDoc  = "tex"
-fileExtension CDoc    = "cdoc"
+fileExtension JSON    = "json"
 
 -- harmonized writeFile function for all docType
 writeOutfile :: DocOptions -> String -> String -> IO String -> IO ()

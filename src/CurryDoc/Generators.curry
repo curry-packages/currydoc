@@ -5,10 +5,10 @@
      A module containing all available backends of CurryDoc
 -}
 module CurryDoc.Generators
-  (module CurryDoc.Generators.CDoc,
+  (module CurryDoc.Generators.JSON,
    module CurryDoc.Generators.TeX,
    module CurryDoc.Generators.Html) where
 
-import CurryDoc.Generators.CDoc
+import CurryDoc.Generators.JSON
 import CurryDoc.Generators.TeX
 import CurryDoc.Generators.Html

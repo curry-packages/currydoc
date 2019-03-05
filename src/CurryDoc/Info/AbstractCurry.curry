@@ -9,8 +9,6 @@ module CurryDoc.Info.AbstractCurry (addAbstractCurryProg) where
 
 import AbstractCurry.Types
 import AbstractCurry.Select
-import qualified FlatCurry.Types as FC
-import FlatCurry.Goodies
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
@@ -20,46 +18,19 @@ import CurryDoc.Info.Goodies
 import List  (last)
 import Maybe (listToMaybe)
 
--- HACK due to external data decls not being in AbstractCurry, we augment the
--- AbstractCurry with the nullary types from FlatCurry(those are external ones)
--- and add a dummy-constructor to every empty data decl in AbstractCurry
 -- | Remove unexported entities and
 --   add exported entities that did not have any comments.
 --   All entities get a lot more information about thei type or ...
 --   Also translates into CurryDoc representations and sets a flag for
 --   ExternalDataDecls
-addAbstractCurryProg :: CurryProg -> FC.Prog -> [CommentedDecl]
-                     -> [CurryDocDecl]
-addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) fprog ds =
-  let typ' = map augmentEmptyCons typ ++ (map flatToAbstract
-                                                $ filter externalType
-                                                $ progTypes fprog)
-      withins  = addAbstractCurryInstInfo inst ds ++
+addAbstractCurryProg :: CurryProg -> [CommentedDecl] -> [CurryDocDecl]
+addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) ds =
+  let withins  = addAbstractCurryInstInfo inst ds ++
                  concatMap generateDerivingInstances typ
       withcls  = addAbstractCurryClassesInfo cls ds
-      withtyp  = addAbstractCurryDataInfo typ' ds withins
+      withtyp  = addAbstractCurryDataInfo typ ds withins
       withfun  = addAbstractCurryFunInfo func ds
   in withcls ++ withtyp ++ withfun
-  where
-    typeConstr = trType (\_ _ _ cs -> cs) (\_ _ _ _ -> [])
-    externalType ty = not (isTypeSyn ty) && null (typeConstr ty)
-
-    augmentEmptyCons   (CType n vis vs cons deriv)
-      | null cons = CType n vis vs
-                          [CCons [] (CContext []) ("","dummy") Private []] deriv
-      | otherwise = CType n vis vs cons                                    deriv
-    augmentEmptyCons t@(CNewType _ _ _ _ _) = t
-    augmentEmptyCons t@(CTypeSyn _ _ _ _  ) = t
-
-    flatToAbstract (FC.Type n vis vs _) =
-      CType n (trVis vis) (map (\i -> (i, varName i)) vs) [] []
-    flatToAbstract (FC.TypeSyn _ _ _ _) =
-      error $ "CurryDoc.Info.AbstractCurry.addAbstractCurryProg.flatToAbstract:"
-           ++ " unexpected TypeSyn"
-    trVis FC.Public  = Public
-    trVis FC.Private = Private
-
-    varName i = (['a'..'z'] !! i) : if i < 26 then "" else show i
 
 -- All addXInfo function are mostly the same:
 --   look for the CommentedDecl that matches the AbstractCurry decl

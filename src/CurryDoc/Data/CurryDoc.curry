@@ -61,6 +61,13 @@ isCurryDocClassDecl d = case d of
   CurryDocClassDecl _ _ _ _ _ -> True
   _                           -> False
 
+isCurryDocTypeDecl :: CurryDocDecl -> Bool
+isCurryDocTypeDecl d = case d of
+  CurryDocDataDecl    _ _ _ _ _ _ -> True
+  CurryDocNewtypeDecl _ _ _ _ _   -> True
+  CurryDocTypeDecl    _ _ _ _     -> True
+  _                               -> False
+
 getTypesigComments :: CurryDocTypeSig -> [Comment]
 getTypesigComments (CurryDocTypeSig _ _ _ cs) = cs
 

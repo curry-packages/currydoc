@@ -31,28 +31,28 @@ import Maybe (fromMaybe)
 
 -- | Generate the abstract CurryDoc with extended analysis
 generateCurryDocInfosWithAnalysis :: AnaInfo -> String -> [(Span, Comment)]
-                                  -> Module a -> CurryProg -> Prog
+                                  -> Module a -> CurryProg
                                   -> [(String, CurryDoc)] -> CurryDoc
 generateCurryDocInfosWithAnalysis ai mn cs m acy@(CurryProg _ _ _ _ _ _ fun ops)
   = genCDoc (addAnaInfoToCurryDocDecls ai ops fun) mn cs m acy
 
 -- | Generate the abstract CurryDoc with simple analysis
 generateCurryDocInfos ::            String -> [(Span, Comment)]
-                      -> Module a -> CurryProg -> Prog
+                      -> Module a -> CurryProg
                       -> [(String, CurryDoc)] -> CurryDoc
 generateCurryDocInfos mn cs m acy@(CurryProg _ _ _ _ _ _ fun ops)
   = genCDoc (addShortAnaInfoToCurryDocDecls ops fun) mn cs m acy
 
 genCDoc :: ([CurryDocDecl] -> [CurryDocDecl])
         -> String -> [(Span, Comment)]
-        -> Module a -> CurryProg -> Prog
+        -> Module a -> CurryProg
         -> [(String, CurryDoc)] -> CurryDoc
-genCDoc f mname cs m acy fprog importDoc =
+genCDoc f mname cs m acy importDoc =
   CurryDoc mname mhead export (imports acy)
   where
     (declsC, moduleC, exportList) = associateCurryDoc cs m
     importDecls = map (\(x,CurryDoc _ _ ex _) -> (x,flattenExport ex)) importDoc
-    decls  = addAbstractCurryProg acy fprog declsC
+    decls  = addAbstractCurryProg acy declsC
     mhead  = readModuleHeader moduleC
     export = structureDecls ((mname, f decls) : importDecls) mname $
              concatMap (inlineExport (getImports m) importDoc
