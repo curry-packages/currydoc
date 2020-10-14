@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2018
+--- @version October 2020
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -807,7 +807,7 @@ syslibsLeftTopMenu =
 syslibsRightTopMenu :: [[HtmlExp]]
 syslibsRightTopMenu =
   [ curryHomeItem
-  , [ehref (curryHomeURL ++ "/documentation/report")
+  , [ehref (curryWikiURL ++ "/documentation/report")
            [extLinkIcon, htxt " Curry Report"]]
   ]
 
@@ -891,8 +891,8 @@ rightTopMenu :: [[HtmlExp]]
 rightTopMenu =
   [ curryHomeItem
   , [ehref (currySystemURL++"/lib/")
-           [extLinkIcon, htxt $ " "++currySystem++" Libraries"]]
-  , [ehref (curryHomeURL ++ "/tools/currydoc")
+           [extLinkIcon, htxt $ " " ++ currySystem ++ " Libraries"]]
+  , [ehref (curryWikiURL ++ "/tools/currydoc")
            [extLinkIcon, htxt " About CurryDoc"]]
   ]
 
