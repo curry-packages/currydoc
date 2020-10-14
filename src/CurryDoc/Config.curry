@@ -38,4 +38,4 @@ currygleURL = "https://www-ps.informatik.uni-kiel.de/kics2/currygle/"
 
 --- The URL of the Curry homepage
 curryHomeURL :: String
-curryHomeURL = "http://www.curry-language.org"
+curryHomeURL = "http://www.curry-lang.org"
