@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version May 2018
+--- @version November 2020
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -28,27 +28,30 @@
 
 module CurryDoc.Main where
 
+import Control.Monad      ( unless, when )
+import Data.Function
+import Data.List
+import Data.Maybe         ( fromJust )
+import Data.Time
+import System.Environment
 import System.Directory
 import System.FilePath
 import System.Process
-import System.Environment
-import Data.Function
-import Data.List
-import Data.Maybe         (fromJust)
-import Data.Time
-import Distribution
 
 import AbstractCurry.Files
 import FlatCurry.Types
 import FlatCurry.Files
-import FlatCurry.Read  (readFlatCurryWithImports)
+import FlatCurry.Read     ( readFlatCurryWithImports )
 
 import Analysis.Deterministic
 import Analysis.TotallyDefined
 import Analysis.Indeterministic
 import Analysis.SolutionCompleteness
-import Analysis.Types (analysisName)
-import CASS.Server    (initializeAnalysisSystem, analyzeInterface)
+import Analysis.Types      ( analysisName )
+import CASS.Server         ( initializeAnalysisSystem, analyzeInterface )
+import System.CurryPath    ( stripCurrySuffix, lookupModuleSourceInLoadPath
+                           , getLoadPathForModule )
+import System.FrontendExec ( FrontendTarget (..), callFrontend )
 
 import CurryDoc.AnaInfo
 import CurryDoc.Files   ( generateModuleDocMapping )
@@ -58,7 +61,7 @@ import CurryDoc.Html
 import CurryDoc.TeX
 import CurryDoc.CDoc
 import CurryDoc.Config
-import CurryDoc.PackageConfig (packagePath)
+import CurryDoc.PackageConfig ( packagePath )
 
 --------------------------------------------------------------------------
 -- Global definitions:
@@ -157,7 +160,7 @@ printUsageMessage = do
 createDir :: String -> IO ()
 createDir dir = do
   exdir <- doesDirectoryExist dir
-  unless exdir $ system ("mkdir -p " ++ dir) >> done
+  unless exdir $ system ("mkdir -p " ++ dir) >> return ()
 
 --- Recursively copies a directory structure.
 copyDirectory :: String -> String -> IO ()
@@ -215,13 +218,13 @@ makeAbsolute f =
 makeIndexPages :: DocOptions -> String -> [String] -> IO ()
 makeIndexPages docopts docdir modnames = do
   prepareDocDir HtmlDoc docdir
-  (alltypes,allfuns) <- mapIO readTypesFuncs modnames >>= return . unzip
+  (alltypes,allfuns) <- mapM readTypesFuncs modnames >>= return . unzip
   genMainIndexPage     docopts docdir modnames
   genFunctionIndexPage docopts docdir (concat allfuns)
   genConsIndexPage     docopts docdir (concat alltypes)
   -- change access rights to readable for everybody:
   system ("chmod -R go+rX "++docdir)
-  done
+  return ()
  where
   readTypesFuncs modname = do
     fcyfile <- getFlatCurryFileInLoadPath modname
@@ -235,7 +238,7 @@ makeSystemLibsIndex docopts docdir modnames = do
   -- generate index pages (main index, function index, constructor index)
   makeIndexPages docopts docdir modnames
   putStrLn ("Categorizing modules ...")
-  modInfos <- mapIO getModInfo modnames
+  modInfos <- mapM getModInfo modnames
   putStrLn ("Grouping modules by categories ...")
   let grpMods = map sortByName $ groupByCategory $ sortByCategory modInfos
       cats    = sortBy (<=) $ nub $ map fst3 modInfos
@@ -278,7 +281,7 @@ copyIncludeIfPresent :: String -> String -> IO ()
 copyIncludeIfPresent docdir inclfile = do
   existIDir <- doesDirectoryExist includeDir
   when existIDir $
-    system (unwords ["cp", includeDir </> inclfile, docdir]) >> done
+    system (unwords ["cp", includeDir </> inclfile, docdir]) >> return ()
 
 -- read and generate all analysis infos:
 readAnaInfo :: String -> IO AnaInfo
@@ -359,7 +362,7 @@ makeDocIfNecessary docopts recursive docdir modname =
       then copyOrMakeDoc docopts recursive docdir modname
       else when recursive $ do
              imports <- getImports modname
-             mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
+             mapM_ (makeDocIfNecessary docopts recursive docdir) imports
 
 -- get imports of a module by reading the interface, if possible:
 getImports :: String -> IO [String]
@@ -429,6 +432,6 @@ writeOutfile docopts recursive docdir modname generate = do
   putStrLn ("Writing documentation to \"" ++ outfile ++ "\"...")
   writeFile outfile doc
   when recursive $
-    mapIO_ (makeDocIfNecessary docopts recursive docdir) imports
+    mapM_ (makeDocIfNecessary docopts recursive docdir) imports
 
 -- -----------------------------------------------------------------------

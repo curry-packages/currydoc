@@ -2,7 +2,7 @@
 --- Functions to generate documentation in TeX format.
 ---
 --- @author Michael Hanus
---- @version October 2017
+--- @version December 2018
 ----------------------------------------------------------------------
 
 module CurryDoc.TeX where
@@ -10,7 +10,6 @@ module CurryDoc.TeX where
 import Data.Char
 import Data.List
 import Data.Maybe
-import Distribution
 
 import CurryDoc.Options
 import CurryDoc.Read
@@ -20,7 +19,7 @@ import FlatCurry.Show (isClassContext)
 import HTML.Base
 import HTML.LaTeX  ( showLatexExps )
 import HTML.Parser
-import Markdown
+import Text.Markdown
 
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
@@ -106,7 +105,8 @@ genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
     if cvis==Public
     then "\\curryconsstart{" ++ cname ++ "}{" ++
          concatMap (\t->showTexType True t++" $\\to$ ") argtypes ++
-                   tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ "}\n" ++
+                   tcons ++ concatMap (\(i,_) -> [' ', chr (97 + i)]) tvars ++
+         "}\n" ++
          (maybe ""
                 (\ (call,cmt) -> "{\\tt " ++ call ++ "}" ++
                                  htmlString2Tex docopts cmt)
@@ -120,8 +120,8 @@ genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
        "\\currytypesynstart{" ++ tcons ++ "}{" ++
        (if tcons=="String" && tcmod=="Prelude"
         then "String = [Char]"
-        else tcons ++ concatMap (\i->[' ',chr (97+i)]) tvars ++ " = " ++
-                      showTexType False texp ) ++ "}\n" ++
+        else tcons ++ concatMap (\(i,_) -> [' ', chr (97 + i)]) tvars ++
+             " = " ++ showTexType False texp ) ++ "}\n" ++
        htmlString2Tex docopts typecmt ++ "\\currytypesynstop\n\n"
   else ""
 
@@ -149,7 +149,7 @@ showTexType nested (TCons tc ts)
 showTexType nested (ForallType tvs te)
  | null tvs  = showTexType nested te
  | otherwise = brackets nested
-                 (unwords ("forall" : map (showTexType False . TVar) tvs) ++
+                 (unwords ("forall" : map (showTexType False . TVar . fst) tvs) ++
                   "." ++ showTexType False te)
 
 -- convert string into TeX:

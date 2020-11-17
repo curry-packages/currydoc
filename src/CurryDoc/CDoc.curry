@@ -2,7 +2,7 @@
 --- Functions to generate documentation in "CDoc" format.
 ---
 --- @author Sandra Dylus
---- @version November 2015
+--- @version November 2020
 ----------------------------------------------------------------------
 
 module CurryDoc.CDoc where
@@ -31,14 +31,14 @@ generateCDoc modName modCmts progCmts anaInfo = do
       typeInfo (Type (mName, tName) _ vars consDecl) =
         TypeInfo tName
         (map consSignature (filter (\(Cons _ _ vis _) -> vis == Public) consDecl))
-        vars
+        (map fst vars)
         mName
         (dataComment tName progCmts)
         False
       typeInfo (TypeSyn qName@(mName, tName) _ vars tExpr) =
         TypeInfo tName
         [(qName, [tExpr])]
-        vars
+        (map fst vars)
         mName
         (dataComment tName progCmts)
         True
