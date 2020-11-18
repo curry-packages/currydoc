@@ -23,7 +23,7 @@ generateCDoc modName modCmts progCmts anaInfo = do
   let modInfo = ModuleInfo modName (author avCmts) mCmts
       funcInfo (Func qName@(mName, fName) _ _ tExpr rule) =
         FunctionInfo fName
-        (stripForall tExpr)
+        (removeForall tExpr)
         mName
         (funcComment fName progCmts)
         (getNondetInfo anaInfo qName)
@@ -38,7 +38,7 @@ generateCDoc modName modCmts progCmts anaInfo = do
         False
       typeInfo (TypeSyn qName@(mName, tName) _ vars tExpr) =
         TypeInfo tName
-        [(qName, [tExpr])]
+        [(qName, [removeForall tExpr])]
         (map fst vars)
         mName
         (dataComment tName progCmts)
@@ -53,12 +53,14 @@ generateCDoc modName modCmts progCmts anaInfo = do
    filterT f@(Type _    vis _ _) = if vis == Public then [f] else []
    filterT f@(TypeSyn _ vis _ _) = if vis == Public then [f] else []
 
--- Strip initial forall type quantifiers in order to keep compatibility
+-- Strip forall type quantifiers in order to keep compatibility
 -- with Currygle 0.3.0:
-stripForall :: TypeExpr -> TypeExpr
-stripForall texp = case texp of
-  ForallType _ te -> te
-  _               -> texp
+removeForall :: TypeExpr -> TypeExpr
+removeForall texp = case texp of
+  ForallType _ te  -> removeForall te
+  FuncType te1 te2 -> FuncType (removeForall te1) (removeForall te2)
+  TCons qn tes     -> TCons qn (map removeForall tes)
+  TVar _           -> texp
 
 funcComment :: String -> [(SourceLine,String)] -> String
 funcComment str = fst . splitComment . getFuncComment str
@@ -86,13 +88,15 @@ data CurryInfo = CurryInfo ModuleInfo [FunctionInfo] [TypeInfo]
 -- the description
 -- True if property ist defined non-deterministically
 -- the flex/rigid status
-data FunctionInfo = FunctionInfo String TypeExpr String String Bool FlexRigidResult
+data FunctionInfo =
+  FunctionInfo String TypeExpr String String Bool FlexRigidResult
 
 -- the name
 -- the signature (true indicates a type synonym, false a data type)
 -- the corresponding module
 -- the description
-data TypeInfo = TypeInfo String [(QName, [TypeExpr])] [TVarIndex] String String Bool
+data TypeInfo =
+  TypeInfo String [(QName, [TypeExpr])] [TVarIndex] String String Bool
 
 -- auxilieres --------------------------------------------------------
 
@@ -101,4 +105,5 @@ author av = concat $ getCommentType "author" av
 
 -- generate data and type constructors
 consSignature :: ConsDecl -> (QName, [TypeExpr])
-consSignature (Cons (mName, cName) _ _ tExprList) = ((mName, cName), tExprList)
+consSignature (Cons (mName, cName) _ _ tExprList) =
+  ((mName, cName), map removeForall tExprList)
