@@ -23,14 +23,15 @@ generateCDoc modName modCmts progCmts anaInfo = do
   let modInfo = ModuleInfo modName (author avCmts) mCmts
       funcInfo (Func qName@(mName, fName) _ _ tExpr rule) =
         FunctionInfo fName
-        tExpr
+        (stripForall tExpr)
         mName
         (funcComment fName progCmts)
         (getNondetInfo anaInfo qName)
         (flexRigid rule)
       typeInfo (Type (mName, tName) _ vars consDecl) =
         TypeInfo tName
-        (map consSignature (filter (\(Cons _ _ vis _) -> vis == Public) consDecl))
+        (map consSignature
+             (filter (\ (Cons _ _ vis _) -> vis == Public) consDecl))
         (map fst vars)
         mName
         (dataComment tName progCmts)
@@ -43,13 +44,21 @@ generateCDoc modName modCmts progCmts anaInfo = do
         (dataComment tName progCmts)
         True
       (mCmts, avCmts) = splitComment modCmts
-      funcInfos = map funcInfo (filter (\(Func _ _ vis _ _) -> vis == Public) functions)
+      funcInfos = map funcInfo
+                      (filter (\ (Func _ _ vis _ _) -> vis == Public) functions)
       typeInfos = map typeInfo (concatMap filterT types)
   putStrLn $ "Writing " ++ modName ++ ".cdoc file"
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
-   filterT f@(Type _ vis _ _) = if vis == Public then [f] else []
+   filterT f@(Type _    vis _ _) = if vis == Public then [f] else []
    filterT f@(TypeSyn _ vis _ _) = if vis == Public then [f] else []
+
+-- Strip initial forall type quantifiers in order to keep compatibility
+-- with Currygle 0.3.0:
+stripForall :: TypeExpr -> TypeExpr
+stripForall texp = case texp of
+  ForallType _ te -> te
+  _               -> texp
 
 funcComment :: String -> [(SourceLine,String)] -> String
 funcComment str = fst . splitComment . getFuncComment str
