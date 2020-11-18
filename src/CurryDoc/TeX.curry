@@ -76,12 +76,17 @@ genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
   if fvis==Public && not (classOperations fname)
   then "\\curryfunctionstart{" ++ string2tex fname ++ "}{" ++
        "\\curryfuncsig{" ++ string2tex (showId fname) ++ "}{" ++
-         showTexType False ftype ++ "}}\n" ++
+         showTexType False (stripForall ftype) ++ "}}\n" ++
          htmlString2Tex docopts
                (fst (splitComment (getFuncComment fname progcmts))) ++
        "\\curryfunctionstop\n"
   else ""
  where
+  -- strip initial forall type quantifiers:
+  stripForall texp = case texp of
+    ForallType _ te -> te
+    _               -> texp
+
   classOperations fn = take 6 fn `elem` ["_impl#","_inst#"]
                     || take 5 fn == "_def#" || take 7 fn == "_super#"
 

@@ -13,7 +13,7 @@ import CurryDoc.PackageConfig      ( packageVersion )
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of November 10, 2020"
+currydocVersion = "Version " ++ packageVersion ++ " of November 18, 2020"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
