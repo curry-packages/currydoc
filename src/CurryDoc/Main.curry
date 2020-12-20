@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version November 2020
+--- @version December 2020
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
@@ -32,8 +32,10 @@ import Control.Monad      ( unless, when )
 import Data.Function
 import Data.List
 import Data.Maybe         ( fromJust )
-import Data.Time
 import System.Environment
+
+import Data.Time
+import HTML.Base
 import System.Directory
 import System.FilePath
 import System.Process
@@ -184,6 +186,7 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
    maybe (error $ "Source code of module '"++modpath++"' not found!")
     (\ (moddir,_) -> do
       let modname = takeFileName modpath
+          homeref = ("index.html", [htxt "Program", nbsp, code [htxt modname]])
       setCurrentDirectory moddir
       -- parsing source program:
       callFrontend FCY modname
@@ -195,8 +198,8 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
       makeDocIfNecessary docopts recursive docdir modname
       when (withIndex docopts) $ do
         genMainIndexPage     docopts docdir [modname]
-        genFunctionIndexPage docopts docdir allfuns
-        genConsIndexPage     docopts docdir alltypes
+        genFunctionIndexPage homeref docopts docdir allfuns
+        genConsIndexPage     homeref docopts docdir alltypes
       -- change access rights to readable for everybody:
       system ("chmod -R go+rX "++docdir)
       putStrLn ("Documentation files written into directory "++docdir) )
@@ -220,12 +223,18 @@ makeIndexPages docopts docdir modnames = do
   prepareDocDir HtmlDoc docdir
   (alltypes,allfuns) <- mapM readTypesFuncs modnames >>= return . unzip
   genMainIndexPage     docopts docdir modnames
-  genFunctionIndexPage docopts docdir (concat allfuns)
-  genConsIndexPage     docopts docdir (concat alltypes)
+  genFunctionIndexPage homeref docopts docdir (concat allfuns)
+  genConsIndexPage     homeref docopts docdir (concat alltypes)
   -- change access rights to readable for everybody:
   system ("chmod -R go+rX "++docdir)
   return ()
  where
+  hometitle = if null (mainTitle docopts)
+                then "Curry Documentation"
+                else mainTitle docopts
+
+  homeref = ("index.html", [htxt hometitle])
+
   readTypesFuncs modname = do
     fcyfile <- getFlatCurryFileInLoadPath modname
     (Prog _ _ types funs _) <- readFlatCurryFile fcyfile
@@ -266,9 +275,9 @@ prepareDocDir :: DocType -> String -> IO ()
 prepareDocDir HtmlDoc docdir = do
   createDir docdir
   -- copy style sheets etc:
-  let docstyledir = docdir </> "bt3"
+  let docstyledir = docdir </> "bt4"
   exdir <- doesDirectoryExist docstyledir
-  unless exdir $ copyDirectory (includeDir </> "bt3") docstyledir
+  unless exdir $ copyDirectory (includeDir </> "bt4") docstyledir
 prepareDocDir TexDoc docdir = do
   createDir docdir
   putStrLn $ "Copy macros into documentation directory '"++docdir++"'..."

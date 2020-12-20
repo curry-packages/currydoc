@@ -13,14 +13,11 @@ import CurryDoc.PackageConfig      ( packageVersion )
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of December 5, 2020"
+currydocVersion = "Version " ++ packageVersion ++ " of December 19, 2020"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
-styleBaseURL = "bt3"
-  --if curryCompiler=="pakcs"
-  --  then "https://www.informatik.uni-kiel.de/~pakcs/bt3"
-  --  else "https://www-ps.informatik.uni-kiel.de/kics2/bt3"
+styleBaseURL = "bt4"
 
 --- The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
