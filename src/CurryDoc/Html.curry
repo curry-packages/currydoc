@@ -261,17 +261,17 @@ genHtmlExportIndex exptypes expcons expfields expfuns =
                  if null htmlnames
                    then []
                    else [bold [htxt cattitle]] : htmlnames  )
-            [(htmltypes,"Datatypes:"),
-             (htmlcons ,"Constructors:"),
-             (htmlfields,"Fields:"),
-             (htmlfuns ,"Operations:")])
+            [(htmltypes , "Datatypes:"),
+             (htmlcons  , "Constructors:"),
+             (htmlfields, "Fields:"),
+             (htmlfuns  , "Operations:")])
  where
   htmltypes  = map (\n->[href ('#':n) [htxt n]])
                    (nub (sortStrings exptypes))
   htmlcons   = map (\n->[href ('#':n++"_CONS") [htxt n]])
                    (nub (sortStrings expcons))
   htmlfields = map (\n->[href ('#':n++"_FIELD") [htxt n]])
-                  (nub (sortStrings expfields))
+                   (nub (sortStrings expfields))
   htmlfuns   = map (\n->[href ('#':n) [htxt n]])
                    (nub (sortStrings expfuns))
 
@@ -744,8 +744,9 @@ indexPage modnames =
   (if null modnames
      then []
      else [h2 [htxt "Modules:"],
-           ulist (map (\m->[href (m++".html") [htxt m]])
-                      (sortBy leqStringIgnoreCase modnames))])
+           par (intercalate [nbsp]
+                  (map (\m -> [hrefPrimBadge (m ++ ".html") [htxt m]])
+                       (sortBy leqStringIgnoreCase modnames)))])
   ++ [explainIcons]
 
 -- Paragraph to explain the meaning of the icons:
