@@ -226,10 +226,10 @@ docComment2HTML opts cmt
 -- by HTML refences:
 replaceIdLinks :: DocOptions -> String -> String
 replaceIdLinks opts str = case str of
-  [] -> []
+  []             -> []
   ('\\':'\'':cs) -> '\'' : replaceIdLinks opts cs
-  (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else c : replaceIdLinks opts cs
+  (c:cs)         -> if c == '\'' then tryReplaceIdLink [] cs
+                                 else c : replaceIdLinks opts cs
  where
   tryReplaceIdLink ltxt [] = '\'' : reverse ltxt
   tryReplaceIdLink ltxt (c:cs)
@@ -244,10 +244,11 @@ replaceIdLinks opts str = case str of
     | ' ' `elem` s
     = '\'' : s ++ ['\'']
     | otherwise
-    = let (md,dotfun) = break (=='.') s
-          urlref = if null dotfun
-                    then '#':s
-                    else docURL opts md ++ ".html#" ++ tail dotfun
+    = let xs     = splitOn "." s
+          urlref = if length xs == 1
+                     then '#':s
+                     else docURL opts (intercalate "." (init xs)) ++
+                          ".html#" ++ last xs
       in if withMarkdown opts
            then "[" ++ s ++ "](" ++ urlref ++ ")"
            else "<code><a href=\"" ++ urlref ++ "\">"++s++"</a></code>"
@@ -258,8 +259,8 @@ genHtmlExportIndex exptypes expcons expfields expfuns =
   ulistWithClass "nav flex-column" "nav-item"
     (concatMap (\ (htmlnames,cattitle) ->
                  if null htmlnames
-                 then []
-                 else [bold [htxt cattitle]] : htmlnames  )
+                   then []
+                   else [bold [htxt cattitle]] : htmlnames  )
             [(htmltypes,"Datatypes:"),
              (htmlcons ,"Constructors:"),
              (htmlfields,"Fields:"),
@@ -660,14 +661,17 @@ showTConsType opts mod nested tc ts
        concat (intersperse " " (map (showType opts mod True) ts)))
 
 showTypeCons :: DocOptions -> String -> QName -> String
-showTypeCons opts mod (mtc,tc) =
+showTypeCons opts mod qn@(mtc,tc) =
   if mtc == "Prelude"
   then tc --"<a href=\"Prelude.html#"++tc++"\">"++tc++"</a>"
-  else
-    if mod == mtc
-    then "<a href=\"#"++tc++"\">"++tc++"</a>"
-    else "<a href=\""++docURL opts mtc++".html#"++tc++"\">"++tc++"</a>"
+  else "<a href=\"" ++ urlOfEntity opts mod qn ++ "\">" ++ tc ++ "</a>"
 
+-- Returns the URL of a qualified program entity w.r.t. the current module.
+urlOfEntity :: DocOptions -> String -> QName -> String
+urlOfEntity opts mod (mtc,tc) =
+  if mod == mtc
+    then "#" ++ tc
+    else docURL opts mtc ++ ".html#" ++ tc
 
 --------------------------------------------------------------------------
 -- translate source file into HTML file with syntax coloring
@@ -693,17 +697,16 @@ translateSource2AnchoredHtml docdir modname = do
 -- first argument: list of already added anchors
 -- second argument: list of source lines
 addFuncAnchors :: [String] -> [String] -> String
-addFuncAnchors _ [] = ""
+addFuncAnchors _    []         = ""
 addFuncAnchors ancs (sl : sls) = let id1 = getFirstId sl in
-  if id1=="" ||
+  if null id1 ||
      id1 `elem` ["data","type","import","module","infix","infixl","infixr"]
-  then htmlQuote (sl++"\n") ++ addFuncAnchors ancs sls
-  else if id1 `elem` ancs
-       then (sl++"\n") ++ addFuncAnchors ancs sls
-       else "<a name=\""++id1++"\"></a>"
-            ++ htmlQuote (sl++"\n")
-            ++ addFuncAnchors (id1:ancs) sls
-
+    then htmlQuote (sl ++ "\n") ++ addFuncAnchors ancs sls
+    else if id1 `elem` ancs
+         then (sl ++ "\n") ++ addFuncAnchors ancs sls
+         else "<a name=\""++id1++"\"></a>"
+              ++ htmlQuote (sl++"\n")
+              ++ addFuncAnchors (id1:ancs) sls
 
 --------------------------------------------------------------------------
 -- generate the index page for the documentation directory:
