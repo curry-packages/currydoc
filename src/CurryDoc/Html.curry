@@ -125,7 +125,7 @@ data FuncAttachment = Property | PreCond | PostCond | SpecFun
 -- Associate the properties or contracts (first argument)
 -- to functions according to their positions and name in the source code
 -- (we assume that they follow the actual function definitions).
--- Each property or contract is represented by its kind ('FuncAttachment'),
+-- Each property or contract is represented by its kind (`FuncAttachment`),
 -- its name, and its documentation (HTML document).
 attachProperties2Funcs :: [CFuncDecl] -> [(SourceLine,String)]
                        -> [(String,[(FuncAttachment,String,[BaseHtml])])]
@@ -222,8 +222,8 @@ docComment2HTML opts cmt
   | withMarkdown opts = markdownText2HTML (replaceIdLinks opts cmt)
   | otherwise         = [par [BaseText (replaceIdLinks opts cmt)]]
 
--- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
--- by HTML hyperrefences:
+-- Replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
+-- by HTML refences:
 replaceIdLinks :: DocOptions -> String -> String
 replaceIdLinks opts str = case str of
   [] -> []
@@ -240,14 +240,17 @@ replaceIdLinks opts str = case str of
    | otherwise
    = tryReplaceIdLink (c:ltxt) cs
 
-  checkId s =
-    if ' ' `elem` s
-    then '\'' : s ++ ['\'']
-    else let (md,dotfun) = break (=='.') s
-          in "<code><a href=\"" ++
-             (if null dotfun then '#':s
-                             else docURL opts md ++ ".html#" ++ tail dotfun) ++
-             "\">"++s++"</a></code>"
+  checkId s
+    | ' ' `elem` s
+    = '\'' : s ++ ['\'']
+    | otherwise
+    = let (md,dotfun) = break (=='.') s
+          urlref = if null dotfun
+                    then '#':s
+                    else docURL opts md ++ ".html#" ++ tail dotfun
+      in if withMarkdown opts
+           then "[" ++ s ++ "](" ++ urlref ++ ")"
+           else "<code><a href=\"" ++ urlref ++ "\">"++s++"</a></code>"
 
 -- generate HTML index for all exported names:
 genHtmlExportIndex :: [String] -> [String] -> [String] -> [String] -> BaseHtml
