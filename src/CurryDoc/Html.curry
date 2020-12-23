@@ -589,8 +589,8 @@ genFuncPropComments anainfo fname rules ops =
    -- comment about the indeterminism of a function:
    opcompleteInfo =
       if getOpCompleteInfo anainfo fname
-      then [htxt "solution complete, i.e., able to compute all solutions"]
-      else []
+        then [htxt "solution complete, i.e., able to compute all solutions"]
+        else []
 
    -- comment about the external definition of a function:
    externalInfo []    = [htxt "externally defined"]
@@ -603,8 +603,8 @@ genFixityInfo :: QName -> [COpDecl] -> [BaseHtml]
 genFixityInfo fname ops =
     concatMap (\(COp n fix prec)->
                   if n == fname
-                  then [htxt ("defined as "++showFixity fix++
-                              " infix operator with precedence "++show prec)]
+                  then [htxt $ "defined as " ++ showFixity fix ++
+                               " infix operator with precedence " ++ show prec]
                   else [])
               ops
  where
@@ -753,7 +753,7 @@ indexPage modnames =
 explainIcons :: BaseHtml
 explainIcons =
   anchoredSection "explain_icons"
-    [h2 [htxt "Explanations of the icons used in the documentation:"],
+    [h4 [htxt "Explanations of the icons used in the documentation:"],
      table
        [[[anchor "det_explain" [detIcon]],[nbsp],
          [htxt " Operation is deterministic, i.e., defined by exclusive rules",
