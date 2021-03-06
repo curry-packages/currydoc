@@ -2,18 +2,20 @@
 --- Functions to generate documentation in "CDoc" format.
 ---
 --- @author Sandra Dylus
---- @version November 2020
+--- @version March 2021
 ----------------------------------------------------------------------
 
 module CurryDoc.CDoc where
 
-import CurryDoc.AnaInfo
-import CurryDoc.Read
+import Data.List
+
 import FlatCurry.Types
 import FlatCurry.Files
 import FlatCurry.FlexRigid
-import Data.List
 import ReadShowTerm
+
+import CurryDoc.AnaInfo
+import CurryDoc.Read
 
 generateCDoc :: String  -> String -> [(SourceLine,String)] -> AnaInfo
              -> IO String
@@ -21,6 +23,7 @@ generateCDoc modName modCmts progCmts anaInfo = do
   fcyName <- getFlatCurryFileInLoadPath modName
   Prog _ _ types functions _ <- readFlatCurryFile fcyName
   let modInfo = ModuleInfo modName (author avCmts) mCmts
+
       funcInfo (Func qName@(mName, fName) _ _ tExpr rule) =
         FunctionInfo fName
         (removeForall tExpr)
@@ -28,10 +31,19 @@ generateCDoc modName modCmts progCmts anaInfo = do
         (funcComment fName progCmts)
         (getNondetInfo anaInfo qName)
         (flexRigid rule)
+
       typeInfo (Type (mName, tName) _ vars consDecl) =
         TypeInfo tName
         (map consSignature
              (filter (\ (Cons _ _ vis _) -> vis == Public) consDecl))
+        (map fst vars)
+        mName
+        (dataComment tName progCmts)
+        False
+      typeInfo (TypeNew (mName, tName) _ vars newconsDecl) =
+        TypeInfo tName
+        (map newconsSignature
+             (filter (\ (NewCons _ vis _) -> vis == Public) [newconsDecl]))
         (map fst vars)
         mName
         (dataComment tName progCmts)
@@ -43,15 +55,20 @@ generateCDoc modName modCmts progCmts anaInfo = do
         mName
         (dataComment tName progCmts)
         True
+
       (mCmts, avCmts) = splitComment modCmts
+
       funcInfos = map funcInfo
                       (filter (\ (Func _ _ vis _ _) -> vis == Public) functions)
+
       typeInfos = map typeInfo (concatMap filterT types)
+
   putStrLn $ "Writing " ++ modName ++ ".cdoc file"
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
    filterT f@(Type _    vis _ _) = if vis == Public then [f] else []
    filterT f@(TypeSyn _ vis _ _) = if vis == Public then [f] else []
+   filterT f@(TypeNew _ vis _ _) = if vis == Public then [f] else []
 
 -- Strip forall type quantifiers in order to keep compatibility
 -- with Currygle 0.3.0:
@@ -107,3 +124,8 @@ author av = concat $ getCommentType "author" av
 consSignature :: ConsDecl -> (QName, [TypeExpr])
 consSignature (Cons (mName, cName) _ _ tExprList) =
   ((mName, cName), map removeForall tExprList)
+
+-- generate data and type constructors
+newconsSignature :: NewConsDecl -> (QName, [TypeExpr])
+newconsSignature (NewCons (mName, cName) _ tExpr) =
+  ((mName, cName), map removeForall [tExpr])

@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2020
+--- @version March 2021
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -808,6 +808,7 @@ genConsIndexPage homeref opts docdir types = do
  where
    consDecls (FC.Type    _ _ _ cs) = cs
    consDecls (FC.TypeSyn _ _ _ _ ) = []
+   consDecls (FC.TypeNew _ _ _ _ ) = [] -- ignore for the moment...
    expcons = map FCG.consName $ filter ((== FC.Public) . FCG.consVisibility) $
      concatMap consDecls types
 

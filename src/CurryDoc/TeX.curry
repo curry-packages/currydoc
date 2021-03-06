@@ -2,7 +2,7 @@
 --- Functions to generate documentation in TeX format.
 ---
 --- @author Michael Hanus
---- @version December 2018
+--- @version March 2021
 ----------------------------------------------------------------------
 
 module CurryDoc.TeX where
@@ -129,6 +129,9 @@ genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
              " = " ++ showTexType False texp ) ++ "}\n" ++
        htmlString2Tex docopts typecmt ++ "\\currytypesynstop\n\n"
   else ""
+
+genTexType _ _ (TypeNew _ _ _ _) = "" -- ignore for the moment...
+
 
 -- Pretty printer for types in Curry syntax as TeX string.
 -- first argument is True iff brackets must be written around complex types
