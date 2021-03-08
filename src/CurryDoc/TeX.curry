@@ -93,44 +93,56 @@ genTexFunc docopts progcmts _ (Func (_,fname) _ fvis ftype _) =
 --- generate TeX documentation for a datatype if it is exported and
 --- not a dictionary:
 genTexType :: DocOptions -> [(SourceLine,String)] -> TypeDecl -> String
-genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs) =
-  if tvis==Public && not (isDict tcons)
-  then
-   let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
+genTexType docopts progcmts (Type (_,tcons) tvis tvars constrs)
+  | tvis==Public && not (isDict tcons)
+  = let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
     in "\\currydatastart{" ++ tcons ++ "}\n" ++
        htmlString2Tex docopts datacmt ++
        "\n\\currydatacons\n" ++
-       concatMap (genHtmlCons (getCommentType "cons" conscmts)) constrs ++
+       concatMap (genHtmlCons docopts (getCommentType "cons" conscmts)
+                              tcons tvars) constrs ++
        "\\currydatastop\n"
-  else ""
+  | otherwise = ""
  where
   isDict fn = take 6 fn == "_Dict#"
 
-  genHtmlCons conscmts (Cons (_,cname) _ cvis argtypes) =
-    if cvis==Public
-    then "\\curryconsstart{" ++ cname ++ "}{" ++
-         concatMap (\t->showTexType True t++" $\\to$ ") argtypes ++
-                   tcons ++ concatMap (\(i,_) -> [' ', chr (97 + i)]) tvars ++
-         "}\n" ++
-         (maybe ""
-                (\ (call,cmt) -> "{\\tt " ++ call ++ "}" ++
-                                 htmlString2Tex docopts cmt)
-                (getConsComment conscmts cname))
-         ++ "\n"
-    else ""
-
-genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp) =
-  if tvis==Public
-  then let (typecmt,_) = splitComment (getDataComment tcons progcmts) in
-       "\\currytypesynstart{" ++ tcons ++ "}{" ++
+genTexType docopts progcmts (TypeSyn (tcmod,tcons) tvis tvars texp)
+  | tvis==Public
+  = let (typecmt,_) = splitComment (getDataComment tcons progcmts)
+    in "\\currytypesynstart{" ++ tcons ++ "}{" ++
        (if tcons=="String" && tcmod=="Prelude"
         then "String = [Char]"
         else tcons ++ concatMap (\(i,_) -> [' ', chr (97 + i)]) tvars ++
              " = " ++ showTexType False texp ) ++ "}\n" ++
        htmlString2Tex docopts typecmt ++ "\\currytypesynstop\n\n"
-  else ""
+  | otherwise = ""
 
-genTexType _ _ (TypeNew _ _ _ _) = "" -- ignore for the moment...
+genTexType docopts progcmts
+           (TypeNew (_,tcons) tvis tvars (NewCons cn cvis cte))
+  | tvis==Public
+  = let (datacmt,conscmts) = splitComment (getDataComment tcons progcmts)
+    in "\\currynewtypestart{" ++ tcons ++ "}\n" ++
+       htmlString2Tex docopts datacmt ++
+       "\n\\currydatacons\n" ++
+       genHtmlCons docopts (getCommentType "cons" conscmts) tcons tvars
+                   (Cons cn 1 cvis [cte]) ++
+       "\\currydatastop\n"
+  | otherwise = ""
+
+genHtmlCons :: DocOptions -> [String] -> String -> [(Int, a)] -> ConsDecl
+            -> String
+genHtmlCons docopts conscmts tcons tvars (Cons (_,cname) _ cvis argtypes) =
+  if cvis==Public
+  then "\\curryconsstart{" ++ cname ++ "}{" ++
+       concatMap (\t->showTexType True t++" $\\to$ ") argtypes ++
+                 tcons ++ concatMap (\(i,_) -> [' ', chr (97 + i)]) tvars ++
+       "}\n" ++
+       (maybe ""
+              (\ (call,cmt) -> "{\\tt " ++ call ++ "}" ++
+                               htmlString2Tex docopts cmt)
+              (getConsComment conscmts cname))
+       ++ "\n"
+  else ""
 
 
 -- Pretty printer for types in Curry syntax as TeX string.

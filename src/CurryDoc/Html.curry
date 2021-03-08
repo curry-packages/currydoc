@@ -357,12 +357,12 @@ ifNotNull cmt genDoc
 genHtmlType :: DocOptions -> [(SourceLine,String)] -> CTypeDecl -> [BaseHtml]
 genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs _) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
-   in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
-      ++ docComment2HTML docopts datacmt
-      ++ [par [explainCat "Constructors:"]]
-      ++ ulistOrEmpty (map (genHtmlCons docopts consfldcmts tcons tvars fldCons)
-                           (filter isExportedCons constrs))
-      ++ [hrule]
+  in [ anchored tcons [style "typeheader" [htxt tcons]] ] ++
+     docComment2HTML docopts datacmt ++
+     [par [explainCat "Constructors:"]] ++
+     ulistOrEmpty (map (genHtmlCons docopts consfldcmts tcons tvars fldCons)
+                       (filter isExportedCons constrs)) ++
+     [hrule]
  where
   expFields = [f | CRecord _ _ fs <- constrs, f <- fs, isExportedField f]
   fldCons   = [ (fn,cn) | f@(CField (_,fn) _ _) <- expFields
@@ -370,27 +370,29 @@ genHtmlType docopts progcmts (CType (_,tcons) _ tvars constrs _) =
               ]
 genHtmlType docopts progcmts (CTypeSyn (tcmod,tcons) _ tvars texp) =
   let (typecmt,_) = splitComment (getDataComment tcons progcmts)
-   in    [ anchored tcons [style "typeheader" [htxt tcons]] ]
-      ++ docComment2HTML docopts typecmt
-      ++ [ par [explainCat "Type synonym:"
-         , nbsp
-         ,
-            if tcons=="String" && tcmod=="Prelude"
-            then code [htxt "String = [Char]"]
-            else code [BaseText
-                        (tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars ++
-                         " = " ++ showType docopts tcmod False texp)]]
-         , hrule
-         ]
+  in [ anchored tcons [style "typeheader" [htxt tcons]] ] ++
+     docComment2HTML docopts typecmt ++
+     [ par [explainCat "Type synonym:"
+     , nbsp
+     ,
+        if tcons=="String" && tcmod=="Prelude"
+        then code [htxt "String = [Char]"]
+        else code [BaseText
+                    (tcons ++ concatMap (\(i,_) -> [' ',chr (97+i)]) tvars ++
+                     " = " ++ showType docopts tcmod False texp)]]
+     , hrule
+     ]
 genHtmlType docopts progcmts t@(CNewType (_,tcons) _ tvars constr _) =
   let (datacmt,consfldcmts) = splitComment (getDataComment tcons progcmts)
-   in if isExportedCons constr
-        then    [anchored tcons [style "typeheader" [htxt tcons]] ]
-             ++ docComment2HTML docopts datacmt
-             ++ [par [explainCat "Constructor:"]]
-             ++ ulistOrEmpty [genHtmlCons docopts consfldcmts tcons tvars fldCons constr]
-             ++ [hrule]
-        else []
+  in if isExportedCons constr
+       then [code [htxt "newtype"], nbsp,
+             anchored tcons [style "typeheader" [htxt tcons]] ] ++
+             docComment2HTML docopts datacmt ++
+             [par [explainCat "Constructor:"]] ++
+             ulistOrEmpty
+               [genHtmlCons docopts consfldcmts tcons tvars fldCons constr] ++
+             [hrule]
+       else []
  where
   cn      = cName constr
   fldCons = map (\fn -> (fn,cn)) (getExportedFields [t])
@@ -804,11 +806,11 @@ genConsIndexPage homeref opts docdir types = do
   putStrLn $ "Writing constructor index page to '"++ docdir ++"/cindex.html'..."
   simplePage homeref "Index to all constructors" Nothing allConsFuncsMenu
              (htmlConsIndex opts (sortNames expcons))
-    >>= writeFile (docdir++"/cindex.html")
+    >>= writeFile (docdir </> "cindex.html")
  where
    consDecls (FC.Type    _ _ _ cs) = cs
    consDecls (FC.TypeSyn _ _ _ _ ) = []
-   consDecls (FC.TypeNew _ _ _ _ ) = [] -- ignore for the moment...
+   consDecls (FC.TypeNew _ _ _ (FC.NewCons cn cv ct)) = [FC.Cons cn 1 cv [ct]]
    expcons = map FCG.consName $ filter ((== FC.Public) . FCG.consVisibility) $
      concatMap consDecls types
 

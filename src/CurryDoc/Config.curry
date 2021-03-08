@@ -3,7 +3,7 @@
 --- the CurryDoc tool.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2020
+--- @version March 2021
 ----------------------------------------------------------------------
 
 module CurryDoc.Config where
@@ -13,7 +13,7 @@ import CurryDoc.PackageConfig      ( packageVersion )
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of December 22, 2020"
+currydocVersion = "Version " ++ packageVersion ++ " of March 8, 2021"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
@@ -21,13 +21,15 @@ styleBaseURL = "bt4"
 
 --- The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
-currySystemURL = if curryCompiler=="pakcs"
-                 then "https://www.informatik.uni-kiel.de/~pakcs"
-                 else "https://www-ps.informatik.uni-kiel.de/kics2"
+currySystemURL =
+  if curryCompiler=="pakcs" then "https://www.informatik.uni-kiel.de/~pakcs"
+                            else "https://www-ps.informatik.uni-kiel.de/kics2"
 
 --- The name of this Curry system.
 currySystem :: String
-currySystem = if curryCompiler=="pakcs" then "PAKCS" else "KiCS2"
+currySystem | curryCompiler == "pakcs" = "PAKCS"
+            | curryCompiler == "kics2" = "KiCS2"
+            | otherwise                = "???"
 
 --- The URL of the API search
 currygleURL :: String

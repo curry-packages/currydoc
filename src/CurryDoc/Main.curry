@@ -213,9 +213,9 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
 makeAbsolute :: String -> IO String
 makeAbsolute f =
   if isAbsolute f
-  then return f
-  else do curdir <- getCurrentDirectory
-          return (curdir </> f)
+    then return f
+    else do curdir <- getCurrentDirectory
+            return (curdir </> f)
 
 --- Generate only the index pages for a list of (already compiled!) modules:
 makeIndexPages :: DocOptions -> String -> [String] -> IO ()
@@ -226,7 +226,7 @@ makeIndexPages docopts docdir modnames = do
   genFunctionIndexPage homeref docopts docdir (concat allfuns)
   genConsIndexPage     homeref docopts docdir (concat alltypes)
   -- change access rights to readable for everybody:
-  system ("chmod -R go+rX "++docdir)
+  system $ "chmod -R go+rX " ++ docdir
   return ()
  where
   hometitle = if null (mainTitle docopts)
