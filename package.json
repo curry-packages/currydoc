@@ -1,24 +1,22 @@
 {
     "name": "currydoc",
-    "version": "2.0.0",
+    "version": "3.1.0",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
-        "abstract-curry": ">= 2.0.0",
-        "base"          : ">= 1.0.0, < 2.0.0",
-        "currypath"     : ">= 0.0.1",
-        "cass-analysis" : ">= 2.0.0",
-        "cass"          : ">= 2.0.0",
-        "flatcurry"     : ">= 2.0.0",
-        "frontend-exec" : ">= 0.0.1",
-        "html"          : ">= 2.0.0, < 3.0.0",
-        "markdown"      : ">= 2.0.0, < 3.0.0",
-        "wl-pprint"     : ">= 0.0.1"
+        "base"          : ">= 3.0.0, < 4.0.0",
+        "abstract-curry": ">= 3.0.0, < 4.0.0",
+        "cass-analysis" : ">= 3.0.0, < 4.0.0",
+        "cass"          : ">= 3.0.0, < 4.0.0",
+        "flatcurry"     : ">= 3.0.0, < 4.0.0",
+        "html2"         : ">= 3.0.0, < 4.0.0",
+        "markdown"      : ">= 3.3.0, < 4.0.0",
+        "wl-pprint"     : ">= 3.0.0, < 4.0.0"
     },
     "compilerCompatibility": {
-        "pakcs": ">= 2.0.0, < 3.0.0",
-        "kics2": ">= 2.0.0, < 3.0.0"
+        "pakcs": ">= 3.0.0, < 4.0.0",
+        "kics2": ">= 3.0.0, < 4.0.0"
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {

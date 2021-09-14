@@ -7,9 +7,9 @@
 
 module CurryDoc.Read where
 
-import Char
-import IO
-import List(isSuffixOf)
+import Data.Char
+import Data.List (isSuffixOf)
+import System.IO
 
 import FlatCurry.Types
 
@@ -20,7 +20,7 @@ readModuleComment filename = openFile filename ReadMode >>= readHeader []
  where
   readHeader cs h = do
     eof <- hIsEOF h
-    if eof then hClose h >> return ""  
+    if eof then hClose h >> return ""
            else do l <- hGetLine h
                    case classifyLine l of
                      ModDef    -> hClose h >> return (unlines (reverse cs))

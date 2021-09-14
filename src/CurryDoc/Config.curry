@@ -3,34 +3,33 @@
 --- the CurryDoc tool.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version October 2020
+--- @version March 2021
 ----------------------------------------------------------------------
 
 module CurryDoc.Config where
 
-import Distribution           (curryCompiler)
-import CurryDoc.PackageConfig (packageVersion)
+import Curry.Compiler.Distribution ( curryCompiler )
+import CurryDoc.PackageConfig      ( packageVersion )
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of October 14, 2020"
+currydocVersion = "Version " ++ packageVersion ++ " of March 8, 2021"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
-styleBaseURL = "bt3"
-  --if curryCompiler=="pakcs"
-  --  then "https://www.informatik.uni-kiel.de/~pakcs/bt3"
-  --  else "https://www-ps.informatik.uni-kiel.de/kics2/bt3"
+styleBaseURL = "bt4"
 
 --- The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
-currySystemURL = if curryCompiler=="pakcs"
-                 then "https://www.informatik.uni-kiel.de/~pakcs"
-                 else "https://www-ps.informatik.uni-kiel.de/kics2"
+currySystemURL =
+  if curryCompiler=="pakcs" then "https://www.informatik.uni-kiel.de/~pakcs"
+                            else "https://www-ps.informatik.uni-kiel.de/kics2"
 
 --- The name of this Curry system.
 currySystem :: String
-currySystem = if curryCompiler=="pakcs" then "PAKCS" else "KiCS2"
+currySystem | curryCompiler == "pakcs" = "PAKCS"
+            | curryCompiler == "kics2" = "KiCS2"
+            | otherwise                = "???"
 
 --- The URL of the API search
 currygleURL :: String
@@ -40,6 +39,18 @@ currygleURL = "https://www-ps.informatik.uni-kiel.de/kics2/currygle/"
 curryHomeURL :: String
 curryHomeURL = "http://www.curry-lang.org"
 
+--- The URL of the Curry packages
+curryPackagesURL :: String
+curryPackagesURL = "https://www-ps.informatik.uni-kiel.de/~cpm/"
+
+--- The URL of the base libraries
+baseLibsURL :: String
+baseLibsURL = "https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/base.html"
+
 --- The URL of the Curry Wiki
 curryWikiURL :: String
 curryWikiURL = "https://www-ps.informatik.uni-kiel.de/currywiki"
+
+--- The URL of the Curry Wiki
+curryDocURL :: String
+curryDocURL = curryWikiURL ++ "/tools/currydoc"
