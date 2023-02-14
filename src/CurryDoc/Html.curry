@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version March 2021
+--- @version February 2023
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -28,11 +28,12 @@ import qualified FlatCurry.Goodies as FCG
 import HTML.Base
 import HTML.Styles.Bootstrap4 --( bootstrapPage )
 import HTML.CategorizedList
-import System.CurryPath       ( getLoadPathForModule )
-import System.FrontendExec    ( FrontendTarget (..), callFrontendWithParams
-                              , defaultParams, setHtmlDir, setQuiet )
+import Language.Curry.Resources
+import System.CurryPath         ( getLoadPathForModule )
+import System.FrontendExec      ( FrontendTarget (..), callFrontendWithParams
+                                , defaultParams, setHtmlDir, setQuiet )
 import Text.Markdown
-import Text.Pretty            ( showWidth, empty )
+import Text.Pretty              ( showWidth, empty )
 
 import CurryDoc.AnaInfo
 import CurryDoc.Options

@@ -5,14 +5,15 @@
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
-        "base"          : ">= 3.0.0, < 4.0.0",
-        "abstract-curry": ">= 3.0.0, < 4.0.0",
-        "cass-analysis" : ">= 3.0.0, < 4.0.0",
-        "cass"          : ">= 3.0.0, < 4.0.0",
-        "flatcurry"     : ">= 3.0.0, < 4.0.0",
-        "html2"         : ">= 3.0.0, < 4.0.0",
-        "markdown"      : ">= 3.3.0, < 4.0.0",
-        "wl-pprint"     : ">= 3.0.0, < 4.0.0"
+        "base"           : ">= 3.0.0, < 4.0.0",
+        "abstract-curry" : ">= 3.0.0, < 4.0.0",
+        "cass-analysis"  : ">= 3.0.0, < 4.0.0",
+        "cass"           : ">= 3.0.0, < 4.0.0",
+        "curry-resources": ">= 1.0.0",
+        "flatcurry"      : ">= 3.0.0, < 4.0.0",
+        "html2"          : ">= 3.0.0, < 4.0.0",
+        "markdown"       : ">= 3.3.0, < 4.0.0",
+        "wl-pprint"      : ">= 3.0.0, < 4.0.0"
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
