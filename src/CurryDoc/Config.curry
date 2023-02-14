@@ -13,7 +13,7 @@ import CurryDoc.PackageConfig      ( packageVersion )
 
 --- Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of March 8, 2021"
+currydocVersion = "Version " ++ packageVersion ++ " of February 14, 2023"
 
 --- The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
@@ -41,11 +41,11 @@ curryHomeURL = "http://www.curry-lang.org"
 
 --- The URL of the Curry packages
 curryPackagesURL :: String
-curryPackagesURL = "https://www-ps.informatik.uni-kiel.de/~cpm/"
+curryPackagesURL = "https://cpm.informatik.uni-kiel.de/"
 
 --- The URL of the base libraries
 baseLibsURL :: String
-baseLibsURL = "https://www-ps.informatik.uni-kiel.de/~cpm/pkgs/base.html"
+baseLibsURL = curryPackagesURL ++ "pkgs/base.html"
 
 --- The URL of the Curry Wiki
 curryWikiURL :: String
