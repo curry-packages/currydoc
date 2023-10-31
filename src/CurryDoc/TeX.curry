@@ -47,17 +47,17 @@ generateTexDocs docopts anainfo modname modcmts progcmts = do
 htmlString2Tex :: DocOptions -> String -> String
 htmlString2Tex docopts cmt =
   if withMarkdown docopts
-  then markdownText2LaTeX (replaceIdLinks cmt)
-  else showLatexExps (parseHtmlString (replaceIdLinks cmt))
+    then markdownText2LaTeX (replaceIdLinks cmt)
+    else showLatexExps (parseHtmlString (replaceIdLinks cmt))
 
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by code markdown:
 replaceIdLinks :: String -> String
 replaceIdLinks str = case str of
-  [] -> []
+  []             -> []
   ('\\':'\'':cs) -> '\'' : replaceIdLinks cs
-  (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else c : replaceIdLinks cs
+  (c:cs)         -> if c=='\'' then tryReplaceIdLink [] cs
+                               else c : replaceIdLinks cs
  where
   tryReplaceIdLink ltxt [] = '\'' : reverse ltxt
   tryReplaceIdLink ltxt (c:cs)
@@ -66,8 +66,8 @@ replaceIdLinks str = case str of
    | otherwise = tryReplaceIdLink (c:ltxt) cs
 
   checkId s = if ' ' `elem` s
-              then '\'' : s ++ ['\'']
-              else "<code>"++s++"</code>"
+                then '\'' : s ++ ['\'']
+                else "`" ++ s ++ "`"
 
 -- generate short HTML documentation for a function if it is exported
 -- and not an internal operation to implement type classes:

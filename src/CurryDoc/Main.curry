@@ -183,7 +183,7 @@ makeCompleteDoc docopts recursive reldocdir modpath = do
   docdir <- makeAbsolute reldocdir
   prepareDocDir (docType docopts) docdir
   lookupModuleSourceInLoadPath modpath >>=
-   maybe (error $ "Source code of module '"++modpath++"' not found!")
+   maybe (error $ "Source code of module '" ++ modpath ++ "' not found!")
     (\ (moddir,_) -> do
       let modname = takeFileName modpath
           homeref = ("index.html", [htxt "Program", nbsp, code [htxt modname]])
@@ -315,9 +315,9 @@ readAnaInfo modname = do
 makeDoc :: DocOptions -> Bool -> String -> String -> IO ()
 makeDoc docopts recursive docdir modname = do
   Just (_,progname) <- lookupModuleSourceInLoadPath modname
-  putStrLn ("Reading comments from file '"++progname++"'...")
+  putStrLn $ "Reading comments from file '" ++ progname ++ "'..."
   (modcmts,progcmts) <- readComments progname
-  putStrLn ("Reading analysis information for module \""++modname++"\"...")
+  putStrLn $ "Reading analysis information for module \"" ++ modname ++ "\"..."
   anainfo <- readAnaInfo modname
   makeDocWithComments (docType docopts) docopts recursive docdir
                       anainfo modname modcmts progcmts
