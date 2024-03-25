@@ -11,15 +11,17 @@ import Data.Char
 import Data.List
 import Data.Maybe
 
-import CurryDoc.Options
-import CurryDoc.Read
 import FlatCurry.Types
 import FlatCurry.Files
-import FlatCurry.Show (isClassContext)
+import FlatCurry.Show   ( isClassContext )
 import HTML.Base
-import HTML.LaTeX  ( showLatexExps )
+import HTML.LaTeX       ( showLatexExps )
 import HTML.Parser
 import Text.Markdown
+
+import CurryDoc.AnaInfo
+import CurryDoc.Options
+import CurryDoc.Read
 
 --------------------------------------------------------------------------
 -- Generates the documentation of a module in HTML format where the comments
