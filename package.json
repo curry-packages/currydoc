@@ -20,6 +20,10 @@
         "name": "curry-doc",
         "main": "CurryDoc.Main"
     },
+    "documentation": {
+        "src-dir": "docs",
+        "main": "main.tex"
+    },
     "source": {
         "git": "https://github.com/curry-packages/currydoc.git",
         "tag": "$version"
