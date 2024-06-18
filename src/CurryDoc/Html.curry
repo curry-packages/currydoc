@@ -631,8 +631,8 @@ showContext opts mod (CContext ctxt@(_:_:_)) =
 
 --- Pretty-print a single class constraint.
 showConstraint :: DocOptions -> String -> CConstraint -> String
-showConstraint opts mod (cn,texp) =
-  showTypeCons opts mod cn ++ " " ++ showType opts mod True texp
+showConstraint opts mod (cn,ts) =
+  showTypeCons opts mod cn ++ " " ++ unwords (map (showType opts mod True) ts) 
 
 -- Pretty printer for type expressions in Curry syntax:
 -- second argument is True iff brackets must be written around complex types
