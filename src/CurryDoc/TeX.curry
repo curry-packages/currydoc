@@ -154,8 +154,8 @@ showTexType _ (TVar i) = [chr (97+i)]
 showTexType nested (FuncType t1 t2) = brackets nested $
   maybe (showTexType (isFunctionType t1) t1 ++ " $\\to$ " ++
          showTexType False t2)
-        (\ (cn,ct) -> cn ++ " " ++ showTexType True ct ++ " $\\Rightarrow$ " ++
-                      showTexType False t2)
+        (\ (cn,cts) -> unwords (cn : map (showTexType True) cts) ++
+                       " $\\Rightarrow$ " ++ showTexType False t2)
         (isClassContext t1)
 showTexType nested (TCons tc ts)
  | ts==[]  = snd tc
@@ -171,8 +171,8 @@ showTexType nested (TCons tc ts)
 showTexType nested (ForallType tvs te)
  | null tvs  = showTexType nested te
  | otherwise = brackets nested
-                 (unwords ("forall" : map (showTexType False . TVar . fst) tvs) ++
-                  "." ++ showTexType False te)
+                 (unwords ("forall" : map (showTexType False . TVar . fst) tvs)
+                  ++ "." ++ showTexType False te)
 
 -- convert string into TeX:
 string2tex :: String -> String
