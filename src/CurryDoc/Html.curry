@@ -2,7 +2,7 @@
 --- Operations to generate documentation in HTML format.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version February 2023
+--- @version September 2024
 ----------------------------------------------------------------------
 
 {-# OPTIONS_CYMAKE -Wno-incomplete-patterns #-}
@@ -615,7 +615,6 @@ genFixityInfo fname ops =
   showFixity CInfixlOp = "left-associative"
   showFixity CInfixrOp = "right-associative"
 
-
 --------------------------------------------------------------------------
 -- Pretty printer for qualified types in Curry syntax:
 showQualType :: DocOptions -> String -> CQualTypeExpr -> String
@@ -631,8 +630,8 @@ showContext opts mod (CContext ctxt@(_:_:_)) =
 
 --- Pretty-print a single class constraint.
 showConstraint :: DocOptions -> String -> CConstraint -> String
-showConstraint opts mod (cn,texp) =
-  showTypeCons opts mod cn ++ " " ++ showType opts mod True texp
+showConstraint opts mod (cn,texps) = unwords $
+  showTypeCons opts mod cn : map (showType opts mod True) texps
 
 -- Pretty printer for type expressions in Curry syntax:
 -- second argument is True iff brackets must be written around complex types

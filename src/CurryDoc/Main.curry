@@ -3,7 +3,7 @@
 --- generation of HTML documentation from Curry programs.
 ---
 --- @author Michael Hanus, Jan Tikovsky
---- @version December 2020
+--- @version September 2024
 ----------------------------------------------------------------------
 
 -- * All comments to be put into the HTML documentation must be
