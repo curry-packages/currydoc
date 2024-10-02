@@ -18,7 +18,9 @@
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
         "name": "curry-doc",
-        "main": "CurryDoc.Main"
+        "main": "CurryDoc.Main",
+        "options": { "kics2" : ":set rts -T",
+                     "kmcc"  : ":set args +RTS -T -RTS" }
     },
     "documentation": {
         "src-dir": "docs",
