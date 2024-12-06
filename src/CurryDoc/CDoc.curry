@@ -2,7 +2,7 @@
 --- Functions to generate documentation in "CDoc" format.
 ---
 --- @author Sandra Dylus
---- @version March 2021
+--- @version December 2024
 ----------------------------------------------------------------------
 
 module CurryDoc.CDoc where
@@ -89,33 +89,41 @@ flexRigid :: Rule -> FlexRigidResult
 flexRigid (Rule _ expr) = getFlexRigid expr
 flexRigid (External _)  = UnknownFR
 
--- the name
--- the author
--- the description
-data ModuleInfo = ModuleInfo String String String
-
--- the module
--- the corresponding functions
--- the corresponding data and type declaration
+--- The information about a Curry module contains
+--- * the module information
+--- * the corresponding functions
+--- * the corresponding data and type declaration
 data CurryInfo = CurryInfo ModuleInfo [FunctionInfo] [TypeInfo]
+  deriving (Read, Show)
 
--- the name
--- the signature
--- the corresponding module
--- the description
--- True if property ist defined non-deterministically
--- the flex/rigid status
+--- The basic information about some module contains
+--- * the name
+--- * the author
+--- * the description
+data ModuleInfo = ModuleInfo String String String
+  deriving (Read, Show)
+
+--- The information about functions defined in a Curry module contains
+--- * the name
+--- * the signature
+--- * the corresponding module
+--- * the description
+--- * True if property ist defined non-deterministically
+--- * the flex/rigid status
 data FunctionInfo =
   FunctionInfo String TypeExpr String String Bool FlexRigidResult
+  deriving (Read, Show)
 
--- the name
--- the signature (true indicates a type synonym, false a data type)
--- the corresponding module
--- the description
+--- The information about types defined in a Curry module contains
+--- * the name
+--- * the signature (true indicates a type synonym, false a data type)
+--- * the corresponding module
+--- * the description
 data TypeInfo =
   TypeInfo String [(QName, [TypeExpr])] [TVarIndex] String String Bool
+  deriving (Read,Show)
 
--- auxilieres --------------------------------------------------------
+-- auxiliaties --------------------------------------------------------
 
 author :: [(String, String)] -> String
 author av = concat $ getCommentType "author" av
