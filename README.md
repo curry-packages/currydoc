@@ -114,8 +114,8 @@ Further Information
 -------------------
 
 More details on CurryDoc are described in the user manuals of the Curry systems
-[PAKCS](https://www.informatik.uni-kiel.de/~pakcs/) and
-[KiCS2](https://www-ps.informatik.uni-kiel.de/kics2/).
+[PAKCS](https://www.curry-lang.org/pakcs/) and
+[KiCS2](https://www.curry-lang.org/kics2/).
 There is also a paper describing the basic ideas of CurryDoc:
 
 M. Hanus:
