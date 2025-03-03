@@ -17,6 +17,7 @@ import ReadShowTerm
 import CurryDoc.AnaInfo
 import CurryDoc.Read
 
+--- Generates the documentation of a module in "CDoc" format.
 generateCDoc :: String  -> String -> [(SourceLine,String)] -> AnaInfo
              -> IO String
 generateCDoc modName modCmts progCmts anaInfo = do
@@ -117,8 +118,12 @@ data FunctionInfo =
 --- The information about types defined in a Curry module contains
 --- * the name
 --- * the signature (true indicates a type synonym, false a data type)
+--- * a list of constructors and their argument types (or the type name
+---   and the type expression in case of type synonyms)
+--- * a list of type variables (i.e., non-empty for a polymoprhic type)
 --- * the corresponding module
 --- * the description
+--- * a flag which is `True` if it is a type synonym
 data TypeInfo =
   TypeInfo String [(QName, [TypeExpr])] [TVarIndex] String String Bool
   deriving (Read,Show)
