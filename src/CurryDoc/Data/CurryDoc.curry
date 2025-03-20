@@ -1,6 +1,6 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : August 2018
+     Version : March 2025
 
      Datatype and operations for Abstract CurryDoc
 -}
@@ -11,7 +11,9 @@ import CurryDoc.Info.Comments
 import CurryDoc.Data.AnaInfo
 
 import AbstractCurry.Types
-import AbstractCurry.Select (tconsArgsOfType)
+import AbstractCurry.Select ( tconsArgsOfType )
+
+import Data.Maybe ( catMaybes )
 
 -- | CurryDoc mName mhead exports imports
 data CurryDoc = CurryDoc MName ModuleHeader [ExportEntry CurryDocDecl]
@@ -25,7 +27,7 @@ data CurryDocDecl
                          Bool [CurryDocCons] [Comment]
   | CurryDocNewtypeDecl  QName [CTVarIName] [CurryDocInstanceDecl]
                          (Maybe CurryDocCons) [Comment]
-  | CurryDocClassDecl    QName CContext CTVarIName [CurryDocDecl] [Comment]
+  | CurryDocClassDecl    QName CContext [CTVarIName] [CurryDocFunDep] [CurryDocDecl] [Comment]
   | CurryDocFunctionDecl QName CQualTypeExpr (Maybe CurryDocTypeSig)
                          AnalysisInfo [Comment]
   deriving (Show)
@@ -43,12 +45,16 @@ data CurryDocTypeSig = CurryDocTypeSig QName CContext
   deriving (Show)
 
 -- | Documented Curry instances
-data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext CTypeExpr
+data CurryDocInstanceDecl = CurryDocInstanceDecl QName CContext [CTypeExpr]
                                                  [CurryDocDecl] [Comment]
   deriving (Show)
 
 -- | Documented Curry Record fields
 data CurryDocField = CurryDocField QName CTypeExpr AnalysisInfo [Comment]
+  deriving (Show)
+
+-- | Documented Curry functional dependencies
+data CurryDocFunDep = CurryDocFunDep CFunDep
   deriving (Show)
 
 isCurryDocFuncDecl :: CurryDocDecl -> Bool
@@ -58,8 +64,8 @@ isCurryDocFuncDecl d = case d of
 
 isCurryDocClassDecl :: CurryDocDecl -> Bool
 isCurryDocClassDecl d = case d of
-  CurryDocClassDecl _ _ _ _ _ -> True
-  _                           -> False
+  CurryDocClassDecl _ _ _ _ _ _ -> True
+  _                             -> False
 
 isCurryDocTypeDecl :: CurryDocDecl -> Bool
 isCurryDocTypeDecl d = case d of
@@ -71,13 +77,13 @@ isCurryDocTypeDecl d = case d of
 getTypesigComments :: CurryDocTypeSig -> [Comment]
 getTypesigComments (CurryDocTypeSig _ _ _ cs) = cs
 
-instTypeName :: CurryDocInstanceDecl -> QName
-instTypeName (CurryDocInstanceDecl _ _ ty _ _) = q
-  where Just (q,_) = tconsArgsOfType ty
-
+instTypeNames :: CurryDocInstanceDecl -> [QName]
+instTypeNames (CurryDocInstanceDecl _ _ ts _ _)  
+ = map fst $ catMaybes $ map tconsArgsOfType ts
+ 
 curryDocDeclName :: CurryDocDecl -> QName
 curryDocDeclName (CurryDocTypeDecl     n _ _ _    ) = n
 curryDocDeclName (CurryDocDataDecl     n _ _ _ _ _) = n
 curryDocDeclName (CurryDocNewtypeDecl  n _ _ _ _  ) = n
-curryDocDeclName (CurryDocClassDecl    n _ _ _ _  ) = n
+curryDocDeclName (CurryDocClassDecl    n _ _ _ _ _) = n
 curryDocDeclName (CurryDocFunctionDecl n _ _ _ _  ) = n

@@ -1,17 +1,17 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky
-     Version : May 2018
+     Version : March 2025
 
      This module contains some configuration parameters for the CurryDoc tool.
 -}
 module CurryDoc.Config where
 
-import Distribution           (curryCompiler)
-import CurryDoc.PackageConfig (packageVersion)
+import Curry.Compiler.Distribution ( curryCompiler )
+import CurryDoc.PackageConfig      ( packageVersion )
 
 -- | Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of September, 2018"
+currydocVersion = "Version " ++ packageVersion ++ " of March, 2025"
 
 -- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String

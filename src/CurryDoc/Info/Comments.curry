@@ -1,12 +1,13 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : August 2018
+     Version : March 2025
 
      Operations and datatypes to read comment files and
-     match comments to declarations
+     match comments to declarations.
 -}
 module CurryDoc.Info.Comments
-  (-- * Main functions
+  -- TODO(lasse): add export list
+  {-(-- * Main functions
    readComments, associateCurryDoc,
    -- * Comment functions
    splitNestedComment, commentString, isOldStyleComment, isExportSection,
@@ -15,8 +16,8 @@ module CurryDoc.Info.Comments
    lookupRecord, lookupTypeSig, lookupNewDecl, lookupDataDecl, lookupTypeDecl,
    -- * Datatypes
    Comment(..),
-   CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField)
-   where
+   CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField ) -}
+ where
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Info.Goodies
@@ -24,12 +25,12 @@ import CurryDoc.Info.Goodies
 import AbstractCurry.Types
 import AbstractCurry.Select
 
-import Char            (isSpace)
-import Maybe           (listToMaybe, mapMaybe)
-import List            (partition, init, last, isPrefixOf)
-import Directory       (doesFileExist)
-import FileGoodies     (getFileInPath, lookupFileInPath)
-import FilePath        (takeFileName, (</>), (<.>))
+import Data.Char           ( isSpace )
+import Data.Maybe          ( listToMaybe, mapMaybe )
+import Data.List           ( partition, init, last, isPrefixOf )
+import System.Directory    ( doesFileExist )
+import System.Path         ( getFileInPath )
+import System.FilePath     ( takeFileName, (</>), (<.>))
 import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
                            , inCurrySubdir, stripCurrySuffix )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
@@ -37,6 +38,10 @@ import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
 import Curry.Span
 import Curry.SpanInfo
 import Curry.Types
+
+import Data.Maybe ( fromJust, fromMaybe, maybeToList )
+
+import Debug.Trace ( trace ) -- TODO(lasse): remove
 
 data Comment = NestedComment String
              | LineComment   String
@@ -48,13 +53,13 @@ data CDocComment = Pre     { comment :: Comment }
                  | None    { comment :: Comment }
                  | Section { comment :: Comment, nest :: Int }
 
--- |
+-- | 
 data CommentedDecl
   = CommentedTypeDecl QName [Comment]
   | CommentedDataDecl QName [Comment] [CommentedConstr]
   | CommentedNewtypeDecl QName [Comment] CommentedConstr
   | CommentedClassDecl QName [Comment] [CommentedDecl]
-  | CommentedInstanceDecl QName CTypeExpr [Comment] [CommentedDecl]
+  | CommentedInstanceDecl QName [CTypeExpr] [Comment] [CommentedDecl]
   | CommentedFunctionDecl QName [Comment]
   | CommentedTypeSig [QName] [Comment] [(CTypeExpr, [Comment])]
   | CommentedExternalDecl [QName] [Comment]
@@ -84,9 +89,7 @@ readCommentsWithParseOptions progname options = do
   mbsrc <- lookupModuleSourceInLoadPath progname
   case mbsrc of
     Nothing -> do -- no source file, try to find Comments file in load path:
-      loadpath <- getLoadPathForModule progname
-      filename <- getFileInPath (commentsFileName (takeFileName progname)) [""]
-                                loadpath
+      filename <- fromJust <$> getFileInPath (commentsFileName (takeFileName progname))
       readCommentsFile filename
     Just (dir,_) -> do
       callFrontendWithParams COMMS options progname
@@ -115,13 +118,13 @@ readCommentsFileRaw filename = do
             else error ("EXISTENCE ERROR: Comment file '" ++ filename ++
                         "' does not exist")
 
--- Associates given comments with declarations from given module
--- based on the source code positions
+-- | Associates given comments with declarations from given module
+--   based on the source code positions
 associateCurryDoc :: [(Span, Comment)] -> Module a
                   -> ([CommentedDecl], [Comment], Maybe [ExportEntry QName])
-associateCurryDoc []       (Module _   _ _ ex _ _ ) =
+associateCurryDoc []       (Module _   _ _ _ ex _ _ ) =
   ([], [], maybe Nothing (Just . associateExports []) ex)
-associateCurryDoc xs@(_:_) (Module spi _ _ ex im ds) =
+associateCurryDoc xs@(_:_) (Module spi _ _ _ ex im ds) =
   let (header, rest) = associateCurryDocHeader spi sp xs'
       exportList     = maybe Nothing (Just . associateExports xs') ex
       matchings      = cleanup $ merge $ associateCurryDocDecls rest ds Nothing
@@ -281,19 +284,19 @@ associateCurryDocDeclPre xs d@(ExternalDataDecl _ f _) =
 associateCurryDocDeclPre xs d@(TypeDecl _ f _ _) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
   in  CommentedTypeDecl (identToQName f) (map (comment . snd) match)
-associateCurryDocDeclPre xs (ClassDecl spi _ f _ ds) =
+associateCurryDocDeclPre xs (ClassDecl spi _ _ f _ _ ds) =
   let (result, rest) = associateCurryDocHeader spi sp xs
       sp             = case ds of
                          (d:_) -> getSrcSpan d
                          _     -> NoSpan
   in  CommentedClassDecl (identToQName f) result
                          (associateCurryDocDecls rest ds Nothing)
-associateCurryDocDeclPre xs (InstanceDecl spi _ f ty ds) =
+associateCurryDocDeclPre xs (InstanceDecl spi _ _ f ts ds) =
   let (result, rest) = associateCurryDocHeader spi sp xs
       sp             = case ds of
                          (d:_) -> getSrcSpan d
                          _     -> NoSpan
-  in  CommentedInstanceDecl (qIdentToQName f) (typeExprToCType ty) result
+  in  CommentedInstanceDecl (qIdentToQName f) (map typeExprToCType ts) result
                             (associateCurryDocDecls rest ds Nothing)
 associateCurryDocDeclPre xs d@(NewtypeDecl _ f _ c _) =
   let (match, rest ) = getToMatch (getSrcSpan d) NoSpan xs isPre
@@ -307,35 +310,44 @@ associateCurryDocDeclPre xs d@(NewtypeDecl _ f _ c _) =
                                      (skipUntilAfter sp rest')
           in  CommentedRecord (identToQName cn) (map (comment . snd) cons)
                               field
-  in CommentedNewtypeDecl (identToQName f) (map (comment . snd) match) ccon
+  in postProcessDataDecl $ 
+      CommentedNewtypeDecl (identToQName f) (map (comment . snd) match) ccon
 associateCurryDocDeclPre xs d@(DataDecl _ f _ [] _) =
   let (match, _) = getToMatch (getSrcSpan d) NoSpan xs isPre
-  in  CommentedDataDecl (identToQName f) (map (comment . snd) match) []
+  in  postProcessDataDecl $ 
+       CommentedDataDecl (identToQName f) (map (comment . snd) match) []
 associateCurryDocDeclPre xs d@(DataDecl spi f _ (c:cs) _) =
   let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
       SpanInfo _ (_:sp:_) = spi
-  in CommentedDataDecl (identToQName f) (map (comment . snd) match)
-                       (matchConstructorsPre (c:cs) (skipUntilAfter sp rest))
+  in postProcessDataDecl $
+      CommentedDataDecl (identToQName f) (map (comment . snd) match)
+                        (matchConstructorsPre (c:cs) (skipUntilAfter sp rest))
 associateCurryDocDeclPre xs d@(TypeSig _ fs
   (QualTypeExpr (SpanInfo _ (s:ss)) _ ty)) =
   let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
       sp = last (s:ss) -- throw away everything until '=>'
-  in  CommentedTypeSig (map identToQName fs) (map (comment . snd) match)
+  in postProcessTypeSig $
+      CommentedTypeSig (map identToQName fs) (map (comment . snd) match)
                        (matchArgumentsPre ty (skipUntilAfter sp rest))
 associateCurryDocDeclPre xs d@(TypeSig spi fs
   (QualTypeExpr (SpanInfo _ []) _ ty)) =
    let (match, rest) = getToMatch (getSrcSpan d) NoSpan xs isPre
        SpanInfo _ [sp] = spi
-   in  CommentedTypeSig (map identToQName fs) (map (comment . snd) match)
+   in postProcessTypeSig $ 
+       CommentedTypeSig (map identToQName fs) (map (comment . snd) match)
                         (matchArgumentsPre ty (skipUntilAfter sp rest))
 associateCurryDocDeclPre xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
-associateCurryDocDeclPre xs (DefaultDecl _ _) = UnsupportedDecl
+associateCurryDocDeclPre xs (DefaultDecl   _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre xs (PatternDecl _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPre xs (FreeDecl      _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 associateCurryDocDeclPre _ (TypeSig _ _ (QualTypeExpr NoSpanInfo _ _)) =
   error "associateCurryDocDeclPre: NoSpanInfo in QualTypeExpr"
 
--- match pre comments to arguments in a typesig
+-- | Matches pre comments to arguments in a typesig
 matchArgumentsPre :: TypeExpr -> [(Span, CDocComment)]
                   -> [(CTypeExpr, [Comment])]
 matchArgumentsPre ty cs = case ty of
@@ -351,18 +363,18 @@ matchArgumentsPre ty cs = case ty of
 matchConstructorsPre :: [ConstrDecl] -> [(Span, CDocComment)]
                      -> [CommentedConstr]
 matchConstructorsPre []       _  = []
-matchConstructorsPre (RecordDecl spi _ _ f fs:cns) cs =
+matchConstructorsPre (RecordDecl spi f fs:cns) cs =
   let SpanInfo stop (sp:_) = spi
       (match, rest)        = getToMatch stop NoSpan cs isPre
       fields               = matchFieldsPre fs (skipUntilAfter sp cs)
   in  CommentedRecord (identToQName f) (map (comment . snd) match) fields
         : matchConstructorsPre cns (skipUntilAfter stop rest)
-matchConstructorsPre (ConstrDecl spi _ _ f _ :cns) cs =
+matchConstructorsPre (ConstrDecl spi f _ :cns) cs =
   let stop          = getSrcSpan spi
       (match, rest) = getToMatch stop NoSpan cs isPre
   in  CommentedConstr (identToQName f) (map (comment . snd) match)
         : matchConstructorsPre cns (skipUntilAfter stop rest)
-matchConstructorsPre (ConOpDecl spi _ _ _ f _ :cns) cs =
+matchConstructorsPre (ConOpDecl spi _ f _ :cns) cs =
   let stop          = getSrcSpan spi
       (match, rest) = getToMatch stop NoSpan cs isPre
   in  CommentedConsOp (identToQName f) (map (comment . snd) match)
@@ -394,19 +406,19 @@ associateCurryDocDeclPost xs d@(ExternalDataDecl _ f _) =
 associateCurryDocDeclPost xs d@(TypeDecl _ f _ _) =
   CommentedTypeDecl (identToQName f) (map (comment . snd)
                     (skipUntilAfter (getSrcSpan d) xs))
-associateCurryDocDeclPost xs (ClassDecl spi _ f _ ds) =
+associateCurryDocDeclPost xs (ClassDecl spi _ _ f _ _ ds) =
   let (result, rest) = associateCurryDocHeader spi sp xs
       sp = case ds of
              (d:_) -> getSrcSpan d
              _     -> NoSpan
   in  CommentedClassDecl (identToQName f) result
                          (associateCurryDocDecls rest ds Nothing)
-associateCurryDocDeclPost xs (InstanceDecl spi _ f ty ds) =
+associateCurryDocDeclPost xs (InstanceDecl spi _ _ f ts ds) =
   let (result, rest) = associateCurryDocHeader spi sp xs
       sp = case ds of
              (d:_) -> getSrcSpan d
              _     -> NoSpan
-  in  CommentedInstanceDecl (qIdentToQName f) (typeExprToCType ty) result
+  in  CommentedInstanceDecl (qIdentToQName f) (map typeExprToCType ts) result
                             (associateCurryDocDecls rest ds Nothing)
 associateCurryDocDeclPost xs (NewtypeDecl _ f _ c []) = --no deriving
   CommentedNewtypeDecl (identToQName f) [] -- thus cannot have post comments
@@ -436,7 +448,11 @@ associateCurryDocDeclPost xs (TypeSig _ fs (QualTypeExpr _ _ ty)) =
   CommentedTypeSig (map identToQName fs) [] (matchArgumentsPost ty xs)
 associateCurryDocDeclPost xs (InfixDecl _ _ _ _) = UnsupportedDecl
   (map (comment . snd) xs)
-associateCurryDocDeclPost xs (DefaultDecl _ _) = UnsupportedDecl
+associateCurryDocDeclPost xs (DefaultDecl   _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (PatternDecl _ _ _) = UnsupportedDecl
+  (map (comment . snd) xs)
+associateCurryDocDeclPost xs (FreeDecl      _ _) = UnsupportedDecl
   (map (comment . snd) xs)
 
 matchNewConstrPost :: NewConstrDecl -> [(Span, CDocComment)]
@@ -467,18 +483,18 @@ matchConstructorsPost :: [ConstrDecl] -> [(Span, CDocComment)]
                       -> [CommentedConstr]
 matchConstructorsPost []           _  = []
 matchConstructorsPost [c]          cs = case c of
-  RecordDecl spi _ _ f fs   ->
+  RecordDecl spi f fs   ->
     let SpanInfo spR (sp:ss) = spi
     in  [CommentedRecord (identToQName f)
                          (map (comment . snd) (skipUntilAfter spR cs))
                          (matchFieldsPost (last ss) fs (skipUntilAfter sp cs))]
-  ConOpDecl _ _ _ _ f _ ->
+  ConOpDecl _ _ f _ ->
     [CommentedConsOp (identToQName f)
                      (map (comment . snd) (skipUntilAfter (getSrcSpan c) cs))]
-  ConstrDecl _ _ _ f _ ->
+  ConstrDecl _ f _ ->
     [CommentedConstr (identToQName f)
                      (map (comment . snd) (skipUntilAfter (getSrcSpan c) cs))]
-matchConstructorsPost (RecordDecl spi _ _ f fs:cn':cns) cs =
+matchConstructorsPost (RecordDecl spi f fs:cn':cns) cs =
   let SpanInfo _ (sp:ss) = spi
       stop          = getSrcSpan cn'
       cs'           = skipUntilAfter (getSrcSpan spi) cs
@@ -486,13 +502,13 @@ matchConstructorsPost (RecordDecl spi _ _ f fs:cn':cns) cs =
       fields        = matchFieldsPost (last ss) fs (skipUntilAfter sp cs)
   in  CommentedRecord (identToQName f) (map (comment . snd) match) fields
         : matchConstructorsPost (cn':cns) rest
-matchConstructorsPost (ConstrDecl spi _ _ f _:cn':cns) cs =
+matchConstructorsPost (ConstrDecl spi f _:cn':cns) cs =
   let stop          = getSrcSpan cn'
       cs'           = skipUntilAfter (getSrcSpan spi) cs
       (match, rest) = getToMatch stop NoSpan cs' isPost
   in  CommentedConstr (identToQName f) (map (comment . snd) match)
         : matchConstructorsPost (cn':cns) rest
-matchConstructorsPost (ConOpDecl spi _ _ _ f _:cn':cns) cs =
+matchConstructorsPost (ConOpDecl spi _ f _:cn':cns) cs =
   let stop          = getSrcSpan cn'
       cs'           = skipUntilAfter (getSrcSpan spi) cs
       (match, rest) = getToMatch stop NoSpan cs' isPost
@@ -619,6 +635,11 @@ cleanupConstr c = case c of
     -> CommentedRecord f cs (concatMap cleanupField fs)
   _ -> c
 
+constrName :: CommentedConstr -> QName
+constrName (CommentedConstr n _  ) = n
+constrName (CommentedRecord n _ _) = n
+constrName (CommentedConsOp n _  ) = n
+
 cleanupField :: CommentedField -> [CommentedField]
 cleanupField (ns, cs) = map (\n -> ([n], cs)) ns
 
@@ -631,10 +652,10 @@ isPre  Post    {} = False
 isPre  None    {} = False
 isPre  Section {} = False
 
-isPost Pre     {}    = False
-isPost Post    {}    = True
-isPost None    {}    = False
-isPost Section {}    = False
+isPost Pre     {} = False
+isPost Post    {} = True
+isPost None    {} = False
+isPost Section {} = False
 
 isNone Pre     {} = False
 isNone Post    {} = False
@@ -683,6 +704,176 @@ splitNestedComment c@(LineComment   _) = [c]
 splitNestedComment   (NestedComment s) = map LineComment $ lines s
 
 -------------------------------------------------------------------------------
+-- Utility for handling old-style documentation comments.
+
+-- | High-level representation of old-style comments
+--   consisting of either a simple comment or a field comment
+--   of shape "@field fieldname fieldcomment".
+data OldStyleComment 
+  = OldStyleComment Comment                          -- ^ Simple comment
+  | OldStyleField   OldStyleFieldType String Comment -- ^ Field comment 
+
+-- | Field types for comments with "type-key-value" triples.
+data OldStyleFieldType = Param | Return | Cons 
+ deriving Eq
+
+-- | Post-processes a type signature by parameter and return type comments
+--   to the associated type expression. We can simply add the comments as
+--   annotations to the type expression in-order, because the CurryDoc
+--   specification forces a strict left-to-right order of annotations.
+--   That is, the parameter names are purely cosmetic and do not affect
+--   which comment is associated with which parameter.
+--
+--   Consider the following example:
+--
+--       --- Some function!
+--       --- @param x First parameter
+--       --- @param y Second parameter
+--       --- @returns Return value
+--       f :: Int -> a -> Int
+--
+--   This is transformed to a CurryDoc representation as follows:
+--
+--       -- | Some function!
+--       f :: Int -- ^ First parameter
+--         -> a   -- ^ Second parameter
+--         -> Int -- ^ Return value
+--
+postProcessTypeSig :: CommentedDecl -> CommentedDecl
+postProcessTypeSig cd = case cd of
+  CommentedTypeSig f cs ts -> 
+    -- Split comments into normal comments, @param comments, and @return comments.
+    -- Drop @cons comments, as they are misplaced in type signatures.
+    let (cs1,  fcs1) = break isField $ map commentToOldStyleComment cs
+        (fcsP, fcsR) = break (hasField Return) $ filter (not . hasField Cons) fcs1
+    in CommentedTypeSig f (map oldStyleCommentToComment cs1) $ insertReturn fcsR $ insertDescs fcsP ts 
+  _ -> cd
+ where 
+  -- Inserts @param comments into the list of type expressions.
+  insertDescs :: [OldStyleComment] -> [(CTypeExpr, [Comment])] -> [(CTypeExpr, [Comment])]
+  insertDescs fcs ts = case ts of
+    []     -> []
+    t:ts'  -> case fcs of
+      []     -> t : insertDescs fcs ts'
+      f':fs   -> insertDesc t f' : insertDescs fs ts'
+
+  -- Inserts an @param comment into a type expression.
+  insertDesc :: (CTypeExpr, [Comment]) -> OldStyleComment -> (CTypeExpr, [Comment])
+  insertDesc (t, cs) c = (t, cs ++ [oldStyleCommentToComment c])
+
+  -- Inserts an @return comment into the last type expression.
+  insertReturn :: [OldStyleComment] -> [(CTypeExpr, [Comment])] -> [(CTypeExpr, [Comment])]
+  insertReturn fcs ts = case ts of
+                                        -- If there are multiple @return comments,
+                                        -- we only insert the first one.
+    [t]    -> if null fcs then [t] else [insertDesc t $ head fcs]
+    t:ts'  -> t : insertReturn fcs ts'
+    []     -> []
+
+-- | For the old documentation style, this function moves constructor
+--   comments to the associated constructor declarations within
+--   the data declaration.
+--
+--   Consider the following example:
+--
+--       --- Some data type
+--       --- @cons C Some comment documenting the constructor C
+--       data D a = C | D
+--
+--   This is transformed to a CurryDoc representation as follows:
+-- 
+--       data D a = C -- ^ Some comment documenting the constructor C
+--                | D
+--
+postProcessDataDecl :: CommentedDecl -> CommentedDecl
+postProcessDataDecl cd = case cd of
+  CommentedDataDecl f cs cns -> 
+    let (cs', ccs') = break (hasField Cons) $ map commentToOldStyleComment cs
+    in CommentedDataDecl f (map oldStyleCommentToComment cs') $ map (addToConstructor ccs') cns
+  CommentedNewtypeDecl f cs cn ->
+    let (cs', ccs') = break (hasField Cons) $ map commentToOldStyleComment cs
+    in CommentedNewtypeDecl f (map oldStyleCommentToComment cs') $ addToConstructor ccs' cn
+  _ -> cd
+ where
+  addToConstructor :: [OldStyleComment] -> CommentedConstr -> CommentedConstr
+  addToConstructor ccs c = case c of
+    CommentedConstr n cs'    -> CommentedConstr n (consCom n ++ cs')
+    CommentedRecord n cs' fs -> CommentedRecord n (consCom n ++ cs') fs
+    CommentedConsOp n cs'    -> CommentedConsOp n (consCom n ++ cs')
+   where 
+    -- Retrieves the associated comment for some constructor name.
+    consCom n = maybeToList $ lookupConsComment (snd n) ccs
+
+-- | Looks up a constructor comment in a list of old-style comments.
+lookupConsComment :: String -> [OldStyleComment] -> Maybe Comment
+lookupConsComment = lookupFieldComment Cons
+
+-- | Looks up a field comment in a list of old-style comments.
+lookupFieldComment :: OldStyleFieldType -> String -> [OldStyleComment] -> Maybe Comment
+lookupFieldComment _ _ []     = Nothing
+lookupFieldComment ft n (c:cs) = case c of
+  OldStyleField f n' c' | n == n' && ft == f -> Just c'
+  _ -> lookupFieldComment ft n cs
+
+-- | Degradation of a comment to an old-style comment.
+--   If the comment is of shape "@field fieldname fieldcomment",
+--   it is converted to an 'OldStyleField' comment. 
+commentToOldStyleComment :: Comment -> OldStyleComment
+commentToOldStyleComment c = case words $ commentString c of
+  (field:name:rest) -> maybe (OldStyleComment c) 
+                             makeFieldComment
+                               $ stringToOldStyleField field
+   where 
+    -- Creates a field comment from a field type, name, and comment.
+    -- In case of an @return, in comparison to an @param or @cons, 
+    -- there is no field name.
+    makeFieldComment :: OldStyleFieldType -> OldStyleComment
+    makeFieldComment f = case f of
+      Return -> OldStyleField f ""   (setCommentString c $ cleanupFieldComment (name:rest))
+      _      -> OldStyleField f name (setCommentString c $ cleanupFieldComment rest) 
+
+    -- Drops preceding "-", if present, and concatenates the rest.
+    cleanupFieldComment :: [String] -> String
+    cleanupFieldComment ss = case ss of
+      "-":ss' -> unwords ss'
+      _       -> unwords ss
+  _ -> OldStyleComment c
+
+-- | Converts a string to an old-style field. Returns Nothing if the
+--   string does not represent a field. The string must start with "@"
+--   and be followed by a valid field name.
+stringToOldStyleField :: String -> Maybe OldStyleFieldType
+stringToOldStyleField s = case s of
+  "@param"  -> Just Param
+  "@return" -> Just Return
+  "@cons"   -> Just Cons
+  _         -> Nothing
+
+-- | Checks if an old-style comment has a specific field.
+hasField :: OldStyleFieldType -> OldStyleComment -> Bool
+hasField f (OldStyleField f' _ _) = f == f'
+hasField _ (OldStyleComment    _) = False
+
+-- | Checks if an old-style comment is a field.
+isField :: OldStyleComment -> Bool
+isField (OldStyleField _ _ _) = True
+isField (OldStyleComment   _) = False
+
+-- | Extracts the documentation part of some old-style comment.
+--
+--   For a simple comment, the comment itself is returned.
+--   For a comment of shape `@<field> <field name> <field comment>`,
+--   the `<field comment>` is returned.
+oldStyleCommentToComment :: OldStyleComment -> Comment
+oldStyleCommentToComment (OldStyleComment   c) = c
+oldStyleCommentToComment (OldStyleField _ _ c) = c
+
+-- | Sets the string of a comment while preserving the comment type.
+setCommentString :: Comment -> String -> Comment
+setCommentString (LineComment   _) s = LineComment s
+setCommentString (NestedComment _) s = NestedComment s
+
+-------------------------------------------------------------------------------
 -- lookup entries
 
 lookupClass :: QName -> [CommentedDecl] -> Maybe CommentedDecl
@@ -692,12 +883,14 @@ lookupClass n (d:ds) = case d of
     | n =~= n' -> Just d
   _            -> lookupClass n ds
 
-lookupInstance :: QName -> CTypeExpr -> [CommentedDecl] -> Maybe CommentedDecl
+lookupInstance :: QName -> [CTypeExpr] -> [CommentedDecl] -> Maybe CommentedDecl
 lookupInstance _ _  []     = Nothing
-lookupInstance n ty (d:ds) = case d of
-  CommentedInstanceDecl n' ty' _ _
-    | n =~= n' && ty =~~= ty' -> Just d
-  _                           -> lookupInstance n ty ds
+lookupInstance n ts (d:ds) = case d of
+  CommentedInstanceDecl n' ts' _ _
+    | n =~= n' && sameTypes ts' -> Just d
+  _                             -> lookupInstance n ts ds
+ where
+  sameTypes ts' = length ts == length ts' && and (zipWith (=~~=) ts ts')
 
 lookupFunc :: QName -> [CommentedDecl] -> Maybe CommentedDecl
 lookupFunc _ []     = Nothing

@@ -1,4 +1,4 @@
-module CurryDoc.Generators.JSON (generateJSON) where
+module CurryDoc.Generators.JSON ( generateJSON ) where
 
 import CurryDoc.Info
 import CurryDoc.Info.Export
@@ -10,13 +10,14 @@ import AbstractCurry.Types
 import AbstractCurry.Pretty
 import Text.Pretty
 
-import List
+import Data.List
 
 class ToJSON a where
   toJSON :: a -> JValue
 
-generateJSON :: DocOptions -> CurryDoc -> IO String
-generateJSON _ = return . ppJSON . toJSON
+-- | Converts a CurryDoc to a JSON string.
+generateJSON :: CurryDoc -> IO String
+generateJSON = return . ppJSON . toJSON
 
 instance ToJSON CurryDoc where
   toJSON (CurryDoc name (ModuleHeader header _) ds _) = JObject
@@ -57,19 +58,25 @@ instance ToJSON CurryDocDecl where
                     Just c  -> [c]
                     Nothing -> []
 
-  toJSON (CurryDocClassDecl (mname, name) cx v ds cs) = JObject
-    [ (    "module-name", JString mname)
-    , (           "name", JString  name)
-    , (        "context", toJSON cx    )
-    , (  "type-variable", jsonVar v    )
-    , ("class-functions", toJSON ds    )
-    , (       "comments", toJSON cs    )]
+  toJSON (CurryDocClassDecl (mname, name) cx vs fdeps ds cs) = JObject
+    [ (     "module-name", JString mname          )
+    , (            "name", JString  name          )
+    , (         "context", toJSON cx              )
+    , (  "type-variables", JArray $ map jsonVar vs)
+    , ( "class-functions", toJSON ds              )
+    , ( "functional-deps", toJSON fdeps           )
+    , (        "comments", toJSON cs              )]
 
   toJSON (CurryDocFunctionDecl (mname, name) ty _ _ cs) = JObject
     [ ("module-name", JString mname)
     , (       "name", JString  name)
     , (       "type", toJSON ty    )
     , (   "comments", toJSON cs    )]
+
+instance ToJSON CurryDocFunDep where
+  toJSON (CurryDocFunDep (xs, ys)) = JObject 
+    [ ("lhs", jsonVars xs) 
+    , ("rhs", jsonVars ys)]
 
 instance ToJSON a => ToJSON [a] where
   toJSON = JArray . map toJSON
@@ -136,7 +143,7 @@ jsonVars :: [CTVarIName] -> JValue
 jsonVars = JArray . map jsonVar
 
 ppConstraint :: CConstraint -> String
-ppConstraint ((_, name), ty) = name ++ " " ++ ppType ty
+ppConstraint ((_, name), ts) = name ++ " " ++ unwords (map ppType ts)
 
 ppType :: CTypeExpr -> String
 ppType = unwords . concatMap words . lines

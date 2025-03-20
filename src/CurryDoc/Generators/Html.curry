@@ -11,37 +11,37 @@ module CurryDoc.Generators.Html
    translateSource2ColoredHtml, replaceIdLinksMarkdown)
    where
 
-import FilePath
-import FileGoodies     (getFileInPath)
-import List
-import Char
-import Sort
-import Time
-import Maybe
-import Debug
+import System.FilePath  ( (</>), (<.>) )
+import System.Directory ( getFileWithSuffix )
+import Data.List        ( sortBy, last, intersperse, intercalate, nub )
+import Data.Time        ( getLocalTime, calendarTimeToString, CalendarTime )
+import Data.Char        ( isSpace, toUpper )
+import Data.Maybe       ( catMaybes )
 
 import AbstractCurry.Types
 import AbstractCurry.Files
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
-import Analysis.TotallyDefined(Completeness(..))
+import Analysis.TotallyDefined ( Completeness(..) )
 import HTML.Base
-import HTML.Styles.Bootstrap3 (bootstrapPage, glyphicon, homeIcon)
+import HTML.Styles.Bootstrap3  ( bootstrapPage, glyphicon, homeIcon )
 import HTML.CategorizedList
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, setHtmlDir, callFrontendWithParams )
+import Text.Pretty         ( showWidth, empty )
 import Text.Markdown
-import Text.Pretty            (showWidth, empty)
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Info
 import CurryDoc.Options
 import CurryDoc.Config
 
+import Prelude hiding ( empty )
+
 infixl 0 `withTitle`
 
--- | Generates the documentation of a module in HTML format
+-- | Generates the documentation of a module in HTML format.
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let
@@ -58,7 +58,7 @@ generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
                    , href (mname ++ "_curry.html") [htxt mname]
                    ]
 
--- | Generate HTML for the given export structure.
+-- | Generates HTML for the given export structure.
 --   The first parameter is used to assign a number to each
 --   'CurryDoc.Info.Comments.ExportSection'.
 --   Returns the generated HTML and the next number to be given to any
@@ -93,8 +93,8 @@ genHtmlForExport num doc (ExportEntry decl : rest)
                                                             ++ restHtml)
   where (num', restHtml) = genHtmlForExport num doc rest
 
--- | Translate a documentation comment to HTML
---   and use markdown translation if necessary
+-- | Translates a documentation comment to HTML
+--   and uses markdown translation if necessary.
 docComment2HTML :: DocOptions -> String
                 -> [HtmlExp] -- ^ either a paragraph (`<p>`) element
                              --   or an empty list
@@ -103,8 +103,8 @@ docComment2HTML opts cmt
   | withMarkdown opts = markdownText2HTML (replaceIdLinksMarkdown opts cmt)
   | otherwise         = [par (replaceIdLinksHtml opts cmt)]
 
--- | Replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
---   by markdown hyperrefences:
+-- | Replaces identifier hyperlinks in a string (i.e., enclosed in single quotes)
+--   by markdown hyperrefences.
 replaceIdLinksMarkdown ::  DocOptions -> String -> String
 replaceIdLinksMarkdown opts = replaceIdLinks idCon otherCon
   where idCon md fun = if null md
@@ -113,8 +113,8 @@ replaceIdLinksMarkdown opts = replaceIdLinks idCon otherCon
                               docURL opts md ++ ".html#" ++ fun ++ ")"
         otherCon = id
 
--- | Replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
---   by HTML hyperrefences:
+-- | Replaces identifier hyperlinks in a string (i.e., enclosed in single quotes)
+--   by HTML hyperrefences.
 replaceIdLinksHtml ::  DocOptions -> String -> [HtmlExp]
 replaceIdLinksHtml opts = replaceIdLinks idCon otherCon
   where idCon md fun = if null md
@@ -124,7 +124,7 @@ replaceIdLinksHtml opts = replaceIdLinks idCon otherCon
         otherCon = (:[]) . htxt
 
 -- TODO: not working correctly, may be ambigous
--- | Replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
+-- | Replaces identifier hyperlinks in a string (i.e., enclosed in single quotes)
 --   according to the given function.
 replaceIdLinks :: (String -> String -> [a]) ->
                   (String ->           [a]) ->
@@ -152,7 +152,7 @@ replaceIdLinks idCon otherCon str = case str of
                then idCon ""                     (reverse revfun)
                else idCon (reverse $ tail revmd) (reverse revfun)
 
--- | Generate the left navigation panel from the export structure.
+-- | Generates the left navigation panel from the export structure.
 genHtmlExportSections :: [ExportEntry a] -> [HtmlExp]
 genHtmlExportSections = genHtmlExportSections' 0
   where genHtmlExportSections' _   [] = []
@@ -165,7 +165,7 @@ genHtmlExportSections = genHtmlExportSections' 0
         genHtmlExportSections' num (ExportEntryModule _ : rest) =
           genHtmlExportSections' num rest
 
--- | Generate HTML documentation for a module.
+-- | Generates HTML documentation for a module.
 genHtmlModule :: DocOptions -> ModuleHeader -> [HtmlExp]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
   docComment2HTML docopts maincmt ++
@@ -173,7 +173,7 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
   where fieldHtml (typ, value) =
           par [bold [htxt (show typ ++ ": ")], htxt value]
 
--- | Generate HTML documentation for a datatype.
+-- | Generates HTML documentation for a datatype.
 genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
@@ -209,7 +209,7 @@ genHtmlType docopts d = case d of
                   _ -> showType docopts tmod False ty
   _ -> []
 
--- | Generate HTML documentation for a constructor.
+-- | Generates HTML documentation for a constructor.
 genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
             -> [HtmlExp]
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
@@ -249,12 +249,12 @@ genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
           _              -> precedence ai
 
 -- TODO: show precedence
--- | Generate HTML documentation for record fields.
+-- | Generates HTML documentation for record fields.
 genHtmlField :: DocOptions -> CurryDocField -> [HtmlExp]
 genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
   [anchored fname
-    ([ code [opnameDoc [htxt fname]]
-     , HtmlText (" :: " ++ showType docopts fmod True ty)
+    ([ code [opnameDoc [htxt fname], 
+             HtmlText (" :: " ++ showType docopts fmod True ty)]
      ] ++ ifNotNull txt [htxt " : "]
                         (removeTopPar . docComment2HTML docopts))]
   where txt = concatCommentStrings (map commentString cs)
@@ -263,22 +263,22 @@ genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
 -- Generate HTMl for a typeclass instance.
 genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
 genHtmlInst docopts dn d = case d of
-  CurryDocInstanceDecl i@(imod, _) cx ty _ _ ->
+  CurryDocInstanceDecl i@(imod, _) cx ts _ _ ->
     [code ((if null cxString then [] else [HtmlText cxString, nbsp]) ++
            [HtmlText (showType docopts dn False (CTCons i)), nbsp] ++
-           [HtmlText (showType docopts dn
-                       (isApplyType ty || isFunctionType ty) ty)])]
+           (intersperse nbsp $ map (\ty -> HtmlText (showType docopts dn
+                                            (isApplyType ty || isFunctionType ty) ty)) ts))]
     where cxString = showContext docopts imod True cx
 
 -- Generate HTML documentation for a typeclass.
 genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
 genHtmlClass docopts d = case d of
-  CurryDocClassDecl (cmod, cname) cx v ds cs ->
+  CurryDocClassDecl (cmod, cname) cx vs fdeps ds cs ->
        [anchored cname
          [(code
            ([bold [htxt "class "]] ++
              (if null cxString then [] else [HtmlText cxString, nbsp]) ++
-             [showCodeNameRef docopts (cmod, cname)] ++ [htxt (' ' : snd v)])
+             [showCodeNameRef docopts (cmod, cname)] ++ [htxt $ ' ' : showVarList vs] ++ fdepsExp)
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ ifNotNull ds
@@ -286,6 +286,11 @@ genHtmlClass docopts d = case d of
          ((:[]) . borderedTable
                 . map ((:[]) . genHtmlFunc "classfunctionheader" docopts))
     where cxString = showContext docopts cmod True cx
+          fdepsExp 
+            | null fdeps = []
+            | otherwise  = [htxt $ " | "
+                             ++ (concat $ intersperse ", " $ map funDepString fdeps)]
+          funDepString (CurryDocFunDep (tl, tr)) = showVarList tl ++ " -> " ++ showVarList tr
   _ -> []
 
 -- Generate HTML documentation for a function.
@@ -458,13 +463,13 @@ showContext opts mod arr (CContext ctxt@(_:_:_)) =
   bracketsIf True (intercalate ", " (map (showConstraint opts mod) ctxt)) ++
   if arr then " =>" else ""
 
--- | Pretty-print a single class constraint.
+-- | Pretty-prints a single class constraint.
 showConstraint :: DocOptions -> String -> CConstraint -> String
-showConstraint opts mod (cn,texp) =
-  showTypeCons opts mod cn ++ " " ++ showType opts mod True texp
+showConstraint opts mod (cn,texps) =
+  showTypeCons opts mod cn ++ " " ++ unwords (map (showType opts mod True) texps)
 
--- Pretty printer for type expressions in Curry syntax:
--- second argument is True iff brackets must be written around complex types
+-- | Pretty-prints type expressions in Curry syntax.  
+--   The second argument is True iff brackets must be written around complex types.
 showType :: DocOptions -> String -> Bool -> CTypeExpr -> String
 showType opts mod nested texp = case texp of
   CTVar (_,n) -> n
@@ -478,6 +483,10 @@ showType opts mod nested texp = case texp of
                 showType opts mod True t2)
              (\ (tc,ts) -> showTConsType opts mod nested tc ts)
              (tconsArgsOfType texp)
+
+-- | Pretty-prints a list of type variables.
+showVarList :: [CTVarIName] -> String
+showVarList = unwords . map snd
 
 showTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
 showTConsType opts mod nested tc ts
@@ -505,7 +514,7 @@ showFixity CInfixlOp = "left-associative"
 showFixity CInfixrOp = "right-associative"
 
 --------------------------------------------------------------------------
--- translate source file into HTML file with syntax coloring
+-- | Translates source file into HTML file with syntax coloring.
 translateSource2ColoredHtml :: String -> String -> IO ()
 translateSource2ColoredHtml docdir modname = do
     let output = docdir </> modname++"_curry.html"
@@ -514,7 +523,7 @@ translateSource2ColoredHtml docdir modname = do
       (setQuiet True (setHtmlDir docdir defaultParams)) modname
 
 --------------------------------------------------------------------------
--- generate the index page for the documentation directory:
+-- | Generate the index page for the documentation directory.
 genMainIndexPage :: DocOptions -> String -> [String] -> IO ()
 genMainIndexPage docopts docdir modnames =
  do putStrLn ("Writing index page to \""++docdir++"/index.html\"...")
@@ -543,7 +552,7 @@ indexPage modnames =
    then []
    else [h2 [htxt "Modules:"],
          ulist (map (\m->[href (m++".html") [htxt m]])
-                    (mergeSortBy leqStringIgnoreCase modnames))])
+                    (sortBy leqStringIgnoreCase modnames))])
   ++ [explainIcons]
 
 -- Paragraph to explain the meaning of the icons:
@@ -595,7 +604,7 @@ showCodeNameRef opts (modname,name) =
         isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") name
 
 sortNames :: [(a,String)] -> [(a,String)]
-sortNames names = mergeSortBy (\(_,n1) (_,n2)->leqStringIgnoreCase n1 n2) names
+sortNames names = sortBy (\(_,n1) (_,n2) -> leqStringIgnoreCase n1 n2) names
 
 --------------------------------------------------------------------------
 -- generate the constructor index page for the documentation directory:
@@ -622,8 +631,8 @@ genClassesIndexPage opts docdir cls = do
              (htmlIndex opts (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
-   expclasses = nub $ map    (\(CClass n _   _ _ _) -> n) $
-                      filter (\(CClass _ vis _ _ _) -> vis == Public) cls
+   expclasses = nub $ map    (\(CClass n _   _ _ _ _) -> n) $
+                      filter (\(CClass _ vis _ _ _ _) -> vis == Public) cls
 
 --------------------------------------------------------------------------
 -- generate the index page categorizing all system libraries of PAKCS/KICS2
@@ -720,16 +729,21 @@ mainPage title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
       bootstrapPage styleBaseURL cssIncludes title homeBrand
-                    lefttopmenu righttopmenu 3 sidemenu htmltitle maindoc
+                    (map fromHtmlExps lefttopmenu)
+                    (map fromHtmlExps righttopmenu)
+                    3
+                    (fromHtmlExps sidemenu)
+                    (fromHtmlExps htmltitle)
+                    (fromHtmlExps maindoc)
                     (curryDocFooter time)
 
 cssIncludes :: [String]
 cssIncludes = ["bootstrap.min","currydoc"]
 
-homeBrand :: (String,[HtmlExp])
-homeBrand = (currySystemURL, [homeIcon, nbsp, htxt currySystem])
+homeBrand :: (String,[BaseHtml])
+homeBrand = (currySystemURL, map fromHtmlExp [homeIcon, nbsp, htxt currySystem])
 
--- | Generate a page with the default documentation style.
+-- | Generates a page with the default documentation style.
 showPageWithDocStyle :: String    -- ^ The title of the page
                      -> [HtmlExp] -- ^ The main contents of the page
                      -> String
@@ -738,7 +752,7 @@ showPageWithDocStyle title body =
     HtmlPage title
              (map (\f -> pageCSS $ styleBaseURL ++ "/css/" ++ f ++ ".css")
                   cssIncludes)
-             body
+             (fromHtmlExps body)
 
 -- | The standard right top menu.
 rightTopMenu :: [[HtmlExp]]
@@ -777,8 +791,8 @@ withTitle he t = he `addAttr` ("title",t)
 
 --------------------------------------------------------------------------
 -- Standard footer information for generated web pages:
-curryDocFooter :: CalendarTime -> [HtmlExp]
-curryDocFooter time =
+curryDocFooter :: CalendarTime -> [BaseHtml]
+curryDocFooter time = map fromHtmlExp $ 
   [italic [htxt "Generated by ",
            bold [htxt "CurryDoc"],
            htxt (" ("++currydocVersion++") at "),
@@ -796,10 +810,13 @@ simplePage :: String          -- ^ The title of the page
 simplePage title htmltitle lefttopmenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPage styleBaseURL cssIncludes title homeBrand lefttopmenu
-                    rightTopMenu 0 []
-                    [h1 (maybe [htxt title] id htmltitle)]
-                    maindoc
+      bootstrapPage styleBaseURL cssIncludes title homeBrand
+                    (map fromHtmlExps lefttopmenu)
+                    (map fromHtmlExps rightTopMenu) 
+                    0 
+                    []
+                    [fromHtmlExp $ h1 (maybe [htxt title] id htmltitle)]
+                    (fromHtmlExps maindoc)
                     (curryDocFooter time)
 
 -- | An anchored section in the document:
@@ -823,31 +840,49 @@ ehref :: String -> [HtmlExp] -> HtmlExp
 ehref url desc = href url desc `addAttr` ("target","_blank")
 
 --------------------------------------------------------------------------
--- auxiliaries:
+-- Auxiliaries:
+
+fromHtmlExps :: [HtmlExp] -> [BaseHtml]
+fromHtmlExps = map fromHtmlExp
 
 ulistOrEmpty :: [[HtmlExp]] -> [HtmlExp]
 ulistOrEmpty items | null items = []
                    | otherwise  = [ulist items]
 
--- generate the html documentation for given comments ("param", "return",...)
+-- | Generates the html documentation for given comments ("param", "return",...).
 ifNotNull :: [a] -> [b] -> ([a] -> [b]) -> [b]
 ifNotNull cmt doc genDoc
   | null cmt  = []
   | otherwise = doc ++ genDoc cmt
 
--- style for explanation categories, like "Constructors:", "Parameters:",...
+-- | Style for explanation categories, like "Constructors:", "Parameters:",...
 explainCat :: String -> HtmlExp
 explainCat s = textstyle "explaincat" s
 
--- style for function/constructor name shown in the documentation part:
+-- | Style for function/constructor name shown in the documentation part:
 opnameDoc :: [HtmlExp] -> HtmlExp
 opnameDoc = style "opname"
 
--- Sorts a list of strings.
-sortStrings :: [String] -> [String]
-sortStrings strings = mergeSortBy leqStringIgnoreCase strings
+-- | Less-or-equal comparison for strings (ignoring case)
+leqStringIgnoreCase :: String -> String -> Bool
+leqStringIgnoreCase = leqList leqCharIgnoreCase
 
--- Returns the first sentence in a string:
+-- | Less-or-equal comparison for lists
+leqList :: Eq a => (a -> a -> Bool) -> [a] -> [a] -> Bool
+leqList leq xs ys = case (xs,ys) of
+  ([],_)        -> True
+  (_,[])        -> False
+  (x:xs',y:ys') -> leq x y || (x == y && leqList leq xs' ys')
+
+-- | Less-or-equal comparison for characters (ignoring case)
+leqCharIgnoreCase :: Char -> Char -> Bool
+leqCharIgnoreCase c1 c2 = toUpper c1 <= toUpper c2
+
+-- | Sorts a list of strings.
+sortStrings :: [String] -> [String]
+sortStrings strings = sortBy leqStringIgnoreCase strings
+
+-- | Returns the first sentence in a string:
 firstSentence :: String -> String
 firstSentence s = let (fs,ls) = break (=='.') s in
   if null ls
@@ -856,37 +891,40 @@ firstSentence s = let (fs,ls) = break (=='.') s in
        then fs ++ "."
        else fs ++ "." ++ firstSentence (tail ls)
 
--- if first argument is True, put brackets around second argument:
+-- | Puts brackets around second argument if the first argument is True.
 bracketsIf :: Bool -> String -> String
 bracketsIf False s = s
 bracketsIf True  s = "("++s++")"
 
--- get the first identifier (name or operator in brackets) in a string:
+-- | Gets the first identifier (name or operator in brackets) in a string.
 getFirstId :: String -> String
 getFirstId [] = ""
 getFirstId (c:cs)
   | isAlpha c = takeWhile isIdChar (c:cs)
-  | c == '('  = let bracketid = takeWhile (/=')') cs
+  | c == '('  = let bracketid = takeWhile (/= ')') cs
                  in if all (`elem` infixIDs) bracketid
                     then bracketid
                     else ""
   | otherwise = ""
 
--- is an alphanumeric character, underscore, or apostroph?
+-- | Is an alphanumeric character, underscore, or apostroph?
 isIdChar :: Char -> Bool
 isIdChar c = isAlphaNum c || c == '_' || c == '\''
 
--- All characters occurring in infix operators.
+-- | All characters occurring in infix operators.
 infixIDs :: String
 infixIDs =  "~!@#$%^&*+-=<>?./|\\:"
 
--- remove a single top-level paragraph in HTML expressions:
+-- | Removes a single top-level paragraph in HTML expressions.
 removeTopPar :: [HtmlExp] -> [HtmlExp]
 removeTopPar hexps = case hexps of
   [HtmlStruct "p" [] hs] -> hs
   _ -> hexps
 
--- enclose a non-letter identifier in brackets:
+-- | Encloses a non-letter identifier in brackets.
 showId :: String -> String
-showId name = if isAlpha (head name) then name
-                                     else ('(':name)++")"
+showId name 
+  | null name = error "showId: empty name"
+  | otherwise = if isAlpha (head name) 
+                  then name
+                  else '(' : name ++ ")"

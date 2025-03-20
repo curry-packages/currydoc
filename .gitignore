@@ -2,3 +2,4 @@
 .curry
 .cpm
 src/CurryDoc/PackageConfig.curry
+DOC_*/

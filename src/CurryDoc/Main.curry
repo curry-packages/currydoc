@@ -3,7 +3,7 @@
     Description : Implementation of CurryDoc, a utility for the automatic
                   generation of HTML documentation from Curry programs.
     Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-    Version     : August 2018
+    Version     : March 2025
 -}
 --  * All comments prefixed by a CurryDoc comment ("-- |", "{- |",
 --    "-- ^" or "{- ^") are are considered for documentation.
@@ -21,17 +21,26 @@
 --  * The exact rules on how comments are associated with syntactic elements
 --    (similar to Haddock) are documented at: docs/manual.tex
 
-module CurryDoc.Main (main, debug) where
+module CurryDoc.Main ( main, debug ) where
 
-import Directory
-import FileGoodies  (getFileInPath, lookupFileInPath)
-import FilePath
-import Function
-import List
-import Maybe        (fromJust)
-import System
-import Time
+import System.Directory    ( findFileWithSuffix, getFileWithSuffix
+                           , getCurrentDirectory, setCurrentDirectory
+                           , doesDirectoryExist, doesFileExist
+                           , getModificationTime )
+import System.Environment  ( getArgs )
+import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
+                           , inCurrySubdir, stripCurrySuffix )
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
+                           , rcParams, setQuiet, callFrontendWithParams )
+import System.Process      ( system )
+import System.FilePath
+import Data.Time           ( compareClockTime )
+import Data.Maybe          ( fromJust )
+import Data.Function
+import Data.List
 import ReadShowTerm
+import Control.Applicative ( when )
+import Control.Monad       ( unless, foldM )
 
 import AbstractCurry.Files
 import AbstractCurry.Types
@@ -40,23 +49,20 @@ import FlatCurry.Files
 import FlatCurry.Types (Prog(..))
 import Curry.Types
 import Curry.Files
-import System.Console.ANSI.Codes (red, blue)
-import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
-                           , inCurrySubdir, stripCurrySuffix )
-import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
-                           , rcParams, setQuiet, callFrontendWithParams )
+import System.Console.ANSI.Codes ( red, blue )
 
 import CurryDoc.Data.AnaInfo
-import CurryDoc.Files         (generateModuleDocMapping)
+import CurryDoc.Files         ( generateModuleDocMapping )
+import CurryDoc.PackageConfig ( packagePath )
 import CurryDoc.Options
 import CurryDoc.Generators
 import CurryDoc.Info
 import CurryDoc.Config
-import CurryDoc.PackageConfig (packagePath)
 
 --------------------------------------------------------------------------
 -- Global definitions:
 
+-- | Banner of the CurryDoc tool.
 banner :: String
 banner = unlines [bannerLine,bannerText,bannerLine]
  where
@@ -64,25 +70,26 @@ banner = unlines [bannerLine,bannerText,bannerLine]
   "CurryDoc (" ++ currydocVersion ++ ") - the Curry Documentation Tool"
  bannerLine = take (length bannerText) (repeat '-')
 
--- Directory where include files for generated documention (e.g., icons,
--- css, tex includes) are stored:
+-- | Directory where include files for generated documention (e.g., icons,
+--   css, tex includes) are stored:
 includeDir :: String
 includeDir = packagePath </> "include"
 
--- | Check arguments and call main function:
+-- | Checks and processes the args before running CurryDoc.
 main :: IO ()
 main = do
   args <- getArgs
   putStrLn banner
   processArgs defaultCurryDocOptions args
 
--- | call CurryDoc with given parameters
+-- | Calls CurryDoc with the given parameters.
 debug :: [String] -> IO ()
 debug opts = do
   dir <- getCurrentDirectory
   processArgs defaultCurryDocOptions opts
   setCurrentDirectory dir
 
+-- | Processes the command line arguments.
 processArgs :: DocOptions -> [String] -> IO ()
 processArgs opts args = do
   case args of
@@ -135,20 +142,20 @@ processArgs opts args = do
         makeCompleteDoc opts' docdir (stripCurrySuffix modname)
     _ -> printUsageMessage
 
--- Process the original user options into the form required by CurryDoc.
+-- | Processes the original user options into the form required by CurryDoc.
 processOpts :: DocOptions -> IO DocOptions
 processOpts opts = do
   modurls <- generateModuleDocMapping (useDirURL opts)
   return $ opts { docMods = map fst modurls
                 , docURL  = \m -> maybe m (\b -> b </> m) (lookup m modurls) }
 
+-- | Prints a usage message.
 printUsageMessage :: IO ()
 printUsageMessage = do
-  args <- getArgs
+  printError
+
   putStrLn $ unlines
-   [ "ERROR: Illegal arguments for CurryDoc: " ++ unwords args
-   , ""
-   , "Usage:"
+   [ "Usage:"
    , "curry-doc <options> [--html|--tex|--json] [<doc_dir>] <module>"
    , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
    , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
@@ -163,22 +170,28 @@ printUsageMessage = do
    , "  --noanalysis  : do not generate any further analysis information for functions"
    , "  --norecursive : do not generate documentation for imported modules"
    ]
+ where 
+  printError = do
+    args <- getArgs
+    putStrLn $ "ERROR: " ++ 
+        if null args 
+          then "No arguments given!"
+          else "Illegal arguments for CurryDoc: " ++ unwords args
 
-
--- create directory if not existent:
+-- | Creates a directory if it's not existent.
 createDir :: String -> IO ()
 createDir dir = do
   exdir <- doesDirectoryExist dir
-  unless exdir $ system ("mkdir -p " ++ dir) >> done
+  unless exdir $ system ("mkdir -p " ++ dir) >> return ()
 
--- Recursively copies a directory structure.
+-- | Recursively copies a directory structure.
 copyDirectory :: String -> String -> IO ()
 copyDirectory src dst = do
   retCode <- system $ "cp -pR \"" ++ src ++ "\" \"" ++ dst ++ "\""
   when (retCode /= 0) $
     error $ "Copy failed with return code " ++ show retCode
 
--- The main function of the CurryDoc utility.
+-- | The main function of the CurryDoc utility.
 makeCompleteDoc :: DocOptions -> String -> String -> IO ()
 makeCompleteDoc docopts reldocdir modpath = do
     docdir <- makeAbsolute reldocdir
@@ -186,8 +199,7 @@ makeCompleteDoc docopts reldocdir modpath = do
     prepareWithTargets targets [modpath]
     putStrLn "Start generating documentation"
     let modname = takeFileName modpath
-    when (recursive docopts) $ (makeRecursiveDoc docopts docdir modname []
-                                >> done)
+    when (recursive docopts) $ (makeRecursiveDoc docopts docdir modname []) >> return ()
     makeDocIfNecessary docopts docdir modname
     when (withIndex docopts) $ genIndexPages docopts docdir [modname]
     -- change access rights to readable for everybody:
@@ -195,7 +207,7 @@ makeCompleteDoc docopts reldocdir modpath = do
     putStrLn ("Documentation files written into directory " ++ docdir)
   where targets = [ACY, SAST, COMMS, FCY, FINT]
 
--- Transform a file path into an absolute file path:
+-- | Transforms a file path into an absolute file path.
 makeAbsolute :: String -> IO String
 makeAbsolute f =
   if isAbsolute f
@@ -203,47 +215,45 @@ makeAbsolute f =
   else do curdir <- getCurrentDirectory
           return (curdir </> f)
 
--- compile to the specified targets
+-- | Compiles to the specified targets.
 prepareWithTargets :: [FrontendTarget] -> [String] -> IO ()
 prepareWithTargets targets modnames = do
     putStrLn "Compiling modules..."
-    flip mapIO modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
+    flip mapM_ modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
       maybe (error $ "Source code of module '"++modpath++"' not found!")
         (\ (moddir,_) -> do
           let modname = takeFileName modpath
           setCurrentDirectory moddir
           -- parsing source program
           callFrontendFor modname targets))
-    done
   where callFrontendFor _       []             = return ()
         callFrontendFor modname (target:other) = do
           params <- rcParams
           let paramsTargets = foldr addTarget params other
           callFrontendWithParams target (setQuiet True paramsTargets) modname
 
--- Generate only the index pages for a list of (already compiled!) modules:
+-- | Generates only the index pages for a list of (already compiled!) modules.
 genIndexPages :: DocOptions -> String -> [String] -> IO ()
 genIndexPages docopts docdir modnames = do
   putStrLn "Generating index pages ..."
   (alltypes,allfuns,allclasses) <-
-    mapIO readTypesFuncsClassesWithImports modnames >>= return . unzip3
+    mapM readTypesFuncsClassesWithImports modnames >>= return . unzip3
   genMainIndexPage     docopts docdir modnames
   genFunctionIndexPage docopts docdir (concat allfuns)
   genConsIndexPage     docopts docdir (concat alltypes)
   genClassesIndexPage  docopts docdir (concat allclasses)
   -- change access rights to readable for everybody:
-  system ("chmod -R go+rX "++docdir)
-  done
+  system ("chmod -R go+rX "++docdir) >> return ()
 
--- Generate a system library index page categorizing the given
--- (already compiled!) modules
+-- | Generate a system library index page categorizing the given
+--   (already compiled!) modules.
 genSystemLibsIndex :: DocOptions -> String -> [String] -> IO ()
 genSystemLibsIndex docopts docdir modnames = do
   -- generate index pages (main index, function index, constructor index)
   genIndexPages docopts docdir modnames
   putStrLn ("Reading module infos ...")
-  cmts <- mapIO readComments modnames
-  prog <- mapIO readShortAST modnames
+  cmts <- mapM readComments modnames
+  prog <- mapM readShortAST modnames
   putStrLn ("Grouping modules by categories ...")
   let
       modInfos = zip modnames (map genModHeader (zip cmts prog))
@@ -258,7 +268,7 @@ genSystemLibsIndex docopts docdir modnames = do
   category (_, ModuleHeader xs _) = getCategoryWithDefault "general" xs
   snd3 (_, b, _) = b
 
--- create documentation directory (if necessary) with gifs and stylesheets:
+-- | Creates documentation directory (if necessary) with GIFs and stylesheets.
 prepareDocDir :: DocType -> String -> IO ()
 prepareDocDir HtmlDoc docdir = do
   createDir docdir
@@ -278,31 +288,30 @@ copyIncludeIfPresent :: String -> String -> IO ()
 copyIncludeIfPresent docdir inclfile = do
   existIDir <- doesDirectoryExist includeDir
   when existIDir $
-    system (unwords ["cp", includeDir </> inclfile, docdir]) >> done
+    system (unwords ["cp", includeDir </> inclfile, docdir]) >> return ()
 
--- generate documentation for a single module:
+-- | Generates documentation for a single module.
 makeDoc :: DocOptions -> String -> String -> IO ()
 makeDoc docopts docdir modname = do
   res <- makeAbstractDoc docopts modname
   makeDocForType (docType docopts) docopts docdir modname res
 
--- generate abstract CurryDoc for a single module
+-- | Generates abstract CurryDoc for a single module.
 makeAbstractDoc :: DocOptions -> MName -> IO CurryDoc
 makeAbstractDoc docopts modname = do
   putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
   cmts <- readComments modname
-  when (any (isOldStyleComment . snd) cmts)
-    (putStrLn (red
-      "Warning: The CurryDoc comment-style \"--- \" is deprecated"))
+  when (any (isOldStyleComment . snd) cmts) $
+    putStrLn (red "Warning: The CurryDoc comment-style \"--- \" is deprecated")
   putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
   prog <- readShortAST modname
   putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
   acyname <- getLoadPathForModule modname >>=
-             getFileInPath (abstractCurryFileName modname) [""]
+             getFileWithSuffix (abstractCurryFileName modname) [""]
   acy <- readAbstractCurryFile acyname
   putStrLn ("Recursively reading imported modules of \"" ++ modname ++ "\"...")
   allProg <- readCurryWithImports modname
-  importsDoc <- mapIO (readOrGenerateCurryDoc docopts . progName) $ tail allProg
+  importsDoc <- mapM (readOrGenerateCurryDoc docopts . progName) $ tail allProg
   res <- if withAnalysis docopts
          then do putStrLn ("Reading analysis information for module \""
                            ++ modname ++ "\"...")
@@ -312,14 +321,14 @@ makeAbstractDoc docopts modname = do
          else    return $ generateCurryDocInfos
                                 modname cmts prog acy importsDoc
   putStrLn ("Generating abstract CurryDoc for module \"" ++ modname ++ "\"...")
-  writeFile (replaceExtension acyname "cydoc") (showQTerm res)
+  writeFile (replaceExtension acyname "cydoc") (show res)
   return res
 
--- get the abstract CurryDoc for a file or generate it if necessary
+-- | Returns the abstract CurryDoc for a file or generate it if necessary.
 readOrGenerateCurryDoc :: DocOptions -> String -> IO (String, CurryDoc)
 readOrGenerateCurryDoc docopts modname =
   do cydoc <- getLoadPathForModule modname >>=
-              lookupFileInPath (curryDocFileName modname) [""]
+              findFileWithSuffix (curryDocFileName modname) ["CurryDoc.Data.CurryDoc"]
      case cydoc of
        Just doc -> do
            ctime <- getModificationTime (replaceExtension doc "fcy")
@@ -327,7 +336,7 @@ readOrGenerateCurryDoc docopts modname =
            if compareClockTime ctime htime == GT
              then do regenerate "outdated"
              else do content <- readFile doc
-                     return (modname, readQTerm content)
+                     return (modname, readUnqualifiedTerm ["..."] content) -- TODO(lasse): replace "..." with proper module names
        Nothing -> do regenerate "missing"
   where regenerate reason = do
          putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++
@@ -335,24 +344,21 @@ readOrGenerateCurryDoc docopts modname =
          res <- makeAbstractDoc docopts modname
          return (modname, res)
 
--- convert abstract CurryDoc to the respective target type
+-- | Converts abstract CurryDoc to the respective target type.
 makeDocForType :: DocType -> DocOptions -> String -> String
                -> CurryDoc -> IO ()
 makeDocForType HtmlDoc docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateHtmlDocs docopts cdoc)
   translateSource2ColoredHtml docdir modname
-
-makeDocForType TexDoc docopts docdir modname cdoc = do
+makeDocForType TexDoc  docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateTexDocs docopts cdoc)
+makeDocForType JSON    docopts docdir modname cdoc = do
+  writeOutfile docopts docdir modname (generateJSON cdoc)
 
-makeDocForType JSON docopts docdir modname cdoc = do
-  writeOutfile docopts docdir modname (generateJSON docopts cdoc)
-
-
--- Generates the documentation for a module if it is necessary.
--- I.e., the documentation is generated if no previous documentation
--- file exists or if the existing documentation file is older than
--- the FlatCurry file.
+-- | Generates the documentation for a module if it is necessary.
+--   I.e., the documentation is generated if no previous documentation
+--   file exists or if the existing documentation file is older than
+--   the FlatCurry file.
 makeDocIfNecessary :: DocOptions -> String -> String -> IO ()
 makeDocIfNecessary docopts docdir modname = do
   when (modname `notElem` docMods docopts) $ do
@@ -364,9 +370,8 @@ makeDocIfNecessary docopts docdir modname = do
      else do
        ctime  <- getFlatCurryFileInLoadPath modname >>= getModificationTime
        dftime <- getModificationTime docfile
-       if compareClockTime ctime dftime == GT
-        then copyOrMakeDoc docopts docdir modname
-        else done
+       when (compareClockTime ctime dftime == GT) $ 
+        copyOrMakeDoc docopts docdir modname
 
 makeRecursiveDoc :: DocOptions -> String -> String -> [String] -> IO [String]
 makeRecursiveDoc docopts docdir parentname processed = do
@@ -378,12 +383,11 @@ makeRecursiveDoc docopts docdir parentname processed = do
                      makeDocIfNecessary docopts docdir modname
                      return (modname : proc')) processed imports
 
-
 -- get imports of a module by reading the interface, if possible:
 getImports :: String -> IO [String]
 getImports modname = do
   mbfintfile <- getLoadPathForModule modname >>=
-                lookupFileInPath (flatCurryIntName modname) [""]
+                findFileWithSuffix (flatCurryIntName modname) [""]
   (Prog _ imports _ _ _) <- maybe
                              (getFlatCurryFileInLoadPath modname >>=
                               readFlatCurryFile)
@@ -396,9 +400,9 @@ copyOrMakeDoc docopts docdir modname = do
   hasCopied <- copyDocIfPossible docopts docdir modname
   unless hasCopied $ makeDoc docopts docdir modname
 
--- Copy the documentation file from standard documentation directoy "CDOC"
--- (used for documentation of system libraries) if possible.
--- Returns true if the copy was possible.
+-- | Copies the documentation file from standard documentation directoy "CDOC"
+--   (used for documentation of system libraries) if possible.
+--   Returns true if the copy was possible.
 copyDocIfPossible :: DocOptions -> String -> String -> IO Bool
 copyDocIfPossible docopts docdir modname =
   if docType docopts == TexDoc
@@ -423,8 +427,8 @@ copyDocIfPossible docopts docdir modname =
 
 -- auxiliaries:
 
--- reads all types and function declarations (also imported ones) of
--- a module:
+-- | Reads all types and function declarations (also imported ones) of
+--   a module:
 readTypesFuncsClassesWithImports :: String
                                  -> IO ([CTypeDecl],[CFuncDecl],[CClassDecl])
 readTypesFuncsClassesWithImports modname = do
@@ -433,13 +437,13 @@ readTypesFuncsClassesWithImports modname = do
                                   -> (types,funs,cls)) allprogs)
   return (concat ts, concat fs, concat cs)
 
--- get the associated file extenstion from DocType
+-- | Returns the associated file extenstion from DocType.
 fileExtension :: DocType -> String
 fileExtension HtmlDoc = "html"
 fileExtension TexDoc  = "tex"
 fileExtension JSON    = "json"
 
--- harmonized writeFile function for all docType
+-- | Harmonized writeFile function for all docType.
 writeOutfile :: DocOptions -> String -> String -> IO String -> IO ()
 writeOutfile docopts docdir modname generate = do
   doc     <- generate
@@ -447,6 +451,6 @@ writeOutfile docopts docdir modname generate = do
   putStrLn ("Writing documentation to \"" ++ outfile ++ "\"...")
   writeFile outfile doc
 
--- transform the path of a curry programm to the path of the abstract CurryDoc
+-- | Transforms the path of a curry programm to the path of the abstract CurryDoc.
 curryDocFileName :: FilePath -> FilePath
 curryDocFileName modname = inCurrySubdir (stripCurrySuffix modname) <.> "cydoc"

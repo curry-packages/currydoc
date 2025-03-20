@@ -6,10 +6,9 @@
 -}
 module CurryDoc.Generators.TeX (generateTexDocs) where
 
-import Char
-import Distribution
-import List
-import Maybe
+import Curry.Compiler.Distribution
+import Data.Char ( chr, isAlpha, isSpace )
+import Data.List ( intercalate, intersperse )
 
 import AbstractCurry.Types
 import AbstractCurry.Select
@@ -21,8 +20,9 @@ import Text.Markdown
 import CurryDoc.Options
 import CurryDoc.Info
 
- -- TODO: The generated .tex does not have all the information that .html has
- -- This has also been the case in prior versions
+ -- TODO: The generated .tex does not have all the information that .html has.
+ -- This has also been the case in prior versions.
+ -- For example, the funcional dependencies of a class are not shown.
 
 -- | Generates the documentation of a module in LaTeX format
 generateTexDocs :: DocOptions -> CurryDoc -> IO String
@@ -136,11 +136,11 @@ genTexType docopts d = case d of
 
 genTexInst :: DocOptions -> String -> CurryDocInstanceDecl -> String
 genTexInst docopts modname d = case d of
-  CurryDocInstanceDecl (cmod, cname) cx ty _ _ ->
+  CurryDocInstanceDecl (cmod, cname) cx ts _ _ ->
     "\n" ++
     (if null cxString then "" else cxString ++ " ") ++
     "\\textbf{" ++ cname ++ "} " ++
-    showTexType docopts modname (isApplyType ty || isFunctionType ty) ty ++
+    unwords (map (\ty -> showTexType docopts modname (isApplyType ty || isFunctionType ty) ty) ts) ++
     "\n\n"
     where cxString = showTexContext docopts cmod cx
 
@@ -173,10 +173,10 @@ genTexField docopts (CurryDocField (fmod,fname) ty _ cs) =
 -- generate Tex documentation for a function:
 genTexClass :: DocOptions -> CurryDocDecl -> String
 genTexClass docopts d = case d of
-  CurryDocClassDecl (cmod, cname) cx v ds cs
+  CurryDocClassDecl (cmod, cname) cx v _ ds cs
     -> "\\curryclassstart{" ++ cname ++ " " ++
        (if null cxString then "" else cxString ++ " ") ++
-       snd v ++ "}{" ++
+       unwords (map snd v) ++ "}{" ++
        docStringToTex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
        concatMap (genTexFunc docopts) ds ++
@@ -207,8 +207,8 @@ showTexContext opts mod (CContext ctxt@(_:_:_)) =
 
 -- Pretty-print a single class constraint.
 showTexConstraint :: DocOptions -> String -> CConstraint -> String
-showTexConstraint opts mod (cn,texp) =
-  "\\textbf{" ++ snd cn ++ "} " ++ showTexType opts mod True texp
+showTexConstraint opts mod (cn,texps) =
+  "\\textbf{" ++ snd cn ++ "} " ++ unwords (map (showTexType opts mod True) texps)
 
 -- Pretty printer for types in Curry syntax as TeX string.
 -- first argument is True iff brackets must be written around complex types

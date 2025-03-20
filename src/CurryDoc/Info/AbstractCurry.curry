@@ -1,11 +1,11 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : August 2018
+     Version : March 2025
 
      Operations to add information from AbstactCurry to the
      commented declarations.
 -}
-module CurryDoc.Info.AbstractCurry (addAbstractCurryProg) where
+module CurryDoc.Info.AbstractCurry ( addAbstractCurryProg ) where
 
 import AbstractCurry.Types
 import AbstractCurry.Select
@@ -15,8 +15,8 @@ import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
 import CurryDoc.Info.Goodies
 
-import List  (last)
-import Maybe (listToMaybe)
+import Data.List  ( last )
+import Data.Maybe ( listToMaybe )
 
 -- | Remove unexported entities and
 --   add exported entities that did not have any comments.
@@ -38,29 +38,30 @@ addAbstractCurryProg (CurryProg _ _ _ cls inst typ func _) ds =
 --   Otherwise create one with those infos
 -- All this is only done, when the AbstractCurry decl is public (exported)
 
-
 -- Currently ignores comments and declarations and just adds context and type
 addAbstractCurryInstInfo :: [CInstanceDecl] -> [CommentedDecl]
                          -> [CurryDocInstanceDecl]
 addAbstractCurryInstInfo []                          _   = []
-addAbstractCurryInstInfo (CInstance n cx ty ds : is) cds =
-  maybe (CurryDocInstanceDecl n cx ty (addAbstractCurryFunInfo ds []) [])
-    (\(CommentedInstanceDecl _ _ cs ds') -> CurryDocInstanceDecl n cx ty
-        (addAbstractCurryFunInfo ds ds') cs) (lookupInstance n ty cds)
+addAbstractCurryInstInfo (CInstance n cx ts ds : is) cds =
+  maybe (CurryDocInstanceDecl n cx ts (addAbstractCurryFunInfo ds []) [])
+    (\(CommentedInstanceDecl _ _ cs ds') -> CurryDocInstanceDecl n cx ts
+        (addAbstractCurryFunInfo ds ds') cs) (lookupInstance n ts cds)
     : addAbstractCurryInstInfo is cds
 
--- Adds superclass and type variable
+-- | Adds superclass and type variable.
 addAbstractCurryClassesInfo :: [CClassDecl] -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryClassesInfo []                               _   = []
-addAbstractCurryClassesInfo (CClass n Public  cx vn ds : cs) cds =
-  maybe (CurryDocClassDecl n cx vn (addAbstractCurryFunInfo ds []) [])
-    (\(CommentedClassDecl _ cs' ds') -> CurryDocClassDecl n cx vn
+addAbstractCurryClassesInfo (CClass n Public  cx vn fdeps ds:cs) cds =
+  maybe (CurryDocClassDecl n cx vn cdfdeps (addAbstractCurryFunInfo ds []) [])
+    (\(CommentedClassDecl _ cs' ds') -> CurryDocClassDecl n cx vn cdfdeps
         (addAbstractCurryFunInfo ds ds') cs') (lookupClass n cds)
     : addAbstractCurryClassesInfo cs cds
-addAbstractCurryClassesInfo (CClass _ Private _  _  _  : cs) cds =
+ where cdfdeps = map CurryDocFunDep fdeps
+
+addAbstractCurryClassesInfo (CClass _ Private _ _ _ _:cs) cds =
   addAbstractCurryClassesInfo cs cds
 
--- Adds empty Analysis, qualified type and typesig (if it exists)
+-- | Adds empty Analysis, qualified type and typesig (if it exists).
 addAbstractCurryFunInfo :: [CFuncDecl] -> [CommentedDecl] -> [CurryDocDecl]
 addAbstractCurryFunInfo []                             _   = []
 addAbstractCurryFunInfo (CFunc n _ Public  qty _ : ds) cds =
@@ -75,17 +76,17 @@ addAbstractCurryFunInfo (CFunc _ _ Private _   _ : ds) cds =
 addAbstractCurryFunInfo (CmtFunc _ a b c d e : ds) cds =
   addAbstractCurryFunInfo (CFunc a b c d e : ds) cds
 
--- transform the content of a typesig to CurryDocTypeSig
+-- | Transforms the content of a typesig to CurryDocTypeSig.
 transformTypesig :: CQualTypeExpr -> Maybe CommentedDecl
                  -> Maybe CurryDocTypeSig
 transformTypesig (CQualType cx _) d = case d of
   Just (CommentedTypeSig [n] cs ps) -> Just (CurryDocTypeSig n cx ps cs)
   _                                 -> Nothing
 
--- For data: Adds external info, typevars, instances,
---           and modifies constructors (see below)
--- For new: Adds typevars, instances and modifies constructor
--- For syn: Adds type and typevars
+-- | For data: Adds external info, typevars, instances,
+--             and modifies constructors (see below).
+--   For new: Adds typevars, instances and modifies constructor.
+--   For syn: Adds type and typevars.
 addAbstractCurryDataInfo :: [CTypeDecl] -> [CommentedDecl]
                          -> [CurryDocInstanceDecl] -> [CurryDocDecl]
 addAbstractCurryDataInfo []                                _   _   = []
@@ -116,23 +117,23 @@ addAbstractCurryDataInfo (CNewType _ Private _ _ _   : ds) cds ins =
 addAbstractCurryDataInfo (CType _ Private _ _ _      : ds) cds ins =
   addAbstractCurryDataInfo ds cds ins
 
--- Adds type and analysis info and modifies fields for recordss (see below)
+-- | Adds type and analysis info and modifies fields for recordss (see below).
 addAbstractCurryConsInfo :: [CConsDecl] -> [CommentedConstr] -> [CurryDocCons]
 addAbstractCurryConsInfo []                              _   = []
-addAbstractCurryConsInfo (CCons   _ _ n Public  tys : cs) cds =
+addAbstractCurryConsInfo (CCons   n Public  tys : cs) cds =
   maybe (createConsInfo n tys) (transformConstructor n tys)
     (lookupCons n cds)
     : addAbstractCurryConsInfo cs cds
-addAbstractCurryConsInfo (CRecord _ _ n Public  fs  : cs) cds =
+addAbstractCurryConsInfo (CRecord n Public  fs  : cs) cds =
   maybe (createRecordInfo n fs) (transformRecord n fs)
     (lookupRecord n cds)
     : addAbstractCurryConsInfo cs cds
-addAbstractCurryConsInfo (CCons   _ _ _ Private _   : cs) cds =
+addAbstractCurryConsInfo (CCons   _ Private _   : cs) cds =
   addAbstractCurryConsInfo cs cds
-addAbstractCurryConsInfo (CRecord _ _ _ Private _   : cs) cds =
+addAbstractCurryConsInfo (CRecord _ Private _   : cs) cds =
   addAbstractCurryConsInfo cs cds
 
--- create constructor info
+-- | Creates constructor info.
 createConsInfo :: QName -> [CTypeExpr] -> CurryDocCons
 createConsInfo n tys
   | isOperator && length tys == 2 =
@@ -141,13 +142,13 @@ createConsInfo n tys
   | otherwise = CurryDocConstr n tys     NoAnalysisInfo []
   where isOperator = all (`elem` "~!@#$%^&*+-=<>:?./|\\") (snd n)
 
--- create constructor info for records
+-- | Creates constructor info for records.
 createRecordInfo :: QName -> [CFieldDecl] -> CurryDocCons
 createRecordInfo n fs =
   CurryDocRecord n (map cFieldType fs) (addAbstractCurryField fs [])
                  NoAnalysisInfo []
 
--- add type to constructor
+-- | Adds type to constructor.
 transformConstructor :: QName -> [CTypeExpr] -> CommentedConstr -> CurryDocCons
 transformConstructor n tys c = case c of
   CommentedConstr _ cs
@@ -156,7 +157,7 @@ transformConstructor n tys c = case c of
     -> CurryDocConsOp n (head tys) (last tys) NoAnalysisInfo cs
   _ -> error "CurryDoc.Info.AbstractCurry. transformConstructor"
 
--- adds type to record constructor and modifies fields (see below)
+-- | Adds type to record constructor and modifies fields (see below).
 transformRecord :: QName -> [CFieldDecl] -> CommentedConstr -> CurryDocCons
 transformRecord n fs c = case c of
   CommentedRecord _ cs fs'
@@ -164,7 +165,7 @@ transformRecord n fs c = case c of
                       NoAnalysisInfo cs
   _ -> error "CurryDoc.Info.AbstractCurry. transformRecord"
 
--- adds empty AnalysisInfo and type to record fields
+-- | Adds empty `AnalysisInfo` and type to record fields.
 addAbstractCurryField :: [CFieldDecl] -> [CommentedField] -> [CurryDocField]
 addAbstractCurryField []                         _   =  []
 addAbstractCurryField (CField n Public  ty : fs) cfs =
@@ -177,6 +178,8 @@ addAbstractCurryField (CField _ Private _  : fs) cfs =
 -------------------------------------------------------------------------------
 -- Collecting instance informations
 
+-- | Generates all `CurryDocInstanceDecl` for a given type declaration
+--   with its deriving clauses.
 generateDerivingInstances :: CTypeDecl -> [CurryDocInstanceDecl]
 generateDerivingInstances (CType    n Public vs _ der) =
   map (generateDerivingInstanceFor n vs) der
@@ -186,17 +189,24 @@ generateDerivingInstances (CTypeSyn _ _       _ _  ) = []
 generateDerivingInstances (CNewType _ Private _ _ _) = []
 generateDerivingInstances (CType    _ Private _ _ _) = []
 
+-- | Generates a `CurryDocInstanceDecl` for a given type and deriving clause.
 generateDerivingInstanceFor :: QName -> [CTVarIName] -> QName
                             -> CurryDocInstanceDecl
 generateDerivingInstanceFor t vs d =
   CurryDocInstanceDecl d (CContext (map (generateConstraintFor d) vs))
-    (generateType t vs) [] []
+    [generateType t vs] [] []
 
+-- | Generates a unary constraint.
 generateConstraintFor :: QName -> CTVarIName -> CConstraint
-generateConstraintFor n v = (n, CTVar v)
+generateConstraintFor n v = (n, [CTVar v])
 
+-- | Generates a type expression for a given type name and type variables.
 generateType :: QName -> [CTVarIName] -> CTypeExpr
 generateType n = foldl (\t v -> CTApply t (CTVar v)) (CTCons n)
 
+-- | Returns all known instances associated with a given type.
+--
+-- That is, for a given type name, this function returns all instances
+-- that have the given type name in their list of types.
 getInstances :: QName -> [CurryDocInstanceDecl] -> [CurryDocInstanceDecl]
-getInstances n = filter ((=~= n) . instTypeName)
+getInstances n = filter (any (=~= n) . instTypeNames)

@@ -1,15 +1,15 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : August 2018
+     Version : March 2025
 
      Datastructures and operations to generate abstract CurryDoc.
 -}
 module CurryDoc.Info
-  (generateCurryDocInfosWithAnalysis, generateCurryDocInfos,
-   module CurryDoc.Info.Comments,
-   module CurryDoc.Info.Goodies,
-   module CurryDoc.Info.Header,
-   module CurryDoc.Data.CurryDoc) where
+  ( generateCurryDocInfosWithAnalysis, generateCurryDocInfos,
+    module CurryDoc.Info.Comments,
+    module CurryDoc.Info.Goodies,
+    module CurryDoc.Info.Header,
+    module CurryDoc.Data.CurryDoc ) where
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
@@ -20,24 +20,24 @@ import CurryDoc.Info.Export
 import CurryDoc.Info.AbstractCurry
 import CurryDoc.Info.Goodies
 
-import FlatCurry.Types     (Prog)
-import AbstractCurry.Types (QName, MName, CurryProg(..))
+import FlatCurry.Types     ( Prog)
+import AbstractCurry.Types ( QName, MName, CurryProg(..) )
 import AbstractCurry.Select
 import Curry.Span
 import Curry.Types
 
-import List  (partition, find)
-import Maybe (fromMaybe)
+import Data.List  ( partition, find )
+import Data.Maybe ( fromMaybe )
 
--- | Generate the abstract CurryDoc with extended analysis
+-- | Generates the abstract `CurryDoc` with extended analysis.
 generateCurryDocInfosWithAnalysis :: AnaInfo -> String -> [(Span, Comment)]
                                   -> Module a -> CurryProg
                                   -> [(String, CurryDoc)] -> CurryDoc
 generateCurryDocInfosWithAnalysis ai mn cs m acy@(CurryProg _ _ _ _ _ _ fun ops)
   = genCDoc (addAnaInfoToCurryDocDecls ai ops fun) mn cs m acy
 
--- | Generate the abstract CurryDoc with simple analysis
-generateCurryDocInfos ::            String -> [(Span, Comment)]
+-- | Generates the abstract `CurryDoc` with simple analysis.
+generateCurryDocInfos :: String -> [(Span, Comment)]
                       -> Module a -> CurryProg
                       -> [(String, CurryDoc)] -> CurryDoc
 generateCurryDocInfos mn cs m acy@(CurryProg _ _ _ _ _ _ fun ops)
@@ -91,7 +91,7 @@ lookupCurryDocDecl n (d:ds) = case d of
   CurryDocNewtypeDecl n' _ _ _ _
     | n =~= n'  -> Just d
     | otherwise -> lookupCurryDocDecl n ds
-  CurryDocClassDecl n' _ _ _ _
+  CurryDocClassDecl n' _ _ _ _ _
     | n =~= n'  -> Just d
     | otherwise -> lookupCurryDocDecl n ds
   CurryDocFunctionDecl n' _ _ _ _

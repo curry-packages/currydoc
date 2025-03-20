@@ -1,14 +1,21 @@
 {- |
      Description: An example module for CurryDoc
      Category   : Example
-     Author     : Kai-Oliver Prott,
+     Author     : Kai-Oliver Prott, 
                   John Doe
-     Version    : September 2018
-
+     Version    : March 2025 
+ 
      This Module shows how every Declaration can be documented.
      All comments can be formatted using _markdown_.
 
-     The supported markdown syntax can be found at
+     - Bullet points are also supported!
+     - Also,
+       - nested bullet points are supported.  
+     - And numbered lists,
+        1. like this ..
+        2. and this.    
+ 
+     The supported markdown syntax can be found at 
      <https://www.informatik.uni-kiel.de/~pakcs/markdown_syntax.html>.
 -}
 module Guide (
@@ -18,11 +25,10 @@ module Guide (
   nullL, nullT, (:++:), (:+:),
   -- ** Typeclasses
   Monoid(..),
-  -- *** Re-exported typclasses
+  -- *** Re-exported typclasses 
   Num(..),
   -- * Re-exported modules
-  module Prelude,
-  module List
+  module Data.List
 ) where
 -- ^ Nice!
 
@@ -31,8 +37,8 @@ module Guide (
 import Prelude
 -- If a re-exported module is imported with any
 -- specification, all entities in scope will be
--- inlined into the documentation.
-import List hiding ()
+-- inlined into the documentation. 
+import Data.List hiding ()
 
 -- | This kind of comment can be used to document the following declaration.
 --   It can be longer than one line. Only the first comment needs the special

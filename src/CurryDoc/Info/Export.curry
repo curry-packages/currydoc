@@ -1,14 +1,14 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : August 2018
+     Version : March 2025
 
      Operations to inline module re-exports in export lists.
 -}
-module CurryDoc.Info.Export (genExportList, inlineExport, flattenExport) where
+module CurryDoc.Info.Export ( genExportList, inlineExport, flattenExport ) where
 
-import Maybe
+import Data.Maybe
 
-import AbstractCurry.Types (QName, MName, CurryProg(..))
+import AbstractCurry.Types ( QName, MName, CurryProg(..) )
 import AbstractCurry.Select
 import Curry.Types
 import Curry.Ident
@@ -17,7 +17,7 @@ import CurryDoc.Data.CurryDoc
 import CurryDoc.Info.Comments
 import CurryDoc.Info.Goodies
 
--- | Generate a default export list in case it is missing
+-- | Generates a default export list in case it is missing.
 genExportList :: CurryProg -> [ExportEntry QName]
 genExportList acy =
   (if null types
@@ -36,7 +36,7 @@ genExportList acy =
         funcs   = publicFuncNames  acy
         classes = publicClassNames acy
 
--- | inline module re-exports if the module is not imported completely
+-- | Inlines module re-exports if the module is not imported completely.
 inlineExport :: [ImportDecl]        -- ^ ImportDecls from AST
              -> [(MName, CurryDoc)] -- ^ CurryDoc for all imports (inc. Prelude)
              -> MName               -- ^ Name of current module
@@ -61,27 +61,28 @@ inlineFromSpec (Importing _ im) (CurryDoc _ _ ex _) =
   filter (\e ->       any (=~=e) qnames) $
   map curryDocDeclName $
   flattenExport ex
-  where qnames = map importQName im
+ where qnames = map importQName im
 inlineFromSpec (Hiding    _ im) (CurryDoc _ _ ex _) =
   map ExportEntry $
   filter (\e -> not $ any (=~=e) qnames) $
   map curryDocDeclName $
   flattenExport ex
-  where qnames = map importQName im
+ where qnames = map importQName im
 
+-- | Extracts the then name of an import entry.
 importQName :: Import -> QName
-importQName (Import         _ (Ident _ s _)  ) = ("", s)
-importQName (ImportTypeAll  _ (Ident _ s _)  ) = ("", s)
-importQName (ImportTypeWith _ (Ident _ s _) _) = ("", s)
+importQName (Import         _ i  ) = identToQName i
+importQName (ImportTypeAll  _ i  ) = identToQName i
+importQName (ImportTypeWith _ i _) = identToQName i
 
--- | Get all "normal" entries inside an export list
+-- | Extracts all "normal" entries inside an export list.
 flattenExport :: [ExportEntry a] -> [a]
 flattenExport = concatMap flattenEntry
  where flattenEntry (ExportEntry        a) = [a]
        flattenEntry (ExportSection _ _ ex) = flattenExport ex
        flattenEntry (ExportEntryModule  _) = []
 
--- Is the module imported without ImportSpec? Assumes `True` if import is missing
+-- | Returns true iff the module is not imported partially.
 isFullImport :: [ImportDecl] -> MName -> Bool
 isFullImport (ImportDecl _ _   _ (Just mid) spec : im) mname
   | mname == mIdentToMName mid = isNothing spec
@@ -91,12 +92,12 @@ isFullImport (ImportDecl _ mid _ Nothing    spec : im) mname
   | otherwise                  = isFullImport im mname
 isFullImport [] _              = True
 
--- Disambiguate alias (if present) and get the ImportSpec
+-- | Disambiguates alias (if present) and gets the `ImportSpec`.
 getRealModuleNameAndSpec :: [ImportDecl] -> MName -> Maybe (MName, ImportSpec)
 getRealModuleNameAndSpec (ImportDecl _ real _ (Just mid) spec : im) mname
-  | mname == mIdentToMName mid    = Just (mIdentToMName real, fromJust spec)
-  | otherwise                     = getRealModuleNameAndSpec im mname
+  | mname == mIdentToMName mid = (,) <$> Just (mIdentToMName real) <*> spec
+  | otherwise                  = getRealModuleNameAndSpec im mname
 getRealModuleNameAndSpec (ImportDecl _ mid  _ Nothing    spec : im) mname
-  | mname == mIdentToMName mid    = Just (mIdentToMName mid, fromJust spec)
-  | otherwise                     = getRealModuleNameAndSpec im mname
-getRealModuleNameAndSpec [] _     = Nothing
+  | mname == mIdentToMName mid = (,) <$> Just (mIdentToMName mid)  <*> spec
+  | otherwise                  = getRealModuleNameAndSpec im mname
+getRealModuleNameAndSpec [] _  = Nothing

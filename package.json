@@ -1,28 +1,28 @@
 {
     "name": "currydoc",
-    "version": "2.0.0",
+    "version": "5.0.0",
     "author": "Michael Hanus <mh@informatik.uni-kiel.de>",
     "synopsis": "A documentation generator for Curry",
     "category": [ "Documentation", "Analysis" ],
     "dependencies": {
-        "abstract-curry": ">= 2.0.0, < 3.0.0",
-        "ansi-terminal" : ">= 0.0.1",
-        "base"          : ">= 1.0.0, < 2.0.0",
-        "cass-analysis" : ">= 2.0.0, < 3.0.0",
-        "cass"          : ">= 2.0.0, < 3.0.0",
-        "currypath"     : ">= 0.0.1",
-        "flatcurry"     : ">= 2.0.0, < 3.0.0",
-        "frontend-exec" : ">= 0.0.1",
-        "html"          : ">= 2.0.0, < 3.0.0",
-        "markdown"      : ">= 3.0.0, < 4.0.0",
-        "wl-pprint"     : ">= 0.0.1, < 2.0.0",
-        "xml"           : ">= 2.0.0, < 3.0.0",
-        "curry-ast"     : ">= 2.0.0",
-        "json"          : ">= 2.0.0"
+        "abstract-curry": ">= 4.0.0, < 5.0.0",
+        "ansi-terminal" : ">= 3.0.0, < 4.0.0",
+        "base"          : ">= 3.3.0, < 4.0.0",
+        "cass-analysis" : ">= 4.0.0, < 5.0.0",
+        "cass"          : ">= 4.1.0, < 5.0.0",
+        "currypath"     : ">= 3.0.0, < 4.0.0",
+        "flatcurry"     : ">= 4.0.0, < 5.0.0",
+        "frontend-exec" : ">= 3.3.0, < 4.0.0",
+        "html2"         : ">= 3.5.0, < 4.0.0",
+        "markdown"      : ">= 3.3.0, < 4.0.0",
+        "wl-pprint"     : ">= 3.0.0, < 4.0.0",
+        "xml"           : ">= 3.0.0, < 4.0.0",
+        "curry-ast"     : ">= 3.1.0, < 4.0.0",
+        "json"          : ">= 3.0.0, < 4.0.0"
     },
     "compilerCompatibility": {
-        "pakcs": ">= 2.0.0",
-        "kics2": ">= 2.0.0"
+        "pakcs": ">= 3.8.0",
+        "kics2": ">= 3.3.0"
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
