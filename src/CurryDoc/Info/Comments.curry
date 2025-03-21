@@ -6,8 +6,7 @@
      match comments to declarations.
 -}
 module CurryDoc.Info.Comments
-  -- TODO(lasse): add export list
-  {-(-- * Main functions
+  (-- * Main functions
    readComments, associateCurryDoc,
    -- * Comment functions
    splitNestedComment, commentString, isOldStyleComment, isExportSection,
@@ -16,7 +15,7 @@ module CurryDoc.Info.Comments
    lookupRecord, lookupTypeSig, lookupNewDecl, lookupDataDecl, lookupTypeDecl,
    -- * Datatypes
    Comment(..),
-   CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField ) -}
+   CommentedDecl(..), ExportEntry(..), CommentedConstr(..), CommentedField )
  where
 
 import CurryDoc.Data.AnaInfo
@@ -26,7 +25,8 @@ import AbstractCurry.Types
 import AbstractCurry.Select
 
 import Data.Char           ( isSpace )
-import Data.Maybe          ( listToMaybe, mapMaybe )
+import Data.Maybe          ( listToMaybe, mapMaybe, fromJust
+                           , fromMaybe, maybeToList )
 import Data.List           ( partition, init, last, isPrefixOf )
 import System.Directory    ( doesFileExist )
 import System.Path         ( getFileInPath )
@@ -39,10 +39,6 @@ import Curry.Span
 import Curry.SpanInfo
 import Curry.Types
 
-import Data.Maybe ( fromJust, fromMaybe, maybeToList )
-
-import Debug.Trace ( trace ) -- TODO(lasse): remove
-
 data Comment = NestedComment String
              | LineComment   String
   deriving (Show, Read)
@@ -53,7 +49,7 @@ data CDocComment = Pre     { comment :: Comment }
                  | None    { comment :: Comment }
                  | Section { comment :: Comment, nest :: Int }
 
--- | 
+-- | CurryDoc representation of declarations
 data CommentedDecl
   = CommentedTypeDecl QName [Comment]
   | CommentedDataDecl QName [Comment] [CommentedConstr]
@@ -717,10 +713,10 @@ data OldStyleComment
 data OldStyleFieldType = Param | Return | Cons 
  deriving Eq
 
--- | Post-processes a type signature by parameter and return type comments
---   to the associated type expression. We can simply add the comments as
---   annotations to the type expression in-order, because the CurryDoc
---   specification forces a strict left-to-right order of annotations.
+-- | Post-processes a type signature by associating @parameter and @return 
+--   comments with the appropriate type expression. We can simply add the 
+--   comments as annotations to the type expression in-order, because the 
+--   CurryDoc specification forces a strict left-to-right order of annotations.
 --   That is, the parameter names are purely cosmetic and do not affect
 --   which comment is associated with which parameter.
 --
@@ -741,11 +737,11 @@ data OldStyleFieldType = Param | Return | Cons
 --
 postProcessTypeSig :: CommentedDecl -> CommentedDecl
 postProcessTypeSig cd = case cd of
-  CommentedTypeSig f cs ts -> 
+  CommentedTypeSig f cs ts ->
     -- Split comments into normal comments, @param comments, and @return comments.
     -- Drop @cons comments, as they are misplaced in type signatures.
-    let (cs1,  fcs1) = break isField $ map commentToOldStyleComment cs
-        (fcsP, fcsR) = break (hasField Return) $ filter (not . hasField Cons) fcs1
+    let (fcs1,  cs1) = partition isField $ map commentToOldStyleComment cs
+        (fcsR, fcsP) = partition (hasField Return) $ filter (not . hasField Cons) fcs1
     in CommentedTypeSig f (map oldStyleCommentToComment cs1) $ insertReturn fcsR $ insertDescs fcsP ts 
   _ -> cd
  where 
@@ -788,10 +784,10 @@ postProcessTypeSig cd = case cd of
 postProcessDataDecl :: CommentedDecl -> CommentedDecl
 postProcessDataDecl cd = case cd of
   CommentedDataDecl f cs cns -> 
-    let (cs', ccs') = break (hasField Cons) $ map commentToOldStyleComment cs
+    let (ccs', cs') = partition (hasField Cons) $ map commentToOldStyleComment cs
     in CommentedDataDecl f (map oldStyleCommentToComment cs') $ map (addToConstructor ccs') cns
   CommentedNewtypeDecl f cs cn ->
-    let (cs', ccs') = break (hasField Cons) $ map commentToOldStyleComment cs
+    let (ccs', cs') = partition (hasField Cons) $ map commentToOldStyleComment cs
     in CommentedNewtypeDecl f (map oldStyleCommentToComment cs') $ addToConstructor ccs' cn
   _ -> cd
  where

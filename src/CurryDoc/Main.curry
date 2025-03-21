@@ -328,7 +328,7 @@ makeAbstractDoc docopts modname = do
 readOrGenerateCurryDoc :: DocOptions -> String -> IO (String, CurryDoc)
 readOrGenerateCurryDoc docopts modname =
   do cydoc <- getLoadPathForModule modname >>=
-              findFileWithSuffix (curryDocFileName modname) ["CurryDoc.Data.CurryDoc"]
+              findFileWithSuffix (curryDocFileName modname) [""]
      case cydoc of
        Just doc -> do
            ctime <- getModificationTime (replaceExtension doc "fcy")
@@ -336,7 +336,7 @@ readOrGenerateCurryDoc docopts modname =
            if compareClockTime ctime htime == GT
              then do regenerate "outdated"
              else do content <- readFile doc
-                     return (modname, readUnqualifiedTerm ["..."] content) -- TODO(lasse): replace "..." with proper module names
+                     return (modname, readUnqualifiedTerm ["..."] content)
        Nothing -> do regenerate "missing"
   where regenerate reason = do
          putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++

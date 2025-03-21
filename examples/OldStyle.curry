@@ -12,11 +12,14 @@
 
 module OldStyle where 
 
--- | Some code test...
+-- | A simple constant with a markdown code block:
 --
 --       x :: Int
 --       x = 42
 -- 
+--   @return The answer to the ultimate question of life, the universe, and everything.
+--
+--   Text behind the code block.
 code :: Int
 code = 42
 
@@ -58,6 +61,8 @@ myFunH x y = if x > y then x else y
 --- @cons MyCons1 The first constructor 
 --- @cons MyCons2 The second constructor
 --- @cons MyCons3 The third constructor with an argument
+--- The @cons annotations can also be placed between
+--- comments!
 data MyData = MyCons1 
             | MyCons2 
             | MyCons3 Int
