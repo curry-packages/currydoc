@@ -13,7 +13,7 @@
        - nested bullet points are supported.  
      - And numbered lists,
         1. like this ..
-        2. and this.    
+        2. and this!
  
      The supported markdown syntax can be found at 
      <https://www.informatik.uni-kiel.de/~pakcs/markdown_syntax.html>.

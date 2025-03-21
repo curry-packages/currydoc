@@ -336,7 +336,13 @@ readOrGenerateCurryDoc docopts modname =
            if compareClockTime ctime htime == GT
              then do regenerate "outdated"
              else do content <- readFile doc
-                     return (modname, readUnqualifiedTerm ["..."] content)
+                     return (modname, readUnqualifiedTerm [ "Prelude"
+                                                          , "CurryDoc.Data.CurryDoc" 
+                                                          , "CurryDoc.Data.AnaInfo"
+                                                          , "CurryDoc.Info.Header"
+                                                          , "CurryDoc.Info.Comments"
+                                                          , "AbstractCurry.Types"
+                                                          , "Analysis.TotallyDefined"] content)
        Nothing -> do regenerate "missing"
   where regenerate reason = do
          putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++

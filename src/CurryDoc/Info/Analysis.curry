@@ -85,23 +85,21 @@ addPrecedenceInfoToCurryDocDecl cop d = case d of
 -- | Full analysis for functions.
 createAnalysisInfoFun :: AnaInfo -> [COpDecl] -> [CFuncDecl] -> QName
                       -> AnalysisInfo
-createAnalysisInfoFun ai cop funs n = AnalysisInfo {
-    nondet = getNondetInfo ai n,
-    indet  = getIndetInfo ai n,
-    opComplete = getOpCompleteInfo ai n,
-    complete = getCompleteInfo ai n,
-    ext = getExternalInfo funs n,
-    precedence = genPrecedenceInfo cop n,
-    property = genPropertyInfo funs n
-  }
+createAnalysisInfoFun ai cop funs n = AnalysisInfo
+    (getNondetInfo ai n)
+    (getIndetInfo ai n)
+    (getOpCompleteInfo ai n)
+    (getExternalInfo funs n)
+    (getCompleteInfo ai n)
+    (genPrecedenceInfo cop n)
+    (genPropertyInfo funs n)
 
 -- | Short analysis for functions.
 createShortAnalysisInfoFun :: [COpDecl] -> [CFuncDecl] -> QName -> AnalysisInfo
-createShortAnalysisInfoFun cop funs n = ShortAnalysisInfo {
-    ext = getExternalInfo funs n,
-    precedence = genPrecedenceInfo cop n,
-    property = genPropertyInfo funs n
-  }
+createShortAnalysisInfoFun cop funs n = ShortAnalysisInfo
+    (getExternalInfo funs n)
+    (genPrecedenceInfo cop n)
+    (genPropertyInfo funs n)
 
 -- | Gets external status of a function by checking the number of rules.
 getExternalInfo :: [CFuncDecl] -> QName -> Bool
@@ -122,9 +120,7 @@ getExternalInfo (CmtFunc _ n _ _ _ (_:_) : fs) n'
 
 -- | Only creates a precedence info (e.g. for fields and constructors).
 createPrecInfo :: [COpDecl] -> QName -> AnalysisInfo
-createPrecInfo cop n = PrecedenceInfo {
-    precedence = genPrecedenceInfo cop n
-  }
+createPrecInfo cop n = PrecedenceInfo (genPrecedenceInfo cop n)
 
 -- | Looks up the precedence for a given name.
 genPrecedenceInfo :: [COpDecl] -> QName -> Maybe (CFixity, Int)
