@@ -1,14 +1,15 @@
-
+--------------------------------------------------------------------------------
 --- This Module contains documentation in the old style.
 --- It is used to test the system for backwards compatibility
 --- with the old style of documentation. For new modules, 
 --- the new style should be used instead.
---- 
+---
 --- @description An example module for CurryDoc
 --- @category Example
 --- @version March 2025 
 --- @author Guy Incognito,
 ---         Lasse Züngel
+--------------------------------------------------------------------------------
 
 module OldStyle where 
 

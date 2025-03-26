@@ -27,7 +27,7 @@ data HeaderField = Description
 
 -- | Reads the module header from a list of comments.
 readModuleHeader :: [Comment] -> ModuleHeader
-readModuleHeader = orderFields . readFullDesc . map commentString . concatMap splitNestedComment 
+readModuleHeader = orderFields . readFullDesc . removeBorder . toStrings 
 
 -- | Reads the full description of a module header.
 --   
@@ -133,6 +133,20 @@ getIndentation []        = 0
 getIndentation (s:ss)
    | not (all isSpace s) = length $ takeWhile isSpace s
    | otherwise           = getIndentation ss
+
+-- | Converts a list of comments to a list of strings.
+toStrings :: [Comment] -> [String]
+toStrings = map commentString . concatMap splitNestedComment
+
+-- | Removes the border of a list of strings.
+--   The border is a sequence of lines that contain only '-' characters.
+removeBorder :: [String] -> [String]
+removeBorder = reverse . removeEmpty . reverse . removeEmpty
+
+-- | Removes the first string iff it contains only '-' characters.
+removeEmpty :: [String] -> [String]
+removeEmpty []     = []
+removeEmpty (s:ss) = if all (== '-') s then ss else s:ss
 
 -----------------------------------------------------------
 -- Auxiliary functions for header handling
