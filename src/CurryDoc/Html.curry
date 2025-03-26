@@ -866,7 +866,7 @@ infoTxt = par
         ++ "development of larger Curry applications. If you have suggestions "
         ++ "for changes/improvements or if you want to contribute your own "
         ++ "library, please contact "
-  , href "http://www.informatik.uni-kiel.de/~mh/" [htxt "Michael Hanus"]
+  , href "https://www.michaelhanus.de/" [htxt "Michael Hanus"]
   , htxt "."
   ]
 
