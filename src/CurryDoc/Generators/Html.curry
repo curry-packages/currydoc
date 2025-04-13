@@ -1,8 +1,3 @@
---- TODO(lasse):
----  - use BaseText instead of htxt for hrefs in code (e.g., for type hyperrefs)
----  - fix bt4 style, background colors for type signatures, etc.
----  - fix left nav menu style
-
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
      Version : April 2025
@@ -60,7 +55,6 @@ generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   mainPage ("?", [htxt title]) title [htmltitle] [] rightTopMenu navigation content
    where
     title = "Module " ++ mname
-
     htmltitle = h1 [ htxt "Module "
                    , href (mname ++ "_curry.html") [htxt mname]
                    ]
@@ -670,9 +664,9 @@ genSystemLibsPage docdir cats modInfos = do
 
 syslibsLeftTopMenu :: [[BaseHtml]]
 syslibsLeftTopMenu =
-  [ [hrefNav (currySystemURL ++ "/Manual.pdf") [htxt "Manual (PDF)"]]
-  , [hrefNav (currySystemURL ++ "/lib/") [htxt "Libraries"]]
-  , [ehrefNav currygleURL [htxt " API Search"]]
+  [ [hrefNav (currySystemURL ++ "/Manual.pdf")    [htxt "Manual (PDF)"]]
+  , [hrefNav (currySystemURL ++ "/lib/")          [htxt "Libraries"]]
+  , [ehrefNav currygleURL                         [htxt "API Search"]]
   , [hrefNav (currySystemURL ++ "/download.html") [htxt "Download"]]
   ]
 
@@ -687,8 +681,8 @@ syslibsSideMenu :: [String] -> [BaseHtml]
 syslibsSideMenu cats = map par $
      [[ehrefNav currygleURL [htxt "Search with Curr(y)gle"]]]
   ++ [[hrefNav ("#" ++ c) [ htxt (genCatExplain c)]] | c <- cats]
-  ++ [ [hrefNav "findex.html" [htxt "Index to all library functions"]]
-     , [hrefNav "cindex.html" [htxt "Index to all library constructors"]]
+  ++ [ [hrefNav "findex.html"    [htxt "Index to all library functions"]]
+     , [hrefNav "cindex.html"    [htxt "Index to all library constructors"]]
      , [hrefNav "#explain_icons" [htxt "Icons used in the documentation"]]
      ]
 
