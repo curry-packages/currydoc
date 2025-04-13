@@ -1,0 +1,172 @@
+/* Changes to default bootstrap style: */
+
+body {
+  padding-top: 100px;
+  padding-bottom: 40px;
+}
+
+.jumbotron {
+  padding: 10px 20px;
+}
+
+.jumbotron h1 {
+  text-align: center;
+}
+
+/* padding for in-page bookmarks and fixed navbar */
+section {
+  padding-top: 30px;
+}
+
+/* ***************************************** */
+
+/* The nav-sidebar is inside the card */
+.card {
+  position: fixed;
+  border-width: 1px;
+  border-radius: 5px;
+  border-color: #f0f0f0;
+  overflow: hidden;
+}
+
+/* The sidebar menu */
+.nav-sidebar {
+  z-index: 1;
+  background-color: #fcfcfc;
+  overflow-x: hidden;
+  
+  /* Allow shrinking below 100px if content is small */
+  min-height: auto;
+  height: auto;
+
+  overflow-y: auto;  /* Triggers scrollbar when needed */  
+  max-height: calc(100vh - 130px);
+
+  /* When content is scrollable, enforce min-height */
+  @supports (overflow-y: overlay) or (overflow-y: auto) {
+    &:not(:-webkit-scrollbar) {
+      min-height: 100px;
+    }
+  }
+
+  padding-left: 5px;
+  padding-top: 10px;
+  padding-bottom: 5px;
+  line-height: 15px;
+  margin-bottom: 0; /* remove bottom margin to card */
+}
+
+.nav-sidebar > div > a:hover {
+  color: #064579;
+}
+
+/* The navigation menu links */
+.nav-sidebar > div > a {
+  padding: 6px 8px 6px 16px;
+  text-decoration: none;
+  font-size: 18px;
+  color: #2196F3;
+  display: block;
+}
+
+/* When you mouse over the navigation links, change their color */
+.nav-sidebar > div > a:hover {
+  color: #064579;
+}
+
+/* On middle screens, make sidebar smaller*/
+@media (max-width: 1199px) {
+  .nav-sidebar {
+    font-size: 14px;
+  }
+}
+
+/* On smaller screens, make sidebar even smaller*/
+@media (max-width: 991px) {
+  .nav-sidebar {
+    font-size: 10px;
+  }
+}
+
+/* On even smaller screens, remove sidebar*/
+@media (max-width: 767px) {
+  .card {
+    display: none;
+  }
+  .nav-sidebar {
+    display: none;
+  }
+}
+
+/* ***************************************** */
+
+.anchored {
+  padding-top: 40px;
+}
+
+/* type name at header positions */
+.typeheader {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* function name in the documentation of a exported functions */
+.opname {
+  font-weight: bold;
+}
+
+/* style for constructor comments" */
+.conscomment {
+  padding: 5px 0px 0px 20px;
+}
+
+.indent1 {
+  text-indent: 15px;
+}
+
+.indent2 {
+  text-indent: 30px;
+}
+
+.indent3 {
+  text-indent: 45px;
+}
+
+.indent4 {
+  text-indent: 60px;
+}
+
+/* style for explanation categories like "Constructors:" */
+.explaincat {
+  font-style: italic;
+}
+
+code {
+  color:black;
+}
+
+.keyword { color:blue }
+.constructorname_constrpattern { color : #ff00ff }
+.constructorname_constrcall { color : #ff00ff }
+.constructorname_constrdecla { color : #ff00ff }
+.constructorname_otherconstrkind { color : #ff00ff }
+.typeconstructor_typedecla  { color : #ff7f50 }
+.typeconstructor_typeuse  { color : #ff7f50 }
+.typeconstructor_typeexport  { color : #ff7f50 }
+.function_infixfunction  { color : #800080 }
+.function_typsig  { color : #800080 }
+.function_fundecl  { color : #800080 }
+.function_functioncall  { color : #800080 }
+.function_otherfunctionkind  { color : #800080 }
+.moduleName  { color : #800000 }
+.commentary  { color : green }
+.numberCode  { color : #008080 }
+.stringCode  { color : #800000 }
+.charCode  { color : #800000 }
+.symbol  { color : #666666 }
+.identifier_iddecl   { color : black }
+.identifier_idoccur   { color : black }
+.identifier_unknownid   { color : black }
+.codeWarning  {font-weight: bold;font-style:italic; color : red }
+.codeError  { font-style:italic; color : #a52a2a }
+.notParsed  { font-style:italic; color : #C0C0C0 }

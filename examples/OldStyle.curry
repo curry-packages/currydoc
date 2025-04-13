@@ -24,6 +24,10 @@ module OldStyle where
 code :: Int
 code = 42
 
+--- A nondeterministic value.
+nondet :: Int
+nondet = 42 ? 73
+
 --- A simple function (old style).
 --- @param x - The first argument
 --- @param y - The second argument
@@ -31,7 +35,7 @@ code = 42
 myFun1 :: Int -> Int -> Int
 myFun1 x y = if x > y then x else y
 
---- A simple function (old style).
+--- A simple function (old style). 
 --- @param x The first argument
 --- @param y The second argument
 --- @return The result
@@ -53,7 +57,7 @@ myFun4 :: Int -> Int -> Int
 myFun4 x y = if x > y then x else y
 
 -- | A simple function (haddock style).
-myFunH :: Int -- ^ The first argument
+myFunH :: Int -- ^ The first argument 
        -> Int -- ^ The second argument
        -> Int -- ^ The result 
 myFunH x y = if x > y then x else y 
@@ -74,3 +78,6 @@ type MyType = Int
 --- A simple newtype.
 --- @cons MyNewType The constructor
 newtype MyNewType = MyNewType Int
+
+instance Show MyNewType where
+  show (MyNewType x) = "MyNewType " ++ show x

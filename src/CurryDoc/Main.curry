@@ -273,9 +273,9 @@ prepareDocDir :: DocType -> String -> IO ()
 prepareDocDir HtmlDoc docdir = do
   createDir docdir
   -- copy style sheets etc:
-  let docstyledir = docdir </> "bt3"
+  let docstyledir = docdir </> "bt4"
   exdir <- doesDirectoryExist docstyledir
-  unless exdir $ copyDirectory (includeDir </> "bt3") docstyledir
+  unless exdir $ copyDirectory (includeDir </> "bt4") docstyledir
 prepareDocDir TexDoc docdir = do
   createDir docdir
   putStrLn $ "Copy macros into documentation directory '"++docdir++"'..."

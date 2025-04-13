@@ -1,6 +1,11 @@
+--- TODO(lasse):
+---  - use BaseText instead of htxt for hrefs in code (e.g., for type hyperrefs)
+---  - fix bt4 style, background colors for type signatures, etc.
+---  - fix left nav menu style
+
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-     Version : August 2018
+     Version : April 2025
 
      Operations to generate documentation in HTML format.
 -}
@@ -23,10 +28,12 @@ import AbstractCurry.Files
 import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
-import Analysis.TotallyDefined ( Completeness(..) )
+import Analysis.TotallyDefined  ( Completeness(..) )
 import HTML.Base
-import HTML.Styles.Bootstrap3  ( bootstrapPage, glyphicon, homeIcon )
+import HTML.Styles.Bootstrap4
 import HTML.CategorizedList
+import Language.Curry.Resources ( curryWikiURL, currygleURL, baseLibsURL
+                                , curryPackagesURL, curryHomeURL )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, setHtmlDir, callFrontendWithParams )
 import Text.Pretty         ( showWidth, empty )
@@ -39,18 +46,18 @@ import CurryDoc.Config
 
 import Prelude hiding ( empty )
 
-infixl 0 `withTitle`
+infixl 0 `addTitle`
 
 -- | Generates the documentation of a module in HTML format.
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
   let
     moduleHeaderLink = [block [href "#moduleheader" [htxt title]]]
-    navigation = [block (moduleHeaderLink ++ genHtmlExportSections ex)
-                   `addClass` "nav nav-sidebar"]
+    navigation = [ulistWithClass "nav-sidebar flex-column" "nav-item" $ map (:[]) $ 
+                  (moduleHeaderLink ++ genHtmlExportSections ex)]
     content = [anchored "moduleheader" (genHtmlModule opts mhead)] ++ [hrule] ++
               snd (genHtmlForExport 0 opts ex)
-  mainPage title [htmltitle] [] rightTopMenu navigation content
+  mainPage ("?", [htxt title]) title [htmltitle] [] rightTopMenu navigation content
    where
     title = "Module " ++ mname
 
@@ -64,7 +71,7 @@ generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
 --   Returns the generated HTML and the next number to be given to any
 --   further 'CurryDoc.Info.Comments.ExportSection'.
 genHtmlForExport :: Int -> DocOptions -> [ExportEntry CurryDocDecl]
-                 -> (Int, [HtmlExp])
+                 -> (Int, [BaseHtml])
 genHtmlForExport num _   []                                  = (num, [])
 genHtmlForExport num doc (ExportSection c nesting ex : rest) =
   let (num' , innerHtml) = genHtmlForExport (num  + 1) doc ex
@@ -96,8 +103,8 @@ genHtmlForExport num doc (ExportEntry decl : rest)
 -- | Translates a documentation comment to HTML
 --   and uses markdown translation if necessary.
 docComment2HTML :: DocOptions -> String
-                -> [HtmlExp] -- ^ either a paragraph (`<p>`) element
-                             --   or an empty list
+                -> [BaseHtml] -- ^ either a paragraph (`<p>`) element
+                              --   or an empty list
 docComment2HTML opts cmt
   | null cmt          = []
   | withMarkdown opts = markdownText2HTML (replaceIdLinksMarkdown opts cmt)
@@ -115,12 +122,12 @@ replaceIdLinksMarkdown opts = replaceIdLinks idCon otherCon
 
 -- | Replaces identifier hyperlinks in a string (i.e., enclosed in single quotes)
 --   by HTML hyperrefences.
-replaceIdLinksHtml ::  DocOptions -> String -> [HtmlExp]
+replaceIdLinksHtml ::  DocOptions -> String -> [BaseHtml]
 replaceIdLinksHtml opts = replaceIdLinks idCon otherCon
   where idCon md fun = if null md
-                         then [href ('#':fun) [htxt fun]]
-                         else [href (docURL opts md ++ ".html#" ++ fun)
-                                    [htxt fun]]
+                         then [hrefNav ('#':fun) [htxt fun]]
+                         else [hrefNav (docURL opts md ++ ".html#" ++ fun)
+                                       [htxt fun]]
         otherCon = (:[]) . htxt
 
 -- TODO: not working correctly, may be ambigous
@@ -153,11 +160,11 @@ replaceIdLinks idCon otherCon str = case str of
                else idCon (reverse $ tail revmd) (reverse revfun)
 
 -- | Generates the left navigation panel from the export structure.
-genHtmlExportSections :: [ExportEntry a] -> [HtmlExp]
+genHtmlExportSections :: [ExportEntry a] -> [BaseHtml]
 genHtmlExportSections = genHtmlExportSections' 0
   where genHtmlExportSections' _   [] = []
         genHtmlExportSections' num (ExportSection c nesting sub : rest) =
-          (block [href ("#g"++show num) [htxt (commentString c)]]
+          (block [hrefNav ("#g"++show num) [htxt (commentString c)]]
             `addClass` ("indent" ++ show nesting)) :
           genHtmlExportSections' (num + 1) (sub ++ rest)
         genHtmlExportSections' num (ExportEntry _ : rest) =
@@ -166,7 +173,7 @@ genHtmlExportSections = genHtmlExportSections' 0
           genHtmlExportSections' num rest
 
 -- | Generates HTML documentation for a module.
-genHtmlModule :: DocOptions -> ModuleHeader -> [HtmlExp]
+genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
   docComment2HTML docopts maincmt ++
   map fieldHtml fields
@@ -174,13 +181,12 @@ genHtmlModule docopts (ModuleHeader fields maincmt) =
           par [bold [htxt (show typ ++ ": ")], htxt value]
 
 -- | Generates HTML documentation for a datatype.
-genHtmlType :: DocOptions -> CurryDocDecl -> [HtmlExp]
+genHtmlType :: DocOptions -> CurryDocDecl -> [BaseHtml]
 genHtmlType docopts d = case d of
   CurryDocDataDecl n@(tmod,tcons) vs inst _ cns cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "data"], nbsp,
-        showCodeNameRef docopts n, nbsp,
-        htxt (unwords (map snd vs))]]]
+       ([bold [htxt "data"], nbsp,
+         showCodeNameRef docopts n] ++ showVars vs)]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ ifNotNull cns  [par [explainCat "Constructors: "]]
                       (ulistOrEmpty . map (genHtmlCons docopts n vs))
@@ -188,9 +194,8 @@ genHtmlType docopts d = case d of
                       (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocNewtypeDecl n@(tmod,tcons) vs inst cn cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "newtype"], nbsp,
-        showCodeNameRef docopts n, nbsp,
-        htxt (unwords (map snd vs))]]]
+       ([bold [htxt "newtype"], nbsp,
+        showCodeNameRef docopts n] ++ showVars vs)]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ (maybe [] ((par [explainCat "Constructor: "] :) .
                   genHtmlCons docopts n vs) cn)
@@ -198,28 +203,32 @@ genHtmlType docopts d = case d of
                       (ulistOrEmpty . map (genHtmlInst docopts tmod))
   CurryDocTypeDecl n@(tmod,tcons) vs ty cs ->
     code [anchored tcons [style "typeheader"
-       [bold [htxt "type"], nbsp,
-        showCodeNameRef docopts n,
-        htxt (unwords (map snd vs)),
-        htxt " = ", HtmlText rhs]]]
+       ([bold [htxt "type"], nbsp,
+         showCodeNameRef docopts n]
+        ++ showVars vs ++
+        [htxt " = ", BaseText rhs])]]
     :  docComment2HTML docopts (concatCommentStrings (map commentString cs))
     where rhs = case (tmod,tcons) of
                   ("Prelude", "String")
                     -> "[" ++ showTypeCons docopts tmod (tmod,"Char") ++ "]"
                   _ -> showType docopts tmod False ty
   _ -> []
+ where
+  showVars vs 
+    | null vs   = [] 
+    | otherwise = [nbsp, htxt (unwords (map snd vs))]
 
 -- | Generates HTML documentation for a constructor.
 genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
-            -> [HtmlExp]
+            -> [BaseHtml]
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
                               [ty1, ty2] ai cs) -- TODO: maybe different?
 genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
   anchored cname
     [code [opnameDoc [htxt cname],
-           HtmlText (" :: " ++
-                    concatMap (\t -> " "++showType docopts cmod True t++" -> ")
+           BaseText (" :: " ++
+                    concatMap (\t -> " " ++ showType docopts cmod True t ++ " -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
     (ifNotNull txt [] (removeTopPar . docComment2HTML docopts)) ++
@@ -234,7 +243,7 @@ genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
 genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
   anchored cname
     [code [opnameDoc [htxt cname],
-          HtmlText (" :: " ++
+          BaseText (" :: " ++
                     concatMap (\t -> " "++showType docopts cmod True t++" -> ")
                               tys ++
                     tcons ++ " " ++ unwords (map snd vs))]] :
@@ -250,35 +259,34 @@ genHtmlCons docopts (_, tcons) vs (CurryDocRecord (cmod,cname) tys fs ai cs) =
 
 -- TODO: show precedence
 -- | Generates HTML documentation for record fields.
-genHtmlField :: DocOptions -> CurryDocField -> [HtmlExp]
+genHtmlField :: DocOptions -> CurryDocField -> [BaseHtml]
 genHtmlField docopts (CurryDocField (fmod,fname) ty _ cs) =
   [anchored fname
     ([ code [opnameDoc [htxt fname], 
-             HtmlText (" :: " ++ showType docopts fmod True ty)]
+             BaseText (" :: " ++ showType docopts fmod True ty)]
      ] ++ ifNotNull txt [htxt " : "]
                         (removeTopPar . docComment2HTML docopts))]
   where txt = concatCommentStrings (map commentString cs)
 
--- TODO: Add href to code
 -- Generate HTMl for a typeclass instance.
-genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [HtmlExp]
+genHtmlInst :: DocOptions -> String -> CurryDocInstanceDecl -> [BaseHtml]
 genHtmlInst docopts dn d = case d of
   CurryDocInstanceDecl i@(imod, _) cx ts _ _ ->
-    [code ((if null cxString then [] else [HtmlText cxString, nbsp]) ++
-           [HtmlText (showType docopts dn False (CTCons i)), nbsp] ++
-           (intersperse nbsp $ map (\ty -> HtmlText (showType docopts dn
+    [code ((if null cxString then [] else [BaseText cxString, nbsp]) ++
+           [BaseText (showType docopts dn False (CTCons i)), nbsp] ++
+           (intersperse nbsp $ map (\ty -> BaseText (showType docopts dn
                                             (isApplyType ty || isFunctionType ty) ty)) ts))]
     where cxString = showContext docopts imod True cx
 
 -- Generate HTML documentation for a typeclass.
-genHtmlClass :: DocOptions -> CurryDocDecl -> [HtmlExp]
+genHtmlClass :: DocOptions -> CurryDocDecl -> [BaseHtml]
 genHtmlClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx vs fdeps ds cs ->
        [anchored cname
          [(code
            ([bold [htxt "class "]] ++
-             (if null cxString then [] else [HtmlText cxString, nbsp]) ++
-             [showCodeNameRef docopts (cmod, cname)] ++ [htxt $ ' ' : showVarList vs] ++ fdepsExp)
+             (if null cxString then [] else [BaseText cxString, nbsp]) ++
+             [showCodeNameRef docopts (cmod, cname)] ++ [BaseText $ ' ' : showVarList vs] ++ fdepsExp)
            `addClass` "classheader")]]
     ++ docComment2HTML docopts (concatCommentStrings (map commentString cs))
     ++ ifNotNull ds
@@ -288,18 +296,18 @@ genHtmlClass docopts d = case d of
     where cxString = showContext docopts cmod True cx
           fdepsExp 
             | null fdeps = []
-            | otherwise  = [htxt $ " | "
+            | otherwise  = [BaseText $ " | "
                              ++ (concat $ intersperse ", " $ map funDepString fdeps)]
           funDepString (CurryDocFunDep (tl, tr)) = showVarList tl ++ " -> " ++ showVarList tr
   _ -> []
 
 -- Generate HTML documentation for a function.
-genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [HtmlExp]
+genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [BaseHtml]
 genHtmlFunc cssclass docopts d = case d of
   CurryDocFunctionDecl f@(fmod,fname) qty sig ai cs ->
     [par ([code [anchored fname [style cssclass
              [opnameDoc [showCodeNameRef docopts f],
-              HtmlText (" :: "++ showQualType docopts fmod qty)]]],
+              BaseText (" :: "++ showQualType docopts fmod qty)]]],
            nbsp, nbsp] ++
            genFuncPropIcons ai)] ++
     genSigComment docopts sig ++
@@ -308,7 +316,7 @@ genHtmlFunc cssclass docopts d = case d of
   _ -> []
 
 -- | Generate HTML for the given type signature, if one is present.
-genSigComment :: DocOptions -> Maybe CurryDocTypeSig -> [HtmlExp]
+genSigComment :: DocOptions -> Maybe CurryDocTypeSig -> [BaseHtml]
 genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
   CurryDocTypeSig (fmod, _) (CContext []   ) ps cs ->
@@ -322,21 +330,21 @@ genSigComment docopts (Just d) = case d of
              (concatCommentStrings (map commentString cs)))]
     ++ if all (null . snd) ps
          then []
-         else [table ([[code [HtmlText (":: " ++
+         else [table ([[code [BaseText (":: " ++
                                         showContext docopts fmod False cx)]]]
                 : genParamComments docopts fmod "=>" ps)]
 
 -- | Generate HTML for the parameters of a given type signature.
 genParamComments :: DocOptions -> String -> String -> [(CTypeExpr, [Comment])]
-                 -> [[[HtmlExp]]]
+                 -> [[[BaseHtml]]]
 genParamComments _       _    _   []              = []
 genParamComments docopts fmod sym ((ty, cs) : xs) =
-  [[code [HtmlText (sym ++ " " ++ showType docopts fmod False ty)], nbsp],
+  [[code [BaseText (sym ++ " " ++ showType docopts fmod False ty)], nbsp],
    removeTopPar (docComment2HTML docopts (unwords (map commentString cs)))]
     : genParamComments docopts fmod "->" xs
 
 -- | Generate HTML for any given AnalysisInfo of an entity.
-genFurtherInfos :: QName -> AnalysisInfo -> [HtmlExp]
+genFurtherInfos :: QName -> AnalysisInfo -> [BaseHtml]
 genFurtherInfos qn ai = case ai of
     NoAnalysisInfo          -> []
     PrecedenceInfo Nothing  -> []
@@ -395,7 +403,7 @@ genFurtherInfos qn ai = case ai of
         else Nothing
 
 -- | Generate a descriptive text for the given precedence.
-genPrecedenceText :: (CFixity, Int) -> [HtmlExp]
+genPrecedenceText :: (CFixity, Int) -> [BaseHtml]
 genPrecedenceText (fixity, prec) =
   [par [htxt ("defined as " ++ showFixity fixity ++
               " infix operator with precedence " ++
@@ -403,7 +411,7 @@ genPrecedenceText (fixity, prec) =
 
 -- | Generate HTML for a given property of a function.
 --   'Data.Type.GuardedRhs' aer not formatted in any specific way.
-showProperty :: QName -> (Property, CRule) -> [HtmlExp]
+showProperty :: QName -> (Property, CRule) -> [BaseHtml]
 showProperty qn (sp, rule) = case (sp, rule) of
   (PreSpec, CRule _ (CSimpleRhs _ _)) ->
      let (lhs,rhs) = break (=='=') prettyRule
@@ -437,7 +445,7 @@ showProperty qn (sp, rule) = case (sp, rule) of
    prettyOpts       = setNoQualification defaultOptions
 
 -- | Generates icons for particular properties of functions.
-genFuncPropIcons :: AnalysisInfo -> [HtmlExp]
+genFuncPropIcons :: AnalysisInfo -> [BaseHtml]
 genFuncPropIcons    NoAnalysisInfo       = []
 genFuncPropIcons    PrecedenceInfo    {} = []
 genFuncPropIcons    ShortAnalysisInfo {} = []
@@ -491,7 +499,7 @@ showVarList = unwords . map snd
 showTConsType :: DocOptions -> String -> Bool -> QName -> [CTypeExpr] -> String
 showTConsType opts mod nested tc ts
  | ts==[]  = showTypeCons opts mod tc
- | tc=~=("Prelude","[]") && (head ts == CTCons ("Prelude","Char")) -- TODO remove?
+ | tc=~=("Prelude","[]") && (head ts == CTCons ("Prelude","Char"))
    = showTypeCons opts mod ("Prelude", "String")
  | tc=~=("Prelude","[]")
    = "[" ++ showType opts mod False (head ts) ++ "]" -- list type
@@ -527,11 +535,18 @@ translateSource2ColoredHtml docdir modname = do
 genMainIndexPage :: DocOptions -> String -> [String] -> IO ()
 genMainIndexPage docopts docdir modnames =
  do putStrLn ("Writing index page to \""++docdir++"/index.html\"...")
-    simplePage "Documentation of Curry modules"
+    simplePage ("index.html", shorttitle) 
+               "Documentation of Curry modules"
                (Just pageTitle)
                allConsFuncsClassesMenu (indexPage modnames)
      >>= writeFile (docdir++"/index.html")
  where
+  shorttitle = if not (null (mainTitle docopts))
+                then [htxt (mainTitle docopts)]
+                else if length modnames == 1
+                      then [code [htxt $ head modnames], nbsp,
+                            htxt "documentation"]
+                      else [htxt "Curry Documentation"]
   pageTitle = if not (null (mainTitle docopts))
                 then [htxt (mainTitle docopts)]
                 else if length modnames == 1
@@ -540,13 +555,13 @@ genMainIndexPage docopts docdir modnames =
                                  [htxt (head modnames)]]
                       else [htxt "Documentation of Curry programs"]
 
-allConsFuncsClassesMenu :: [[HtmlExp]]
+allConsFuncsClassesMenu :: [[BaseHtml]]
 allConsFuncsClassesMenu =
-  [[href "findex.html"   [htxt "All operations"]],
-   [href "cindex.html"   [htxt "All constructors"]],
-   [href "clsindex.html" [htxt "All typeclasses"]]]
+  [[hrefNav "findex.html"   [htxt "All operations"]],
+   [hrefNav "cindex.html"   [htxt "All constructors"]],
+   [hrefNav "clsindex.html" [htxt "All typeclasses"]]]
 
-indexPage :: [String] -> [HtmlExp]
+indexPage :: [String] -> [BaseHtml]
 indexPage modnames =
   (if null modnames
    then []
@@ -556,7 +571,7 @@ indexPage modnames =
   ++ [explainIcons]
 
 -- Paragraph to explain the meaning of the icons:
-explainIcons :: HtmlExp
+explainIcons :: BaseHtml
 explainIcons =
   anchoredSection "explain_icons"
     [h2 [htxt "Explanations of the icons used in the documentation:"],
@@ -581,23 +596,23 @@ explainIcons =
 genFunctionIndexPage :: DocOptions -> String -> [CFuncDecl] -> IO ()
 genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
-  simplePage "Index to all operations" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expfuns))
+  simplePage (getHomeRef opts) "Index to all operations" Nothing
+             allConsFuncsClassesMenu (htmlIndex opts (sortNames expfuns))
     >>= writeFile (docdir++"/findex.html")
  where
    expfuns = nub $ map funcName $ filter ((== Public) . funcVis) funs
 
-htmlIndex :: DocOptions -> [QName] -> [HtmlExp]
+htmlIndex :: DocOptions -> [QName] -> [BaseHtml]
 htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
-showModNameRef :: DocOptions -> QName -> (String,[HtmlExp])
+showModNameRef :: DocOptions -> QName -> (String,[BaseHtml])
 showModNameRef opts (modname,name) =
   (name,
    [href (docURL opts modname++".html#"++name) [htxt name], nbsp, nbsp,
     htxt "(", href (docURL opts modname ++ ".html") [htxt modname], htxt ")"]
   )
 
-showCodeNameRef :: DocOptions -> QName -> HtmlExp
+showCodeNameRef :: DocOptions -> QName -> BaseHtml
 showCodeNameRef opts (modname,name) =
   href (docURL opts modname++"_curry.html#"++name) [htxt name']
   where name' = if isOperator then "(" ++ name ++ ")" else name
@@ -611,8 +626,8 @@ sortNames names = sortBy (\(_,n1) (_,n2) -> leqStringIgnoreCase n1 n2) names
 genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
 genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
-  simplePage "Index to all constructors" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expcons))
+  simplePage (getHomeRef opts) "Index to all constructors" Nothing 
+             allConsFuncsClassesMenu (htmlIndex opts (sortNames expcons))
     >>= writeFile (docdir++"/cindex.html")
  where
    consDecls (CType    _ _ _ cs _) = cs
@@ -627,8 +642,8 @@ genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
 genClassesIndexPage opts docdir cls = do
   putStrLn ("Writing typeclasses index page to \"" ++ docdir ++
             "/clsindex.html\"...")
-  simplePage "Index to all typeclasses" Nothing allConsFuncsClassesMenu
-             (htmlIndex opts (sortNames expclasses))
+  simplePage (getHomeRef opts) "Index to all typeclasses" Nothing 
+             allConsFuncsClassesMenu (htmlIndex opts (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
    expclasses = nub $ map    (\(CClass n _   _ _ _ _) -> n) $
@@ -640,7 +655,8 @@ genSystemLibsPage :: String -> [String] -> [[(String, ModuleHeader)]] -> IO ()
 genSystemLibsPage docdir cats modInfos = do
   putStrLn $ "Writing main index page for " ++ currySystem ++
              " to \"" ++ fname ++ "\"..."
-  mainPage (currySystem ++ " Libraries")
+  mainPage (curryPackagesURL, [htxt "Curry Packages"])
+           (currySystem ++ " Libraries")
            [h1 [htxt $ currySystem ++ ": System Libraries"]]
            syslibsLeftTopMenu
            syslibsRightTopMenu
@@ -652,31 +668,31 @@ genSystemLibsPage docdir cats modInfos = do
  where
   fname = docdir ++ "/" ++ currySystem ++ "_libs.html"
 
-syslibsLeftTopMenu :: [[HtmlExp]]
+syslibsLeftTopMenu :: [[BaseHtml]]
 syslibsLeftTopMenu =
-  [ [href (currySystemURL ++ "/Manual.pdf") [htxt "Manual (PDF)"]]
-  , [href (currySystemURL ++ "/lib/") [htxt "Libraries"]]
-  , [ehref currygleURL [extLinkIcon, htxt " API Search"]]
-  , [href (currySystemURL ++ "/download.html") [htxt "Download"]]
+  [ [hrefNav (currySystemURL ++ "/Manual.pdf") [htxt "Manual (PDF)"]]
+  , [hrefNav (currySystemURL ++ "/lib/") [htxt "Libraries"]]
+  , [ehrefNav currygleURL [htxt " API Search"]]
+  , [hrefNav (currySystemURL ++ "/download.html") [htxt "Download"]]
   ]
 
-syslibsRightTopMenu :: [[HtmlExp]]
+syslibsRightTopMenu :: [[BaseHtml]]
 syslibsRightTopMenu =
   [ curryHomeItem
-  , [ehref (curryHomeURL ++ "/documentation/report")
-           [extLinkIcon, htxt " Curry Report"]]
+  , [ehrefNav (curryWikiURL ++ "/documentation/report")
+              [htxt "Curry Report"]]
   ]
 
-syslibsSideMenu :: [String] -> [HtmlExp]
+syslibsSideMenu :: [String] -> [BaseHtml]
 syslibsSideMenu cats = map par $
-     [[ehref currygleURL [extLinkIcon, htxt " Search with Curr(y)gle"]]]
-  ++ [[href ("#" ++ c) [ htxt (genCatExplain c)]] | c <- cats]
-  ++ [ [href "findex.html" [htxt "Index to all library functions"]]
-     , [href "cindex.html" [htxt "Index to all library constructors"]]
-     , [href "#explain_icons" [htxt "Icons used in the documentation"]]
+     [[ehrefNav currygleURL [htxt "Search with Curr(y)gle"]]]
+  ++ [[hrefNav ("#" ++ c) [ htxt (genCatExplain c)]] | c <- cats]
+  ++ [ [hrefNav "findex.html" [htxt "Index to all library functions"]]
+     , [hrefNav "cindex.html" [htxt "Index to all library constructors"]]
+     , [hrefNav "#explain_icons" [htxt "Icons used in the documentation"]]
      ]
 
-infoTxt :: HtmlExp
+infoTxt :: BaseHtml
 infoTxt = par
   [ htxt "Here is the collection of libraries contained in the distribution of "
   , href currySystemURL [htxt currySystem]
@@ -684,7 +700,7 @@ infoTxt = par
         ++ "development of larger Curry applications. If you have suggestions "
         ++ "for changes/improvements or if you want to contribute your own "
         ++ "library, please contact "
-  , href "http://www.informatik.uni-kiel.de/~mh/" [htxt "Michael Hanus"]
+  , href "http://www.michaelhanus.de/" [htxt "Michael Hanus"]
   , htxt "."
   ]
 
@@ -697,7 +713,7 @@ genCatExplain c = case c of
   "meta"      -> "Libraries for meta-programming"
   _           -> "Other Libraries"
 
-genHtmlLibCats :: [[(String, ModuleHeader)]] -> [HtmlExp]
+genHtmlLibCats :: [[(String, ModuleHeader)]] -> [BaseHtml]
 genHtmlLibCats = concatMap gen
   where
     gen [] = []
@@ -706,7 +722,7 @@ genHtmlLibCats = concatMap gen
       in [anchoredSection (getCategoryWithDefault "general" xs)
             (h2 [htxt (genCatExplain c ++ ":")] : genHtmlLibCat mods)]
 
-genHtmlLibCat :: [(String, ModuleHeader)] -> [HtmlExp]
+genHtmlLibCat :: [(String, ModuleHeader)] -> [BaseHtml]
 genHtmlLibCat mods =
   [dlist [(genHtmlName modname, docComment2HTML defaultCurryDocOptions modcmt)
   | (modname, ModuleHeader _ modcmt) <- mods ]
@@ -718,64 +734,65 @@ genHtmlLibCat mods =
 -- Auxiliary operation for general page style.
 
 -- | Generate the main page with the default documentation style.
-mainPage :: String      -- ^ The title of the page
-         -> [HtmlExp]   -- ^ The title of the pagethe title in HTML format
-         -> [[HtmlExp]] -- ^ The menu shown at left of the top
-         -> [[HtmlExp]] -- ^ The menu shown at left of the top
-         -> [HtmlExp]   -- ^ The menu shown at the left-hand side
-         -> [HtmlExp]   -- ^ The main contents of the page
+mainPage :: (String, [BaseHtml])
+         -> String      -- ^ The title of the page
+         -> [BaseHtml]   -- ^ The title of the pagethe title in HTML format
+         -> [[BaseHtml]] -- ^ The menu shown at left of the top
+         -> [[BaseHtml]] -- ^ The menu shown at left of the top
+         -> [BaseHtml]   -- ^ The menu shown at the left-hand side
+         -> [BaseHtml]   -- ^ The main contents of the page
          -> IO String
-mainPage title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
+mainPage homeref title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPage styleBaseURL cssIncludes title homeBrand
-                    (map fromHtmlExps lefttopmenu)
-                    (map fromHtmlExps righttopmenu)
-                    3
-                    (fromHtmlExps sidemenu)
-                    (fromHtmlExps htmltitle)
-                    (fromHtmlExps maindoc)
+      bootstrapPage favIcon cssIncludes jsIncludes title homeref
+                    lefttopmenu righttopmenu 3 sidemenu htmltitle maindoc
                     (curryDocFooter time)
 
-cssIncludes :: [String]
-cssIncludes = ["bootstrap.min","currydoc"]
+favIcon :: String
+favIcon = styleBaseURL </> "img" </> "favicon.ico"
 
-homeBrand :: (String,[BaseHtml])
-homeBrand = (currySystemURL, map fromHtmlExp [homeIcon, nbsp, htxt currySystem])
+-- | The CSS includes relative to the base directory of bt4.
+cssIncludes :: [String]
+cssIncludes = map (\n -> styleBaseURL </> "css" </> n ++ ".css") 
+                  ["bootstrap.min", "currydoc"]
+
+-- | The javascript includes.
+jsIncludes :: [String]
+jsIncludes = 
+  ["https://code.jquery.com/jquery-3.4.1.slim.min.js",
+   styleBaseURL </> "js" </> "bootstrap.bundle.min.js"]
 
 -- | Generates a page with the default documentation style.
 showPageWithDocStyle :: String    -- ^ The title of the page
-                     -> [HtmlExp] -- ^ The main contents of the page
+                     -> [BaseHtml] -- ^ The main contents of the page
                      -> String
 showPageWithDocStyle title body =
   showHtmlPage $
     HtmlPage title
              (map (\f -> pageCSS $ styleBaseURL ++ "/css/" ++ f ++ ".css")
                   cssIncludes)
-             (fromHtmlExps body)
+             body
 
 -- | The standard right top menu.
-rightTopMenu :: [[HtmlExp]]
+rightTopMenu :: [[BaseHtml]]
 rightTopMenu =
-  [ curryHomeItem
-  , [ehref (currySystemURL++"/lib/")
-           [extLinkIcon, htxt $ " "++currySystem++" Libraries"]]
-  , [ehref (curryHomeURL ++ "/tools/currydoc")
-           [extLinkIcon, htxt " About CurryDoc"]]
+  [ [hrefNav  "index.html"     [htxt "Module Index"]]
+  , [ehrefNav baseLibsURL      [htxt "Base Libraries"]]
+  , [ehrefNav curryPackagesURL [htxt "Curry Packages"]]
+  , curryHomeItem
+  , [ehrefNav curryDocURL      [htxt "About CurryDoc"]]
   ]
 
 --------------------------------------------------------------------------
 -- Icons:
 
-extLinkIcon :: HtmlExp
-extLinkIcon = glyphicon "new-window"
-
-detIcon :: HtmlExp
-detIcon     = glyphicon "arrow-right"
-                `withTitle` "This operation is deterministic"
-nondetIcon :: HtmlExp
-nondetIcon  = glyphicon "random"
-                `withTitle` "This operation might be non-deterministic"
+detIcon :: BaseHtml
+detIcon     = image (styleBaseURL ++ "/img/forward-fill.svg") "Deterministic"
+                `addTitle` "This operation is deterministic"
+nondetIcon :: BaseHtml
+nondetIcon  = image (styleBaseURL ++ "/img/share-fill.svg") "Non-deterministic"
+                `addTitle` "This operation might be non-deterministic"
 -- rigidIcon :: HtmlExp
 -- rigidIcon     = italic [] `addClass` "fa fa-cogs"
 --                   `withTitle` "This operation is rigid"
@@ -786,8 +803,8 @@ nondetIcon  = glyphicon "random"
 -- flexrigidIcon = italic [] `addClass` "fa fa-exclamation-triangle"
 --     `withTitle` "This operation is partially flexible and partially rigid"
 
-withTitle :: HtmlExp -> String -> HtmlExp
-withTitle he t = he `addAttr` ("title",t)
+addTitle :: BaseHtml -> String -> BaseHtml
+addTitle he t = he `addAttr` ("title",t)
 
 --------------------------------------------------------------------------
 -- Standard footer information for generated web pages:
@@ -798,46 +815,48 @@ curryDocFooter time = map fromHtmlExp $
            htxt (" ("++currydocVersion++") at "),
            htxt (calendarTimeToString time)]]
 
-curryHomeItem :: [HtmlExp]
-curryHomeItem = [ehref curryHomeURL [extLinkIcon, htxt " Curry Homepage"]]
+curryHomeItem :: [BaseHtml]
+curryHomeItem = [ehrefNav curryHomeURL [htxt "Curry Homepage"]]
 
 -- | Generate a simple page with the default documentation style.
-simplePage :: String          -- ^ The title of the page
-           -> Maybe [HtmlExp] -- ^ Maybe a specific title for h1 header
-           -> [[HtmlExp]]     -- ^ The menu shown at left of the top
-           -> [HtmlExp]       -- ^ The main contents of the page
+simplePage :: (String, [BaseHtml]) 
+           -> String               -- ^ The title of the page
+           -> Maybe [BaseHtml]     -- ^ Maybe a specific title for h1 header
+           -> [[BaseHtml]]         -- ^ The menu shown at left of the top
+           -> [BaseHtml]           -- ^ The main contents of the page
            -> IO String
-simplePage title htmltitle lefttopmenu maindoc = do
+simplePage homeref title htmltitle lefttopmenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPage styleBaseURL cssIncludes title homeBrand
-                    (map fromHtmlExps lefttopmenu)
-                    (map fromHtmlExps rightTopMenu) 
-                    0 
-                    []
-                    [fromHtmlExp $ h1 (maybe [htxt title] id htmltitle)]
-                    (fromHtmlExps maindoc)
+      bootstrapPage favIcon cssIncludes jsIncludes title homeref
+                    lefttopmenu rightTopMenu 0 []
+                    [h1 (maybe [htxt title] id htmltitle)]
+                    maindoc
                     (curryDocFooter time)
 
 -- | An anchored section in the document:
-anchoredSection :: String -> [HtmlExp] -> HtmlExp
+anchoredSection :: String -> [BaseHtml] -> BaseHtml
 anchoredSection tag doc = section doc `addAttr` ("id",tag)
 
 -- | An anchored element in the document:
-anchored :: String -> [HtmlExp] -> HtmlExp
+anchored :: String -> [BaseHtml] -> BaseHtml
 anchored tag doc = style "anchored" doc `addAttr` ("id",tag)
 
 -- | An anchored element in the document:
-anchoredDiv :: String -> [HtmlExp] -> HtmlExp
+anchoredDiv :: String -> [BaseHtml] -> BaseHtml
 anchoredDiv tag doc = block doc `addAttr` ("id",tag)
 
 -- | A bordered table:
-borderedTable :: [[[HtmlExp]]] -> HtmlExp
+borderedTable :: [[[BaseHtml]]] -> BaseHtml
 borderedTable rows = table rows `addClass` "table table-bordered table-hover"
 
--- | An external reference
-ehref :: String -> [HtmlExp] -> HtmlExp
-ehref url desc = href url desc `addAttr` ("target","_blank")
+-- | A reference to the index page with a suitable title.
+getHomeRef :: DocOptions -> (String, [BaseHtml])
+getHomeRef opts = ("index.html", title)
+ where 
+  title 
+    | not (null (mainTitle opts)) = [htxt (mainTitle opts)]
+    | otherwise                   = [htxt "Curry Documentation"]
 
 --------------------------------------------------------------------------
 -- Auxiliaries:
@@ -845,7 +864,7 @@ ehref url desc = href url desc `addAttr` ("target","_blank")
 fromHtmlExps :: [HtmlExp] -> [BaseHtml]
 fromHtmlExps = map fromHtmlExp
 
-ulistOrEmpty :: [[HtmlExp]] -> [HtmlExp]
+ulistOrEmpty :: [[BaseHtml]] -> [BaseHtml]
 ulistOrEmpty items | null items = []
                    | otherwise  = [ulist items]
 
@@ -856,11 +875,11 @@ ifNotNull cmt doc genDoc
   | otherwise = doc ++ genDoc cmt
 
 -- | Style for explanation categories, like "Constructors:", "Parameters:",...
-explainCat :: String -> HtmlExp
+explainCat :: String -> BaseHtml
 explainCat s = textstyle "explaincat" s
 
 -- | Style for function/constructor name shown in the documentation part:
-opnameDoc :: [HtmlExp] -> HtmlExp
+opnameDoc :: [BaseHtml] -> BaseHtml
 opnameDoc = style "opname"
 
 -- | Less-or-equal comparison for strings (ignoring case)
@@ -916,9 +935,9 @@ infixIDs :: String
 infixIDs =  "~!@#$%^&*+-=<>?./|\\:"
 
 -- | Removes a single top-level paragraph in HTML expressions.
-removeTopPar :: [HtmlExp] -> [HtmlExp]
+removeTopPar :: [BaseHtml] -> [BaseHtml]
 removeTopPar hexps = case hexps of
-  [HtmlStruct "p" [] hs] -> hs
+  [BaseStruct "p" [] hs] -> hs
   _ -> hexps
 
 -- | Encloses a non-letter identifier in brackets.

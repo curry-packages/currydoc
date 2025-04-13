@@ -8,6 +8,7 @@ module CurryDoc.Config where
 
 import Curry.Compiler.Distribution ( curryCompiler )
 import CurryDoc.PackageConfig      ( packageVersion )
+import Language.Curry.Resources    ( curryWikiURL, pakcsURL, kics2URL )
 
 -- | Version of currydoc
 currydocVersion :: String
@@ -15,25 +16,18 @@ currydocVersion = "Version " ++ packageVersion ++ " of March, 2025"
 
 -- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
-styleBaseURL = "bt3"
-  --if curryCompiler=="pakcs"
-  --  then "https://www.informatik.uni-kiel.de/~pakcs/bt3"
-  --  else "https://www-ps.informatik.uni-kiel.de/kics2/bt3"
+styleBaseURL = "bt4"
 
 -- | The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
 currySystemURL = if curryCompiler=="pakcs"
-                 then "https://www.informatik.uni-kiel.de/~pakcs"
-                 else "https://www-ps.informatik.uni-kiel.de/kics2"
+                 then pakcsURL
+                 else kics2URL
 
 -- | The name of this Curry system.
 currySystem :: String
 currySystem = if curryCompiler=="pakcs" then "PAKCS" else "KiCS2"
 
--- | The URL of the API search
-currygleURL :: String
-currygleURL = "https://www-ps.informatik.uni-kiel.de/kics2/currygle/"
-
--- | The URL of the Curry homepage
-curryHomeURL :: String
-curryHomeURL = "http://www.curry-language.org"
+-- | The URL of CurryDoc
+curryDocURL :: String
+curryDocURL = curryWikiURL ++ "/tools/currydoc"
