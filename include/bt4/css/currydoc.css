@@ -1,12 +1,90 @@
-/* Changes to default bootstrap style: */
+:root {
+  /* Light theme (default) */
+  --body-bg:     #ffffff;
+  --body-color:  #212529;
+  --card-bg:     #f8f9fa;
+  --card-border: #f0f0f0;
+  --hrule-color: #f3f3f3;
+  --sidebar-bg:  #fcfcfc;
+  --link-color:  #2196F3;
+  --link-hover:  #064579;
+  
+  /* Syntax highlighting - light theme */
+  --code-bg:          #f5f5f5;
+  --code-color:       #1b1b1b;
+  --keyword:          #0000ff;
+  --constructor:      #ff00ff;
+  --type-constructor: #ff7f50;
+  --function:         #800080;
+  --module:           #800000;
+  --comment:          #008000;
+  --number:           #008080;
+  --string:           #800000;
+  --char:             #800000;
+  --symbol:           #666666;
+  --identifier:       #000000;
+  --warning:          #ff0000;
+  --error:            #a52a2a;
+  --not-parsed:       #c0c0c0;
 
+  --md-code-color:    #6b6b6b;
+}
+
+[data-theme="dark"] {
+  /* Dark theme */
+  --body-bg:     #111111;
+  --body-color:  #f0f0f0;
+  --card-bg:     #2d2d2d;
+  --card-border: #2d2d2d;
+  --hrule-color: #2f2f2f;
+  --sidebar-bg:  #252525;
+  --link-color:  #4dabf7;
+  --link-hover:  #a5d8ff;
+  
+  /* Syntax highlighting - dark theme */
+  --code-bg:          #2a2a2a;
+  --code-color:       #f0f0f0;
+  --keyword:          #569cd6;
+  --constructor:      #b57edc;
+  --type-constructor: #ce9178;
+  --function:         #c586c0;
+  --module:           #d16969;
+  --comment:          #6a9955;
+  --number:           #b5cea8;
+  --string:           #ce9178;
+  --char:             #ce9178;
+  --symbol:           #858585;
+  --identifier:       #dcdcdc;
+  --warning:          #f44747;
+  --error:            #d86c6c;
+  --not-parsed:       #7a7a7a;
+
+  --md-code-color:    #adadad;
+}
+
+[data-theme="dark"] img.svg-icon {
+  filter: invert(100%) brightness(150%);
+}
+
+hr {
+  background-color: var(--hrule-color);
+}
+
+/* Changes to default bootstrap style: */
 body {
   padding-top: 100px;
   padding-bottom: 40px;
+  background-color: var(--body-bg);
+  color: var(--body-color);
+}
+
+pre {
+  color: var(--md-code-color);
 }
 
 .jumbotron {
   padding: 10px 20px;
+  background-color: var(--card-bg);
 }
 
 .jumbotron h1 {
@@ -25,21 +103,22 @@ section {
   position: fixed;
   border-width: 1px;
   border-radius: 5px;
-  border-color: #f0f0f0;
+  border-color: var(--card-border);
+  background-color: var(--card-bg);
   overflow: hidden;
 }
 
 /* The sidebar menu */
 .nav-sidebar {
   z-index: 1;
-  background-color: #fcfcfc;
+  background-color: var(--sidebar-bg);
   overflow-x: hidden;
   
   /* Allow shrinking below 100px if content is small */
   min-height: auto;
   height: auto;
 
-  overflow-y: auto;  /* Triggers scrollbar when needed */  
+  overflow-y: auto;  
   max-height: calc(100vh - 130px);
 
   /* When content is scrollable, enforce min-height */
@@ -53,42 +132,34 @@ section {
   padding-top: 10px;
   padding-bottom: 5px;
   line-height: 15px;
-  margin-bottom: 0; /* remove bottom margin to card */
+  margin-bottom: 0;
 }
 
-.nav-sidebar > div > a:hover {
-  color: #064579;
-}
-
-/* The navigation menu links */
 .nav-sidebar > div > a {
   padding: 6px 8px 6px 16px;
   text-decoration: none;
   font-size: 18px;
-  color: #2196F3;
+  color: var(--link-color);
   display: block;
 }
 
-/* When you mouse over the navigation links, change their color */
 .nav-sidebar > div > a:hover {
-  color: #064579;
+  color: var(--link-hover);
 }
 
-/* On middle screens, make sidebar smaller*/
+/* Media queries remain unchanged */
 @media (max-width: 1199px) {
   .nav-sidebar {
     font-size: 14px;
   }
 }
 
-/* On smaller screens, make sidebar even smaller*/
 @media (max-width: 991px) {
   .nav-sidebar {
     font-size: 10px;
   }
 }
 
-/* On even smaller screens, remove sidebar*/
 @media (max-width: 767px) {
   .card {
     display: none;
@@ -98,24 +169,21 @@ section {
   }
 }
 
-/* ***************************************** */
+/* ****************************************** */
 
 .anchored {
   padding-top: 40px;
 }
 
-/* type name at header positions */
 .typeheader {
   font-size: 24px;
   font-weight: bold;
 }
 
-/* function name in the documentation of a exported functions */
 .opname {
   font-weight: bold;
 }
 
-/* style for constructor comments" */
 .conscomment {
   padding: 5px 0px 0px 20px;
 }
@@ -136,37 +204,61 @@ section {
   text-indent: 60px;
 }
 
-/* style for explanation categories like "Constructors:" */
 .explaincat {
   font-style: italic;
 }
 
+/* ****************************************** */
+/* syntax highlighting */
+
 code {
-  color:black;
+  color: var(--code-color);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
 }
 
-.keyword { color:blue }
-.constructorname_constrpattern { color : #ff00ff }
-.constructorname_constrcall { color : #ff00ff }
-.constructorname_constrdecla { color : #ff00ff }
-.constructorname_otherconstrkind { color : #ff00ff }
-.typeconstructor_typedecla  { color : #ff7f50 }
-.typeconstructor_typeuse  { color : #ff7f50 }
-.typeconstructor_typeexport  { color : #ff7f50 }
-.function_infixfunction  { color : #800080 }
-.function_typsig  { color : #800080 }
-.function_fundecl  { color : #800080 }
-.function_functioncall  { color : #800080 }
-.function_otherfunctionkind  { color : #800080 }
-.moduleName  { color : #800000 }
-.commentary  { color : green }
-.numberCode  { color : #008080 }
-.stringCode  { color : #800000 }
-.charCode  { color : #800000 }
-.symbol  { color : #666666 }
-.identifier_iddecl   { color : black }
-.identifier_idoccur   { color : black }
-.identifier_unknownid   { color : black }
-.codeWarning  {font-weight: bold;font-style:italic; color : red }
-.codeError  { font-style:italic; color : #a52a2a }
-.notParsed  { font-style:italic; color : #C0C0C0 }
+.keyword { color: var(--keyword); }
+.constructorname_constrpattern,
+.constructorname_constrcall,
+.constructorname_constrdecla,
+.constructorname_otherconstrkind { color: var(--constructor); }
+.typeconstructor_typedecla,
+.typeconstructor_typeuse,
+.typeconstructor_typeexport { color: var(--type-constructor); }
+.function_infixfunction,
+.function_typsig,
+.function_fundecl,
+.function_functioncall,
+.function_otherfunctionkind { color: var(--function); }
+.moduleName { color: var(--module); }
+.commentary { color: var(--comment); }
+.numberCode { color: var(--number); }
+.stringCode,
+.charCode { color: var(--string); }
+.symbol { color: var(--symbol); }
+.identifier_iddecl,
+.identifier_idoccur,
+.identifier_unknownid { color: var(--identifier); }
+.codeWarning { font-weight: bold; font-style: italic; color: var(--warning); }
+.codeError { font-style: italic; color: var(--error); }
+.notParsed { font-style: italic; color: var(--not-parsed); }
+
+/* ****************************************** */
+/* Theme toggle button styles */
+
+#theme-toggle {
+  width: 70px;
+}
+
+[data-theme="dark"] .theme-icon-light {
+  display: none;
+}
+[data-theme="dark"] .theme-icon-dark {
+  display: inline;
+}
+[data-theme="light"] .theme-icon-light {
+  display: inline;
+}
+[data-theme="light"] .theme-icon-dark {
+  display: none;
+}

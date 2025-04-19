@@ -755,7 +755,8 @@ cssIncludes = map (\n -> styleBaseURL </> "css" </> n ++ ".css")
 jsIncludes :: [String]
 jsIncludes = 
   ["https://code.jquery.com/jquery-3.4.1.slim.min.js",
-   styleBaseURL </> "js" </> "bootstrap.bundle.min.js"]
+   styleBaseURL </> "js" </> "bootstrap.bundle.min.js",
+   styleBaseURL </> "js" </> "theme.js"]
 
 -- | Generates a page with the default documentation style.
 showPageWithDocStyle :: String    -- ^ The title of the page
@@ -776,17 +777,34 @@ rightTopMenu =
   , [ehrefNav curryPackagesURL [htxt "Curry Packages"]]
   , curryHomeItem
   , [ehrefNav curryDocURL      [htxt "About CurryDoc"]]
+  , [themeToggleButton]
   ]
-
+ where
+  {-
+  <button id="theme-toggle" class="btn btn-sm btn-outline-secondary">
+    <span class="theme-icon-light">🌙 Dark</span>
+    <span class="theme-icon-dark" style="display:none">☀️ Light</span>
+  </button>
+  -}
+  themeToggleButton :: BaseHtml
+  themeToggleButton = 
+    htmlStruct "button" 
+      [("id", "theme-toggle"), ("class", "btn btn-sm btn-outline-secondary")]
+      [ htmlStruct "span" [("class", "theme-icon-light")] [htmlText "🌙 Dark"]
+      , htmlStruct "span" [("class", "theme-icon-dark")]  [htmlText "☀️ Light"]
+      ]
 --------------------------------------------------------------------------
 -- Icons:
 
 detIcon :: BaseHtml
 detIcon     = image (styleBaseURL ++ "/img/forward-fill.svg") "Deterministic"
-                `addTitle` "This operation is deterministic"
+                `addTitle` "This operation is deterministic" 
+                `addClass` "svg-icon"
 nondetIcon :: BaseHtml
 nondetIcon  = image (styleBaseURL ++ "/img/share-fill.svg") "Non-deterministic"
                 `addTitle` "This operation might be non-deterministic"
+                `addClass` "svg-icon"
+
 -- rigidIcon :: HtmlExp
 -- rigidIcon     = italic [] `addClass` "fa fa-cogs"
 --                   `withTitle` "This operation is rigid"

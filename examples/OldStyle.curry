@@ -31,7 +31,7 @@ nondet = 42 ? 73
 --- A simple function (old style).
 --- @param x - The first argument
 --- @param y - The second argument
---- @return  - The result
+--- @return  - The result 
 myFun1 :: Int -> Int -> Int
 myFun1 x y = if x > y then x else y
 
@@ -43,7 +43,7 @@ myFun2 :: Int -> Int -> Int
 myFun2 x y = if x > y then x else y
 
 --- A simple function where parts of the 
---- parameters are omitted (old style).
+--- parameters are omitted (old style). 
 --- @param x The first argument
 --- @return The result
 myFun3 :: Int -> Int -> Int
