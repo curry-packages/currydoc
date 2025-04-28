@@ -6,7 +6,7 @@
 ---
 --- @description An example module for CurryDoc
 --- @category Example
---- @version March 2025 
+--- @version March 2025
 --- @author Guy Incognito,
 ---         Lasse Züngel
 --------------------------------------------------------------------------------
@@ -31,10 +31,10 @@ nondet = 42 ? 73
 --- A simple function (old style).
 --- @param x - The first argument
 --- @param y - The second argument
---- @return  - The result 
+--- @return  - The result
 myFun1 :: Int -> Int -> Int
 myFun1 x y = if x > y then x else y
-
+ 
 --- A simple function (old style). 
 --- @param x The first argument
 --- @param y The second argument
@@ -45,7 +45,10 @@ myFun2 x y = if x > y then x else y
 --- A simple function where parts of the 
 --- parameters are omitted (old style). 
 --- @param x The first argument
---- @return The result
+---          (multiline) 
+--- @return The result 
+---         is also documented
+---         using multiline comments.
 myFun3 :: Int -> Int -> Int
 myFun3 x y = if x > y then x else y
 
@@ -59,6 +62,7 @@ myFun4 x y = if x > y then x else y
 -- | A simple function (haddock style).
 myFunH :: Int -- ^ The first argument 
        -> Int -- ^ The second argument
+              --   (multiline)
        -> Int -- ^ The result 
 myFunH x y = if x > y then x else y 
 
@@ -67,13 +71,13 @@ myFunH x y = if x > y then x else y
 --- @cons MyCons2 The second constructor
 --- @cons MyCons3 The third constructor with an argument
 --- The @cons annotations can also be placed between
---- comments!
+--- comments! 
 data MyData = MyCons1 
             | MyCons2 
             | MyCons3 Int
 
 --- A simple type synonym.
-type MyType = Int
+type MyType = Int 
 
 --- A simple newtype.
 --- @cons MyNewType The constructor

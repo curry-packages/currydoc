@@ -708,10 +708,11 @@ splitNestedComment   (NestedComment s) = map LineComment $ lines s
 data OldStyleComment 
   = OldStyleComment Comment                          -- ^ Simple comment
   | OldStyleField   OldStyleFieldType String Comment -- ^ Field comment 
+ deriving Show
 
 -- | Field types for comments with "type-key-value" triples.
 data OldStyleFieldType = Param | Return | Cons 
- deriving Eq
+ deriving (Eq, Show)
 
 -- | Post-processes a type signature by associating @parameter and @return 
 --   comments with the appropriate type expression. We can simply add the 
@@ -740,7 +741,7 @@ postProcessTypeSig cd = case cd of
   CommentedTypeSig f cs ts ->
     -- Split comments into normal comments, @param comments, and @return comments.
     -- Drop @cons comments, as they are misplaced in type signatures.
-    let (fcs1,  cs1) = partition isField $ map commentToOldStyleComment cs
+    let (fcs1,  cs1) = partition isField $ commentsToOldStyleComments cs
         (fcsR, fcsP) = partition (hasField Return) $ filter (not . hasField Cons) fcs1
     in CommentedTypeSig f (map oldStyleCommentToComment cs1) $ insertReturn fcsR $ insertDescs fcsP ts 
   _ -> cd
@@ -784,10 +785,10 @@ postProcessTypeSig cd = case cd of
 postProcessDataDecl :: CommentedDecl -> CommentedDecl
 postProcessDataDecl cd = case cd of
   CommentedDataDecl f cs cns -> 
-    let (ccs', cs') = partition (hasField Cons) $ map commentToOldStyleComment cs
+    let (ccs', cs') = partition (hasField Cons) $ commentsToOldStyleComments cs
     in CommentedDataDecl f (map oldStyleCommentToComment cs') $ map (addToConstructor ccs') cns
   CommentedNewtypeDecl f cs cn ->
-    let (ccs', cs') = partition (hasField Cons) $ map commentToOldStyleComment cs
+    let (ccs', cs') = partition (hasField Cons) $ commentsToOldStyleComments cs
     in CommentedNewtypeDecl f (map oldStyleCommentToComment cs') $ addToConstructor ccs' cn
   _ -> cd
  where
@@ -810,6 +811,43 @@ lookupFieldComment _ _ []     = Nothing
 lookupFieldComment ft n (c:cs) = case c of
   OldStyleField f n' c' | n == n' && ft == f -> Just c'
   _ -> lookupFieldComment ft n cs
+
+-- | Converts a list of comments to old-style comments.
+--
+--   Consecutive comments are merged if the the first comment is a field comment
+--   and the following comments are indented normal comments.
+commentsToOldStyleComments :: [Comment] -> [OldStyleComment]
+commentsToOldStyleComments = mergeOldStyleComments . map commentToOldStyleComment 
+
+-- | Merges consecutive old-style comments where field comments are followed by
+--   indented simple comments.
+mergeOldStyleComments :: [OldStyleComment] -> [OldStyleComment]
+mergeOldStyleComments [] = []
+mergeOldStyleComments (oc:ocs) = case oc of
+  OldStyleField ft name c -> 
+    let (indented, rest) = takeIndentedComments ocs (getIndent oc)
+        merged = if null indented 
+                  then oc 
+                  else OldStyleField ft name (mergeCommentContents c (map oldStyleCommentToComment indented))
+    in merged : mergeOldStyleComments rest
+  _ -> oc : mergeOldStyleComments ocs
+
+-- | Takes all immediately following comments that are indented more than the
+--   reference indentation level.
+takeIndentedComments :: [OldStyleComment] -> Int -> ([OldStyleComment], [OldStyleComment])
+takeIndentedComments [] _ = ([], [])
+takeIndentedComments (oc:ocs) refIndent = case oc of
+  OldStyleComment _ ->
+    if getIndent oc > refIndent
+      then let (more, rest) = takeIndentedComments ocs refIndent
+           in (oc:more, rest)
+      else ([], oc:ocs)
+  _ -> ([], oc:ocs)
+
+-- | Merges the contents of multiple comments into a single comment.
+mergeCommentContents :: Comment -> [Comment] -> Comment
+mergeCommentContents c cs = let content = unwords $ map commentString (c:cs)
+                            in setCommentString c content
 
 -- | Degradation of a comment to an old-style comment.
 --   If the comment is of shape "@field fieldname fieldcomment",
@@ -834,6 +872,15 @@ commentToOldStyleComment c = case words $ commentString c of
       "-":ss' -> unwords ss'
       _       -> unwords ss
   _ -> OldStyleComment c
+
+-- | Returns the indentation of an old-style comment, i.e., 
+--   the number of spaces before the comment string.
+getIndent :: OldStyleComment -> Int
+getIndent oc = if indent == length str then 0 else indent
+ where
+  c      = oldStyleCommentToComment oc
+  str    = commentString c
+  indent = length $ takeWhile (== ' ') str
 
 -- | Converts a string to an old-style field. Returns Nothing if the
 --   string does not represent a field. The string must start with "@"
