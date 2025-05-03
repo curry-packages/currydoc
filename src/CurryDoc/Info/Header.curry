@@ -1,6 +1,6 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : March 2025
+     Version : May 2025
 
      Operations to parse the module comments into a usable format.
 -}
@@ -12,7 +12,7 @@ import CurryDoc.Info.Goodies
 import CurryDoc.Info.Comments
 
 import Data.Char ( isSpace )
-import Data.List ( isPrefixOf, sort )
+import Data.List ( isPrefixOf, sort, intercalate)
 
 -- | The header of a Curry module.
 data ModuleHeader = ModuleHeader [(HeaderField, String)] String
@@ -27,7 +27,7 @@ data HeaderField = Description
 
 -- | Reads the module header from a list of comments.
 readModuleHeader :: [Comment] -> ModuleHeader
-readModuleHeader = orderFields . readFullDesc . removeBorder . toStrings 
+readModuleHeader = orderFields . readFullDesc . removeBorder . toStrings
 
 -- | Reads the full description of a module header.
 --   
@@ -48,20 +48,22 @@ readFullDesc strs = readFullDesc' (ModuleHeader [] "") (getIndentation strs) str
      | all isSpace s      = readFullDesc' (addComment h "\n") (getIndentation ss) ss
      -- Read indented paragraph:
      | spaceAmount > intd = readFullDesc' (addComment h $ drop intd s ++ "\n") intd ss
-     -- Read either field or comment:
-     | otherwise          = case tryParseHeaderFieldValue intd s ss of
-                              Just ((f, v), rest) -> readFullDesc' (addField h f v) intd rest
-                              Nothing             -> readFullDesc' (addComment h $ text ++ "\n") spaceAmount ss
+     -- Read either a field or a comment:
+     | otherwise = 
+        case readCommentLine intd s ss of
+          (HeaderFieldLine f v, rest) 
+            -> readFullDesc' (addField h f v) intd rest
+          (Line t, rest)
+            -> readFullDesc' (addComment h $ t ++ "\n") spaceAmount rest
    where 
-    (space, text) = span isSpace s
-    spaceAmount   = length space
+    spaceAmount = countIndent s
 
 -----------------------------------------------------------
 -- Header field parsing and handling
---
--- TODO: prettifify this. Instead of an `is..`- and `get...`-operation, 
---       we could incorporate that into, e.g., a `tryParse...`-operation 
---       that returns a Maybe. 
+
+data HeaderComment = Line String
+                   | HeaderFieldLine HeaderField String
+  deriving (Show, Read) 
 
 -- | Converts a string to a header field.
 stringToHeaderField :: String -> Maybe HeaderField
@@ -72,41 +74,32 @@ stringToHeaderField str = case toLowerString str of
   "version"     -> Just Version
   _             -> Nothing
 
--- | Checks if a given string is a module header field
---   of shape "Field: Value" or "@Field Value" for an 
---   arbitrary field.
-isModuleHeaderField :: String -> Bool
-isModuleHeaderField text = 
-  ':' `elem` text
-  ||
-  "@" `isPrefixOf` text
-
--- | Reads a field-value pair from a string with a given indentation.
---   The indentation is used to determine the end of the field-value pair.
+-- | Reads a header comment line. Parses the line as either a field-value
+--   pair or a normal comment. The indentation is used to determine the
+--   end of the field-value pair.
 --
---   Returns the field-value pair and the rest of the comments.
-getHeaderFieldValue :: Int -> String -> [String] -> ((String, String), [String])
-getHeaderFieldValue intd s ss 
-  | "@" `isPrefixOf` s 
-    = let s' = dropTokens 1 s
-      in  ((tail $ head $ words s, 
-           unlines (s' : ssV)), rest) -- old-style
-  | otherwise          
-    = let s' = trimSpace $ safeTail $ dropWhile (/=':') s   -- TODO: use break instead 
-      in ((trimSpace $ toLowerString $ takeWhile (/=':') s, -- of dropWhile&takeWhile
-          unlines (s' : ssV)),  rest) -- new-style
- where
-  (ssV, rest) = splitWhileIndented intd ss
-  safeTail xs = if null xs then xs else tail xs
+--   The function returns the parsed header comment and the remaining lines.
+readCommentLine :: Int -> String -> [String] -> (HeaderComment, [String])
+readCommentLine i s ss 
+  | "@" `isPrefixOf` s = 
+      let f  = tail $ head $ words s
+          s' = dropTokens 1 s
+          v  = unlines (s' : ssV)
+      in makeField f v
+  | otherwise =
+      let (field, v) = break (== ':') s
+      in if null v 
+          then (Line $ dropSpaces s, ss) -- no field, treat as comment
+          else makeField (trimSpace field) (unlines (trimSpace v:ssV))
+  where
+    (ssV, rest) = splitWhileIndented i ss
 
-tryParseHeaderFieldValue :: Int -> String -> [String] -> Maybe ((HeaderField, String), [String])
-tryParseHeaderFieldValue intd s ss = 
-  if isModuleHeaderField s
-    then let ((fstr, v), rest) = getHeaderFieldValue intd s ss
-         in  case stringToHeaderField fstr of
-               Nothing -> Nothing
-               Just f  -> Just ((f, v), rest)
-    else Nothing
+    -- Tries to create a field-value pair from the given string.
+    -- If the field is not recognized, the line is treated as a comment.
+    makeField :: String -> String -> (HeaderComment, [String])
+    makeField f v = case stringToHeaderField f of
+      Just field -> (HeaderFieldLine field v, rest)
+      Nothing    -> (Line $ dropSpaces s,       ss)
 
 -----------------------------------------------------------
 -- Helper functions for indentation and comments

@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-     Version : April 2025
+     Version : May 2025
 
      Operations to generate documentation in HTML format.
 -}
@@ -217,7 +217,7 @@ genHtmlCons :: DocOptions -> QName -> [CTVarIName] -> CurryDocCons
             -> [BaseHtml]
 genHtmlCons docopts ds vs (CurryDocConsOp (cmod, cname) ty1 ty2 ai cs) =
   genHtmlCons docopts ds vs (CurryDocConstr (cmod, "(" ++ cname ++ ")")
-                              [ty1, ty2] ai cs) -- TODO: maybe different?
+                              [ty1, ty2] ai cs)
 genHtmlCons docopts (_, tcons) vs (CurryDocConstr (cmod, cname) tys ai cs) =
   anchored cname
     [code [opnameDoc [htxt cname],

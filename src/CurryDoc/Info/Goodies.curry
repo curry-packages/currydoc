@@ -1,6 +1,6 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : March 2025
+     Version : May 2025
 
      Some useful operations on all kinds of data structures that
      are needed in `CurryDoc`.
@@ -134,10 +134,22 @@ trimSpace :: String -> String
 trimSpace = reverse . dropWhile isSpace . reverse . dropWhile isSpace
 
 -- | Drops the first n tokens from a string.
---   TODO: Currently does not retain the whitespace between tokens!
+--   Does not retain the whitespace between tokens.
 dropTokens :: Int -> String -> String
 dropTokens n = unwords . drop n . words
 
 -- | Converts a string to lowercase.
 toLowerString :: String -> String
 toLowerString = map toLower
+
+-- | Merges a list of strings into a single string.
+mergeLines :: [String] -> String
+mergeLines = intercalate "\n"
+
+-- | Counts the preceding spaces in a string.
+countIndent :: String -> Int
+countIndent = length . takeWhile isSpace
+
+-- | Drops all preceding whitespace characters from a string.
+dropSpaces :: String -> String
+dropSpaces = dropWhile (==' ')

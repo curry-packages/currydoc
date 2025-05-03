@@ -14,7 +14,7 @@
 module OldStyle where 
 
 -- | A simple constant with a markdown code block:
---
+--   
 --       x :: Int
 --       x = 42
 -- 
