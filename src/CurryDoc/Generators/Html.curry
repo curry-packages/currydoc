@@ -5,14 +5,17 @@
      Operations to generate documentation in HTML format.
 -}
 module CurryDoc.Generators.Html
-  (generateHtmlDocs,
+  ( generateHtmlDocs,
    genMainIndexPage, genFunctionIndexPage, genConsIndexPage, genSystemLibsPage,
    genClassesIndexPage,
    translateSource2ColoredHtml, replaceIdLinksMarkdown)
    where
 
-import System.FilePath  ( (</>), (<.>) )
-import System.Directory ( getFileWithSuffix )
+import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
+                           , setQuiet, setHtmlDir, callFrontendWithParams )
+import System.FilePath     ( (</>), (<.>) )
+import System.Directory    ( getFileWithSuffix )
+import Text.Pretty      ( showWidth, empty )
 import Data.List        ( sortBy, last, intersperse, intercalate, nub )
 import Data.Time        ( getLocalTime, calendarTimeToString, CalendarTime )
 import Data.Char        ( isSpace, toUpper )
@@ -24,15 +27,12 @@ import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
 import Analysis.TotallyDefined  ( Completeness(..) )
+import Language.Curry.Resources ( curryWikiURL, currygleURL, baseLibsURL
+                                , curryPackagesURL, curryHomeURL )
+import Text.Markdown
 import HTML.Base
 import HTML.Styles.Bootstrap4
 import HTML.CategorizedList
-import Language.Curry.Resources ( curryWikiURL, currygleURL, baseLibsURL
-                                , curryPackagesURL, curryHomeURL )
-import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
-                           , setQuiet, setHtmlDir, callFrontendWithParams )
-import Text.Pretty         ( showWidth, empty )
-import Text.Markdown
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Info
@@ -780,18 +780,12 @@ rightTopMenu =
   , [themeToggleButton]
   ]
  where
-  {-
-  <button id="theme-toggle" class="btn btn-sm btn-outline-secondary">
-    <span class="theme-icon-light">🌙 Dark</span>
-    <span class="theme-icon-dark" style="display:none">☀️ Light</span>
-  </button>
-  -}
   themeToggleButton :: BaseHtml
   themeToggleButton = 
     htmlStruct "button" 
       [("id", "theme-toggle"), ("class", "btn btn-sm btn-outline-secondary")]
-      [ htmlStruct "span" [("class", "theme-icon-light")] [htmlText "🌙 Dark"]
-      , htmlStruct "span" [("class", "theme-icon-dark")]  [htmlText "☀️ Light"]
+      [ htmlStruct "span" [("class", "theme-icon-light")] [htmlText "🌙"]
+      , htmlStruct "span" [("class", "theme-icon-dark")]  [htmlText "☀️"]
       ]
 --------------------------------------------------------------------------
 -- Icons:
