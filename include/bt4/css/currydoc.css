@@ -37,7 +37,7 @@
   --card-bg:     #2d2d2d;
   --card-border: #2d2d2d;
   --hrule-color: #2f2f2f;
-  --sidebar-bg:  #252525;
+  --sidebar-bg:  #3d3d3d;
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
   
@@ -72,8 +72,7 @@ hr {
 
 /* Changes to default bootstrap style: */
 body {
-  padding-top: 100px;
-  padding-bottom: 40px;
+  padding-top: 80px;
   background-color: var(--body-bg);
   color: var(--body-color);
 }
@@ -98,20 +97,21 @@ section {
 
 /* ***************************************** */
 
-/* The nav-sidebar is inside the card */
 .card {
   position: fixed;
-  border-width: 1px;
-  border-radius: 5px;
   border-color: var(--card-border);
-  background-color: var(--card-bg);
-  overflow: hidden;
+  background-color: transparent;
+}
+
+.list-group {
+  border-color: var(--card-border);
 }
 
 /* The sidebar menu */
-.nav-sidebar {
+.list-group-item {
   z-index: 1;
   background-color: var(--sidebar-bg);
+  border-color: var(--card-border);
   overflow-x: hidden;
   
   /* Allow shrinking below 100px if content is small */
@@ -127,43 +127,22 @@ section {
       min-height: 100px;
     }
   }
-
-  padding-left: 5px;
-  padding-top: 10px;
-  padding-bottom: 5px;
-  line-height: 15px;
-  margin-bottom: 0;
-}
-
-.nav-sidebar > div > a {
-  padding: 6px 8px 6px 16px;
-  text-decoration: none;
-  font-size: 18px;
-  color: var(--link-color);
-  display: block;
-}
-
-.nav-sidebar > div > a:hover {
-  color: var(--link-hover);
 }
 
 @media (max-width: 1199px) {
-  .nav-sidebar {
+  .list-group {
     font-size: 14px;
   }
 }
 
 @media (max-width: 991px) {
-  .nav-sidebar {
+  .list-group {
     font-size: 10px;
   }
 }
 
 @media (max-width: 767px) {
   .card {
-    display: none;
-  }
-  .nav-sidebar {
     display: none;
   }
 }
@@ -244,6 +223,19 @@ code {
 
 /* ****************************************** */
 /* Theme toggle button styles */
+
+#theme-toggle {
+  position: relative;
+  top: 6px;
+  border-color: transparent;
+  background-color: transparent;
+}
+
+#theme-toggle:hover,
+#theme-toggle:focus {
+  background-color: transparent;
+  box-shadow: none;
+}
 
 [data-theme="dark"] .theme-icon-light {
   display: none;

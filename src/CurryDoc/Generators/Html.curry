@@ -45,15 +45,24 @@ infixl 0 `addTitle`
 
 -- | Generates the documentation of a module in HTML format.
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
-generateHtmlDocs opts (CurryDoc mname mhead ex _) = do -- TODO: show Imports
+generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
   let
-    moduleHeaderLink = [block [href "#moduleheader" [htxt title]]]
-    navigation = [ulistWithClass "nav-sidebar flex-column" "nav-item" $ map (:[]) $ 
-                  (moduleHeaderLink ++ genHtmlExportSections ex)]
+    moduleHeaderLink = block [href "#moduleheader" [htxt title]]
+    navigation =
+      [ ulistWithClass "list-group" "list-group-item"
+          [[moduleHeaderLink, genHtmlExportIndex ex],
+           [anchored "imported_modules" [h5 [htxt "Imported modules:"]],
+           ulistWithClass "nav flex-column" "nav-item"
+                (map (\i -> [href (docURL opts i ++ ".html") [htxt i]])
+                     imps)]]
+      ]
     content = [anchored "moduleheader" (genHtmlModule opts mhead)] ++ [hrule] ++
               snd (genHtmlForExport 0 opts ex)
   mainPage ("?", [htxt title]) title [htmltitle] [] rightTopMenu navigation content
    where
+    imps = if mname == "Prelude"
+             then is
+             else nub $ "Prelude" : is
     title = "Module " ++ mname
     htmltitle = h1 [ htxt "Module "
                    , href (mname ++ "_curry.html") [htxt mname]
@@ -152,6 +161,10 @@ replaceIdLinks idCon otherCon str = case str of
           in if null revmd
                then idCon ""                     (reverse revfun)
                else idCon (reverse $ tail revmd) (reverse revfun)
+
+genHtmlExportIndex :: [ExportEntry a] -> BaseHtml
+genHtmlExportIndex es = ulistWithClass "nav flex-column" "nav-item"
+                         $ map (:[]) (genHtmlExportSections es)
 
 -- | Generates the left navigation panel from the export structure.
 genHtmlExportSections :: [ExportEntry a] -> [BaseHtml]

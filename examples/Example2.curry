@@ -3,12 +3,12 @@
 {- |
     Description: A simple module for MPTC and other language tests for CurryDoc.
     Category   : general
-    Author     : Lasse Züngel
+    Author     : Lasse Züngel 
     Version    : March 2025
-
+ 
     Description and description and description.
 -}
-module Example2 where
+module Example2 where 
 
 -- | The 'MyMaybe' type encapsulates an optional value.
 data MyMaybe a = MyNothing | MyJust a
