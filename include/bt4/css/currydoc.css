@@ -2,12 +2,16 @@
   /* Light theme (default) */
   --body-bg:     #ffffff;
   --body-color:  #212529;
-  --card-bg:     #f8f9fa;
+  --card-bg:     #e9ecef;
   --card-border: #f0f0f0;
   --hrule-color: #f3f3f3;
-  --sidebar-bg:  #fcfcfc;
+  --sidebar-bg:  #f5f5f5;
   --link-color:  #2196F3;
   --link-hover:  #064579;
+
+  --methods-block-color: #f6f6f6;
+  --methods-block-hover: #f3f3f3;
+  --methods-block-border: #e0e0e0;
   
   /* Syntax highlighting - light theme */
   --code-bg:          #f5f5f5;
@@ -40,6 +44,10 @@
   --sidebar-bg:  #3d3d3d;
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
+
+  --methods-block-color: #181818;
+  --methods-block-hover: #1c1c1c;
+  --methods-block-border: #252525;
   
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
@@ -101,6 +109,8 @@ section {
   position: fixed;
   border-color: var(--card-border);
   background-color: transparent;
+  width: 23%; /* 23% of the screen width, 
+                 because the fixed card messes with bootstrap's grid system */
 }
 
 .list-group {
@@ -184,6 +194,27 @@ section {
 
 .explaincat {
   font-style: italic;
+  color: var(--body-color);
+}
+
+p {
+  color: var(--body-color);
+}
+
+table-bordered {
+  border: 1px solid var(--card-border);
+}
+
+.table-bordered th,
+.table-bordered td {
+  border-color: var(--methods-block-border);
+}
+tr {
+  background-color: var(--methods-block-color);
+}
+
+table tr:hover {
+  background-color: var(--methods-block-hover) !important;
 }
 
 /* ****************************************** */

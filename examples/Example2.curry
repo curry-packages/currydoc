@@ -10,6 +10,10 @@
 -}
 module Example2 where 
 
+import Data.Maybe    ( fromMaybe )
+import Data.List     ( intersperse )
+import Control.Monad ( Monad(..) )
+
 -- | The 'MyMaybe' type encapsulates an optional value.
 data MyMaybe a = MyNothing | MyJust a
 
