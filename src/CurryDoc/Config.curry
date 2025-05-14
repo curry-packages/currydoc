@@ -12,7 +12,7 @@ import Language.Curry.Resources    ( curryWikiURL, pakcsURL, kics2URL )
 
 -- | Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of May, 2025"
+currydocVersion = "Version " ++ packageVersion ++ " of May 15, 2025"
 
 -- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
@@ -21,12 +21,14 @@ styleBaseURL = "bt4"
 -- | The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
 currySystemURL = if curryCompiler=="pakcs"
-                 then pakcsURL
-                 else kics2URL
+                  then pakcsURL
+                  else kics2URL
 
 -- | The name of this Curry system.
 currySystem :: String
-currySystem = if curryCompiler=="pakcs" then "PAKCS" else "KiCS2"
+currySystem | curryCompiler == "pakcs" = "PAKCS"
+            | curryCompiler == "kics2" = "KiCS2"
+            | otherwise                = "???"
 
 -- | The URL of CurryDoc
 curryDocURL :: String

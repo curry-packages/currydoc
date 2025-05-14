@@ -211,9 +211,9 @@ makeCompleteDoc docopts reldocdir modpath = do
 makeAbsolute :: String -> IO String
 makeAbsolute f =
   if isAbsolute f
-  then return f
-  else do curdir <- getCurrentDirectory
-          return (curdir </> f)
+    then return f
+    else do curdir <- getCurrentDirectory
+            return (curdir </> f)
 
 -- | Compiles to the specified targets.
 prepareWithTargets :: [FrontendTarget] -> [String] -> IO ()

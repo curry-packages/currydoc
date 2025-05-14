@@ -31,7 +31,7 @@
         "main": "CurryDoc.Main"
     },
     "source": {
-        "git": "https://git.ps.informatik.uni-kiel.de/curry-packages/currydoc.git",
+        "git": "https://github.com/curry-packages/currydoc.git",
         "tag": "$version"
     }
 }

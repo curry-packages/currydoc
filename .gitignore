@@ -1,4 +1,11 @@
 *~
+cdoc/
+docs/*.aux
+docs/*.pdf
+docs/*.toc
+docs/*.log
+docs/*.out
+docs/*.synctex.gz
 .curry
 .cpm
 src/CurryDoc/PackageConfig.curry
