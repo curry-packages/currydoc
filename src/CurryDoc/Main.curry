@@ -360,6 +360,8 @@ makeDocForType TexDoc  docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateTexDocs docopts cdoc)
 makeDocForType JSON    docopts docdir modname cdoc = do
   writeOutfile docopts docdir modname (generateJSON cdoc)
+makeDocForType CDoc    docopts docdir modname cdoc = do
+  writeOutfile docopts docdir modname (generateCDoc cdoc)
 
 -- | Generates the documentation for a module if it is necessary.
 --   I.e., the documentation is generated if no previous documentation

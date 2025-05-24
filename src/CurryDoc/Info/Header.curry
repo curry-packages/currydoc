@@ -5,14 +5,16 @@
      Operations to parse the module comments into a usable format.
 -}
 module CurryDoc.Info.Header
-  ( ModuleHeader(..), HeaderField(..), readModuleHeader, getCategoryWithDefault )
+  ( ModuleHeader(..), HeaderField(..), readModuleHeader
+  , getCategoryWithDefault, getFieldWithDefault )
   where
 
 import CurryDoc.Info.Goodies
 import CurryDoc.Info.Comments
 
-import Data.Char ( isSpace )
-import Data.List ( isPrefixOf, sort, intercalate)
+import Data.Char  ( isSpace )
+import Data.Maybe ( fromMaybe )
+import Data.List  ( isPrefixOf, sort, intercalate)
 
 -- | The header of a Curry module.
 data ModuleHeader = ModuleHeader [(HeaderField, String)] String
@@ -157,10 +159,20 @@ addField (ModuleHeader fs cs) f v
 -- | Returns the category of the module, if existing.
 --   Otherwise, the default value is returned.
 getCategoryWithDefault :: String -> [(HeaderField, String)] -> String
-getCategoryWithDefault def []             = def
-getCategoryWithDefault def ((cat,v):rest) = case cat of
-  Category -> v
-  _        -> getCategoryWithDefault def rest
+getCategoryWithDefault def = getFieldWithDefault' def Category
+
+-- | Gets the value of a specific header field, or returns a default value.
+getFieldWithDefault' :: String -> HeaderField -> [(HeaderField, String)] -> String
+getFieldWithDefault' def f = fromMaybe def . getField f
+
+-- | Gets the value of a specific header field.
+getField :: HeaderField -> [(HeaderField, String)] -> Maybe String
+getField = lookup
+
+-- | Gets the value of a specific header field, or returns a default value.
+getFieldWithDefault :: String -> HeaderField -> ModuleHeader -> String
+getFieldWithDefault def f (ModuleHeader fs _) 
+  = getFieldWithDefault' def f fs
 
 -- | Orders the fields of a module header.
 orderFields :: ModuleHeader -> ModuleHeader

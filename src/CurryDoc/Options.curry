@@ -8,7 +8,7 @@ module CurryDoc.Options
  where
 
 -- | The kind of documentations which can be generated.
-data DocType = HtmlDoc | TexDoc | JSON
+data DocType = HtmlDoc | TexDoc | JSON | CDoc
   deriving Eq
 
 -- | The options for the documentation generator.
