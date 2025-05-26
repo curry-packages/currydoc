@@ -112,6 +112,8 @@ processArgs opts args = do
       processArgs opts { docType = TexDoc, withIndex = False } margs
     ("--json"      : margs) ->
       processArgs opts { docType = JSON,   withIndex = False } margs
+    ("--cdoc"      : margs) ->
+      processArgs opts { docType = CDoc,   withIndex = False } margs
     -- HTML without index
     ["--noindexhtml",docdir,modname] -> do
         opts' <- processOpts opts { withIndex = False, docType = HtmlDoc }
@@ -156,7 +158,7 @@ printUsageMessage = do
 
   putStrLn $ unlines
    [ "Usage:"
-   , "curry-doc <options> [--html|--tex|--json] [<doc_dir>] <module>"
+   , "curry-doc <options> [--html|--tex|--json|--cdoc] [<doc_dir>] <module>"
    , "curry-doc <options> --noindexhtml   <doc_dir> <module>"
    , "curry-doc <options> --onlyindexhtml <doc_dir> <modules>"
    , "curry-doc <options> --libsindexhtml <doc_dir> <modules>"

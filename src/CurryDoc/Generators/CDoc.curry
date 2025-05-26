@@ -182,7 +182,7 @@ ctypeExpr2typeExpr (AC.CTApply t1 t2) =
       r = ctypeExpr2typeExpr t2
   in case (l, r) of
     (TCons qn args, _) -> TCons qn (args ++ [r])
-    _ -> error $ "ctypeExpr2typeExpr: Invalid type expression: " ++ show (l, r)
+    _                  -> TCons ("Prelude", "Apply") [l, r]
 
 -- | Collects all exported CurryDoc declarations from a CurryDoc.
 allCurryDocDecls :: CurryDoc -> [CurryDocDecl]
