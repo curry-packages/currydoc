@@ -6,9 +6,9 @@
     Author     : Lasse Züngel 
     Version    : March 2025
  
-    Description and description and description.
+    Description and description and description. 
 -}
-module Example2 where 
+module Example2 (MyMaybe(..), MyTypeSynonym1, myOperation1, Coerce()) where
 
 import Data.Maybe    ( fromMaybe )
 import Data.List     ( intersperse )

@@ -282,7 +282,10 @@ prepareDocDir TexDoc docdir = do
   copyIncludeIfPresent docdir "currydoc.tex"
 prepareDocDir JSON docdir = do
   createDir docdir
-  putStrLn "Directory was succesfully created"
+  putStrLn "Directory was created succesfully"
+prepareDocDir CDoc docdir = do
+  createDir docdir
+  putStrLn "Directory was created succesfully"
 
 copyIncludeIfPresent :: String -> String -> IO ()
 copyIncludeIfPresent docdir inclfile = do
@@ -450,6 +453,7 @@ fileExtension :: DocType -> String
 fileExtension HtmlDoc = "html"
 fileExtension TexDoc  = "tex"
 fileExtension JSON    = "json"
+fileExtension CDoc    = "cdoc"
 
 -- | Harmonized writeFile function for all docType.
 writeOutfile :: DocOptions -> String -> String -> IO String -> IO ()

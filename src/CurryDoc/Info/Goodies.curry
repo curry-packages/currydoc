@@ -153,3 +153,8 @@ countIndent = length . takeWhile isSpace
 -- | Drops all preceding whitespace characters from a string.
 dropSpaces :: String -> String
 dropSpaces = dropWhile (==' ')
+
+-- | Conditional failure of a monadic computation.
+guard :: Bool -> Maybe ()
+guard True  = Just ()
+guard False = Nothing

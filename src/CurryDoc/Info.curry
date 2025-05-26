@@ -57,9 +57,20 @@ genCDoc f mname cs m acy importDoc =
     export = structureDecls ((mname, f decls) : importDecls) mname $
              concatMap (inlineExport (getImports m) importDoc
                                      mname (map curryDocDeclName decls))
-                       (fromMaybe (genExportList acy) exportList)
+                       (fromMaybe (genExportList acy) $ hasSections $ exportList)
 
--- insert the declarations into the export structure
+-- | Demotes the export structure to `Nothing` if it has no sections.
+--
+--   This is used to avoid empty export sections in the final `CurryDoc`
+--   because we consider empty sections as not useful, and we can fall
+--   back to using a default export structure. See `genCDoc`.
+hasSections :: Maybe [ExportEntry QName] -> Maybe [ExportEntry QName]
+hasSections xs = do
+  entries <- xs
+  guard (any isExportSection entries)
+  return entries
+
+-- | Inserts the declarations into the export structure.
 structureDecls :: [(String, [CurryDocDecl])] -> MName
                -> [ExportEntry QName]
                -> [ExportEntry CurryDocDecl]
