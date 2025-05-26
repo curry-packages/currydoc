@@ -90,9 +90,11 @@ readCommentLine i s ss
       in makeField f v
   | otherwise =
       let (field, v) = break (== ':') s
-      in if null v 
-          then (Line $ dropSpaces s, ss) -- no field, treat as comment
-          else makeField (trimSpace field) (unlines (trimSpace v:ssV))
+      in case v of
+        []     -> -- no field, treat as comment
+          (Line $ dropSpaces s, ss) 
+        (_:v') -> -- drop the colon and trim spaces
+          makeField (trimSpace field) (unlines (trimSpace v' : ssV))
   where
     (ssV, rest) = splitWhileIndented i ss
 
