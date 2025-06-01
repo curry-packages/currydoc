@@ -15,11 +15,12 @@ import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, setHtmlDir, callFrontendWithParams )
 import System.FilePath     ( (</>), (<.>) )
 import System.Directory    ( getFileWithSuffix )
-import Text.Pretty ( showWidth, empty )
-import Data.List   ( sortBy, last, intersperse, intercalate, nub )
-import Data.Time   ( getLocalTime, calendarTimeToString, CalendarTime )
-import Data.Char   ( isSpace, toUpper )
-import Data.Maybe  ( catMaybes )
+import Text.Pretty   ( showWidth, empty )
+import Data.List     ( sortBy, last, intersperse, intercalate, nub )
+import Data.Time     ( getLocalTime, calendarTimeToString, CalendarTime )
+import Data.Char     ( isSpace, toUpper, toLower )
+import Data.Maybe    ( catMaybes )
+import Data.Function ( on )
 
 import AbstractCurry.Types
 import AbstractCurry.Files
@@ -35,7 +36,9 @@ import HTML.Styles.Bootstrap4
 import HTML.CategorizedList
 
 import CurryDoc.Data.AnaInfo
+import CurryDoc.Data.CurryDoc
 import CurryDoc.Info
+import CurryDoc.Info.Export ( flattenExport )
 import CurryDoc.Options
 import CurryDoc.Config
 
@@ -53,7 +56,7 @@ generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
           [moduleHeaderLink, genHtmlExportIndex ex] 
             : [importedModules | not (null imps)]
       ]
-    content = [anchored "moduleheader" (genHtmlModule opts mhead)] ++ [hrule] ++
+    content = [anchored "moduleheader" (genHtmlModule opts mhead ++ genExportEntityList opts ex)] ++ [hrule] ++
               snd (genHtmlForExport 0 opts ex)
   mainPage ("?", [htxt title]) title [htmltitle] [] rightTopMenu navigation content
    where
@@ -82,8 +85,8 @@ genHtmlForExport num doc (ExportSection c nesting ex : rest) =
   let (num' , innerHtml) = genHtmlForExport (num  + 1) doc ex
       (num'', outerHtml) = genHtmlForExport num'       doc rest
   in (num'', (anchoredSection ("g" ++ show num)
-               ((hnest [htxt (commentString c)]) : hrule
-                 : innerHtml) `addAttr` ("style", "scroll-margin-top: 48px;"))
+               ((hnest [htxt (commentString c)]) : hrule : innerHtml) 
+               `addAttr` ("style", "scroll-margin-top: 48px;"))
               : outerHtml)
   where hnest = case nesting of
                   1 -> h2
@@ -166,9 +169,12 @@ replaceIdLinks idCon otherCon str = case str of
 
 genHtmlExportIndex :: [ExportEntry a] -> BaseHtml
 genHtmlExportIndex es = ulistWithClass "nav flex-column" "nav-item"
-                         $ map (:[]) (genHtmlExportSections es)
+                         $ map singleton (genHtmlExportSections es)
 
 -- | Generates the left navigation panel from the export structure.
+-- |
+-- | The leafs (concrete export entities) of the export structure 
+-- | are not included in the navigation panel, but only the sections.
 genHtmlExportSections :: [ExportEntry a] -> [BaseHtml]
 genHtmlExportSections = genHtmlExportSections' 0
   where genHtmlExportSections' _   [] = []
@@ -181,13 +187,42 @@ genHtmlExportSections = genHtmlExportSections' 0
         genHtmlExportSections' num (ExportEntryModule _ : rest) =
           genHtmlExportSections' num rest
 
+-- | Generates a simple list of exported types, operations and classes.
+genExportEntityList :: DocOptions -> [ExportEntry CurryDocDecl] -> [BaseHtml]
+genExportEntityList docopts es = 
+    if null types && null ops && null classes
+       then []
+       else [ hrule
+            , par $ [bold [htxt ("Exported Datatypes: ")]] ++ listIdentifiers types
+            , par $ [bold [htxt ("Exported Functions: ")]] ++ listIdentifiers ops
+            , par $ [bold [htxt ("Exported Classes: "  )]] ++ listIdentifiers classes
+            ]
+ where
+  collectExportEntities :: CurryDocDecl
+                        -> ([CurryDocDecl], [CurryDocDecl], [CurryDocDecl])
+                        -> ([CurryDocDecl], [CurryDocDecl], [CurryDocDecl])
+  collectExportEntities d (ts, os, cs) = case d of
+    CurryDocTypeDecl     {} -> (d:ts,   os,   cs)
+    CurryDocDataDecl     {} -> (d:ts,   os,   cs)
+    CurryDocNewtypeDecl  {} -> (d:ts,   os,   cs)
+    CurryDocFunctionDecl {} -> (  ts, d:os,   cs)
+    CurryDocClassDecl    {} -> (  ts,   os, d:cs)
+
+  (types, ops, classes) = foldr collectExportEntities ([], [], [])
+                        $ flattenExport es
+
+  listIdentifiers = intersperse (htxt ", ") 
+                  . map (showRef docopts)
+                  . sortBy ((<) `on` (map toLower . snd))
+                  . map curryDocDeclName
+
 -- | Generates HTML documentation for a module.
 genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
   docComment2HTML docopts maincmt ++
   map fieldHtml fields
-  where fieldHtml (typ, value) =
-          par [bold [htxt (show typ ++ ": ")], htxt value]
+ where fieldHtml (typ, value) =
+        par [bold [htxt (show typ ++ ": ")], htxt value]
 
 -- | Generates HTML documentation for a datatype.
 genHtmlType :: DocOptions -> CurryDocDecl -> [BaseHtml]
@@ -614,6 +649,11 @@ genFunctionIndexPage opts docdir funs = do
 htmlIndex :: DocOptions -> [QName] -> [BaseHtml]
 htmlIndex opts = categorizeByItemKey . map (showModNameRef opts)
 
+-- | Generates a reference to an identifier.
+showRef :: DocOptions -> QName -> BaseHtml
+showRef opts (modname, name) =
+  href (docURL opts modname ++ ".html#" ++ name) [htxt name]
+
 showModNameRef :: DocOptions -> QName -> (String,[BaseHtml])
 showModNameRef opts (modname,name) =
   (name,
@@ -968,3 +1008,7 @@ showId name
   | otherwise = if isAlpha (head name) 
                   then name
                   else '(' : name ++ ")"
+
+-- | Generates a singleton list containing the given element.
+singleton :: a -> [a]
+singleton = (:[])

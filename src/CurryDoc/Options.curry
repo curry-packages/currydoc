@@ -19,7 +19,7 @@ data DocOptions = DocOptions
   , withAnalysis :: Bool -- ^ True if extended analysis should be performed
   , recursive    :: Bool -- ^ True if documentation for imported modules
                          --   should be generated
-  , mainTitle    :: String -- ^ the main title of the docmentation
+  , mainTitle    :: String -- ^ the main title of the documentation
   , useDirURL    :: [(String,String)] -- ^ "--use" options
                                       --    (i.e., source dir and
                                       --    corresponding doc URL)
