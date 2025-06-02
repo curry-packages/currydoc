@@ -189,14 +189,17 @@ genHtmlExportSections = genHtmlExportSections' 0
 
 -- | Generates a simple list of exported types, operations and classes.
 genExportEntityList :: DocOptions -> [ExportEntry CurryDocDecl] -> [BaseHtml]
-genExportEntityList docopts es = 
-    if null types && null ops && null classes
-       then []
-       else [ hrule
-            , par $ [bold [htxt ("Exported Datatypes: ")]] ++ listIdentifiers types
-            , par $ [bold [htxt ("Exported Functions: ")]] ++ listIdentifiers ops
-            , par $ [bold [htxt ("Exported Classes: "  )]] ++ listIdentifiers classes
-            ]
+genExportEntityList docopts es 
+  | null allEntities 
+    = []
+  | otherwise 
+    =  [ hrule ] 
+    ++ singletonIf (not $ null types)
+        (par $ [bold [htxt ("Exported Datatypes: ")]] ++ listIdentifiers types)
+    ++ singletonIf (not $ null ops) 
+        (par $ [bold [htxt ("Exported Functions: ")]] ++ listIdentifiers ops)
+    ++ singletonIf (not $ null classes)
+        (par $ [bold [htxt ("Exported Classes: "  )]] ++ listIdentifiers classes)
  where
   collectExportEntities :: CurryDocDecl
                         -> ([CurryDocDecl], [CurryDocDecl], [CurryDocDecl])
@@ -208,8 +211,9 @@ genExportEntityList docopts es =
     CurryDocFunctionDecl {} -> (  ts, d:os,   cs)
     CurryDocClassDecl    {} -> (  ts,   os, d:cs)
 
+  allEntities = flattenExport es
   (types, ops, classes) = foldr collectExportEntities ([], [], [])
-                        $ flattenExport es
+                        $ allEntities
 
   listIdentifiers = intersperse (htxt ", ") 
                   . map (showRef docopts)
@@ -1017,3 +1021,8 @@ showId name
 -- | Generates a singleton list containing the given element.
 singleton :: a -> [a]
 singleton = (:[])
+
+-- | Generates a singleton list containing the given element if the condition is True.
+singletonIf :: Bool -> a -> [a]
+singletonIf True  = singleton
+singletonIf False = const []
