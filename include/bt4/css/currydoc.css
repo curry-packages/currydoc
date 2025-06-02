@@ -163,6 +163,10 @@ section {
   padding-top: 40px;
 }
 
+.jump-offset {
+  scroll-margin-top: 48px; /* Adjust for the fixed navbar */
+}
+
 .typeheader {
   font-size: 24px;
   font-weight: bold;

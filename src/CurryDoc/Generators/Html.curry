@@ -50,7 +50,7 @@ infixl 0 `addTitle`
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
   let
-    moduleHeaderLink = block [href "#moduleheader" [htxt title]]
+    moduleHeaderLink = block [jumpToTop $ htxt title]
     navigation =
       [ ulistWithClass "list-group" "list-group-item" $
           [moduleHeaderLink, genHtmlExportIndex ex] 
@@ -86,7 +86,7 @@ genHtmlForExport num doc (ExportSection c nesting ex : rest) =
       (num'', outerHtml) = genHtmlForExport num'       doc rest
   in (num'', (anchoredSection ("g" ++ show num)
                ((hnest [htxt (commentString c)]) : hrule : innerHtml) 
-               `addAttr` ("style", "scroll-margin-top: 48px;"))
+               `addClass` "jump-offset")
               : outerHtml)
   where hnest = case nesting of
                   1 -> h2
@@ -322,7 +322,7 @@ genHtmlInst docopts dn d = case d of
                                             (isApplyType ty || isFunctionType ty) ty)) ts))]
     where cxString = showContext docopts imod True cx
 
--- Generate HTML documentation for a typeclass.
+-- | Generates HTML documentation for a typeclass.
 genHtmlClass :: DocOptions -> CurryDocDecl -> [BaseHtml]
 genHtmlClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx vs fdeps ds cs ->
@@ -345,7 +345,7 @@ genHtmlClass docopts d = case d of
           funDepString (CurryDocFunDep (tl, tr)) = showVarList tl ++ " -> " ++ showVarList tr
   _ -> []
 
--- Generate HTML documentation for a function.
+-- | Generates HTML documentation for a function.
 genHtmlFunc :: String -> DocOptions -> CurryDocDecl -> [BaseHtml]
 genHtmlFunc cssclass docopts d = case d of
   CurryDocFunctionDecl f@(fmod,fname) qty sig ai cs ->
@@ -359,7 +359,7 @@ genHtmlFunc cssclass docopts d = case d of
     genFurtherInfos (fmod, fname) ai
   _ -> []
 
--- | Generate HTML for the given type signature, if one is present.
+-- | Generates HTML for the given type signature, if one is present.
 genSigComment :: DocOptions -> Maybe CurryDocTypeSig -> [BaseHtml]
 genSigComment _       Nothing  = []
 genSigComment docopts (Just d) = case d of
@@ -378,7 +378,7 @@ genSigComment docopts (Just d) = case d of
                                         showContext docopts fmod False cx)]]]
                 : genParamComments docopts fmod "=>" ps)]
 
--- | Generate HTML for the parameters of a given type signature.
+-- | Generates HTML for the parameters of a given type signature.
 genParamComments :: DocOptions -> String -> String -> [(CTypeExpr, [Comment])]
                  -> [[[BaseHtml]]]
 genParamComments _       _    _   []              = []
@@ -387,7 +387,7 @@ genParamComments docopts fmod sym ((ty, cs) : xs) =
    removeTopPar (docComment2HTML docopts (unwords (map commentString cs)))]
     : genParamComments docopts fmod "->" xs
 
--- | Generate HTML for any given AnalysisInfo of an entity.
+-- | Generates HTML for any given `AnalysisInfo` of an entity.
 genFurtherInfos :: QName -> AnalysisInfo -> [BaseHtml]
 genFurtherInfos qn ai = case ai of
     NoAnalysisInfo          -> []
@@ -446,15 +446,15 @@ genFurtherInfos qn ai = case ai of
         then Just (par [htxt "externally defined"])
         else Nothing
 
--- | Generate a descriptive text for the given precedence.
+-- | Generates a descriptive text for the given precedence.
 genPrecedenceText :: (CFixity, Int) -> [BaseHtml]
 genPrecedenceText (fixity, prec) =
   [par [htxt ("defined as " ++ showFixity fixity ++
               " infix operator with precedence " ++
               show prec)]]
 
--- | Generate HTML for a given property of a function.
---   'Data.Type.GuardedRhs' aer not formatted in any specific way.
+-- | Generates HTML for a given property of a function.
+--   'Data.Type.GuardedRhs' are not formatted in any specific way.
 showProperty :: QName -> (Property, CRule) -> [BaseHtml]
 showProperty qn (sp, rule) = case (sp, rule) of
   (PreSpec, CRule _ (CSimpleRhs _ _)) ->
@@ -495,7 +495,7 @@ genFuncPropIcons    PrecedenceInfo    {} = []
 genFuncPropIcons    ShortAnalysisInfo {} = []
 genFuncPropIcons ai@AnalysisInfo      {} = [detPropIcon, nbsp]
  where
-   --(non)deterministically defined property:
+   -- (non)deterministically defined property:
    detPropIcon =
     if nondet ai
     then href "index.html#nondet_explain" [nondetIcon]
@@ -575,7 +575,7 @@ translateSource2ColoredHtml docdir modname = do
       (setQuiet True (setHtmlDir docdir defaultParams)) modname
 
 --------------------------------------------------------------------------
--- | Generate the index page for the documentation directory.
+-- | Generates the index page for the documentation directory.
 genMainIndexPage :: DocOptions -> String -> [String] -> IO ()
 genMainIndexPage docopts docdir modnames =
  do putStrLn ("Writing index page to \""++docdir++"/index.html\"...")
@@ -614,7 +614,7 @@ indexPage modnames =
                     (sortBy leqStringIgnoreCase modnames))])
   ++ [explainIcons]
 
--- Paragraph to explain the meaning of the icons:
+-- | Paragraph to explain the meaning of the icons.
 explainIcons :: BaseHtml
 explainIcons =
   anchoredSection "explain_icons"
@@ -636,7 +636,7 @@ explainIcons =
     ]
 
 --------------------------------------------------------------------------
--- generate the function index page for the documentation directory:
+-- | Generates the function index page for the documentation directory.
 genFunctionIndexPage :: DocOptions -> String -> [CFuncDecl] -> IO ()
 genFunctionIndexPage opts docdir funs = do
   putStrLn ("Writing operation index page to \""++docdir++"/findex.html\"...")
@@ -671,7 +671,7 @@ sortNames :: [(a,String)] -> [(a,String)]
 sortNames names = sortBy (\(_,n1) (_,n2) -> leqStringIgnoreCase n1 n2) names
 
 --------------------------------------------------------------------------
--- generate the constructor index page for the documentation directory:
+-- | Generates the constructor index page for the documentation directory.
 genConsIndexPage :: DocOptions ->  String -> [CTypeDecl] -> IO ()
 genConsIndexPage opts docdir types = do
   putStrLn ("Writing constructor index page to \""++docdir++"/cindex.html\"...")
@@ -686,7 +686,7 @@ genConsIndexPage opts docdir types = do
      concatMap consDecls types
 
 --------------------------------------------------------------------------
--- generate the typeclasses index page for the documentation directory:
+-- | Generates the typeclasses index page for the documentation directory.
 genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
 genClassesIndexPage opts docdir cls = do
   putStrLn ("Writing typeclasses index page to \"" ++ docdir ++
@@ -699,7 +699,7 @@ genClassesIndexPage opts docdir cls = do
                       filter (\(CClass _ vis _ _ _ _) -> vis == Public) cls
 
 --------------------------------------------------------------------------
--- generate the index page categorizing all system libraries of PAKCS/KICS2
+-- | Generates the index page categorizing all system libraries of PAKCS/KICS2.
 genSystemLibsPage :: String -> [String] -> [[(String, ModuleHeader)]] -> IO ()
 genSystemLibsPage docdir cats modInfos = do
   putStrLn $ "Writing main index page for " ++ currySystem ++
@@ -782,7 +782,7 @@ genHtmlLibCat mods =
 --------------------------------------------------------------------------
 -- Auxiliary operation for general page style.
 
--- | Generate the main page with the default documentation style.
+-- | Generates the main page with the default documentation style.
 mainPage :: (String, [BaseHtml])
          -> String      -- ^ The title of the page
          -> [BaseHtml]   -- ^ The title of the pagethe title in HTML format
@@ -901,7 +901,7 @@ anchoredSection tag doc = section doc `addAttr` ("id",tag)
 
 -- | An anchored element in the document:
 anchored :: String -> [BaseHtml] -> BaseHtml
-anchored tag doc = style "anchored" doc `addAttr` ("id",tag)
+anchored tag doc = style "anchored jump-offset" doc `addAttr` ("id",tag)
 
 -- | An anchored element in the document:
 anchoredDiv :: String -> [BaseHtml] -> BaseHtml
@@ -921,6 +921,11 @@ getHomeRef opts = ("index.html", title)
 
 --------------------------------------------------------------------------
 -- Auxiliaries:
+
+-- | Generates a link to the top of the page.
+--   Useful to jump back to the module header.
+jumpToTop :: BaseHtml -> BaseHtml
+jumpToTop = href "#" . singleton
 
 fromHtmlExps :: [HtmlExp] -> [BaseHtml]
 fromHtmlExps = map fromHtmlExp

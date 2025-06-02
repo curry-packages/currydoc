@@ -3,12 +3,12 @@
 {- |
     Description: A simple module for MPTC and other language tests for CurryDoc.
     Category   : general
-    Author     : Lasse Züngel 
+    Author     : Lasse Züngel
     Version    : March 2025
      
-    Description and description and description. 
+    Description and description and description.
 -}
-module Example2 (MyMaybe(..), MyTypeSynonym1, myOperation1, Coerce()) where
+module Example2 where
 
 import Data.Maybe    ( fromMaybe )
 import Data.List     ( intersperse )
@@ -70,6 +70,12 @@ oldStyleOperation x = 42 + x
 --
 myOperation4 :: a -> b
 myOperation4 _ = failed
+
+-- | Some arbitrary value...
+-- 
+--   Notice that 'n' `=` 'sum' `[73, -31]`!   
+n :: Int
+n = 42 
 
 data WithRecords a = WithRecords { runSomething :: a -> Int }
 
