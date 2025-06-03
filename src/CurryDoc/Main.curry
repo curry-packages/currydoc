@@ -301,6 +301,16 @@ makeDoc docopts docdir modname = do
   res <- makeAbstractDoc docopts modname
   makeDocForType (docType docopts) docopts docdir modname res
 
+  -- Also generate CDoc:
+  unless (docType docopts == CDoc) $ do
+    makeDocForType CDoc (docopts { docType    = CDoc
+                                 , withIndex   = False
+                                 , withMarkdown = False
+                                 }) 
+                  docdir 
+                  modname 
+                  res
+
 -- | Generates abstract CurryDoc for a single module.
 makeAbstractDoc :: DocOptions -> MName -> IO CurryDoc
 makeAbstractDoc docopts modname = do
@@ -323,8 +333,8 @@ makeAbstractDoc docopts modname = do
                  ana <- readAnaInfo modname
                  return $ generateCurryDocInfosWithAnalysis
                             ana modname cmts prog acy importsDoc
-         else    return $ generateCurryDocInfos
-                                modname cmts prog acy importsDoc
+         else do return $ generateCurryDocInfos
+                            modname cmts prog acy importsDoc
   putStrLn ("Generating abstract CurryDoc for module \"" ++ modname ++ "\"...")
   writeFile (replaceExtension acyname "cydoc") (show res)
   return res

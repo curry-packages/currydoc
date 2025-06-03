@@ -101,7 +101,8 @@ one can generate the documentation by executing the command
 This command creates the directory `DOC_Example` (if it does not exist)
 and puts all HTML documentation files for the main program module
 `Example` and all its imported modules in this directory together with
-a main index file `index.html`.
+a main index file `index.html`. Additionally, a file containing the
+CDoc representation of the module is created.
 If one prefers another directory for the documentation files,
 one can also execute the command
 
