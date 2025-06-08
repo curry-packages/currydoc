@@ -16,39 +16,34 @@ Short Description
 -----------------
 
 A **documentation comment** starts at the beginning of a line
-with three dashes (also in literate programs!).
-All documentation comments immediately before a
+starting with `-- |`. All documentation comments immediately before a
 definition of a datatype or (top-level) function are kept together.
 The documentation comments for the complete module occur before
 the first `module` or `import` line in the module.
-The comments can also contain several special tags. These tags
-must be the first thing on its line (in the documentation comment)
-and continues until the next tag is encountered or until the
-end of the comment. The following tags are recognized:
 
-    @author comment
+The comments of a module definition can also contain several special tags. 
+Such a tag of form `key: value` must be the first thing on its line 
+(in the documentation comment) and spans all characters of all subsequent 
+comment lines until the end of the comment, or until a comment line with 
+indentation less than the associated colon (`:`) character occurs.
 
-Specifies the author of a module (only reasonable in module comments).
+The following tags are recognized:
 
-    @version comment
+    Description: comment
 
-Specifies the version of a module (only reasonable in module comments).
+Specifies a a short description of a module.
 
-    @cons id comment
+    Category: comment
 
-A comment for the constructor `id` of a datatype
-(only reasonable in datatype comments).
+Specifies the category of a module, such as `general` or `data structures`.
 
-    @param id comment
+    Author: comment
 
-A comment for function parameter `id` (only reasonable in function
-comments). Due to pattern matching, this need not be the name of a
-parameter given in the declaration of the function but all parameters
-for this functions must be commented in left-to-right order.
+Specifies the author of a module.
 
-    @return comment
+    Version: comment
 
-A comment for the return value of a function (only reasonable in function comments).
+Specifies the version of a module.
 
 The comment of a documented entity can be any string in
 [Markdown](http://en.wikipedia.org/wiki/Markdown) syntax.
@@ -61,37 +56,41 @@ one can also mark **references to names** of operations or data types
 in Curry programs. These are translated into links inside
 the generated HTML documentation (if they are unqualified) or into links
 in other module documentations if they are qualified with a module name.
-Such references have to be enclosed in single quotes.
+Such references have to be enclosed in single quotes (e.g., `'sum'`).
 
 The following example shows a Curry program with some
 documentation comments:
 
-    --- This is an
-    --- example module.
-    --- @author Michael Hanus
-    --- @version 0.1
-    
+    {- | Description: Example module.
+         Category   : Example
+         Author     : Michael Hanus
+         Version    : 0.1
+         
+         This is an example module
+         with features XY.
+    -}
     module Example where
     
-    --- The function `conc` concatenates two lists.
-    --- It is also predefined as 'Prelude.++'.
-    --- @param xs - the first list
-    --- @param ys - the second list
-    --- @return a list containing all elements of `xs` and `ys`
+    -- | The function `conc` concatenates two lists.
+    --   It is also predefined as 'Prelude.++'.
+    conc :: [a] -- ^ the first list 
+         -> [a] -- ^ the second list
+         -> [a] -- ^ a list containing all elements 
+                --   of `xs` and `ys`
     conc []     ys = ys
     conc (x:xs) ys = x : conc xs ys
     -- this comment will not be included in the documentation
     
-    --- The function `last` computes the last element of a given list.
-    --- It is based on the operation 'conc' to concatenate two lists.
-    --- @param xs - the given input list
-    --- @return last element of the input list
+    -- | The function `last` computes the last element of a given list.
+    --   It is based on the operation 'conc' to concatenate two lists.
+    last :: [a] -- ^ the given input list
+         -> a   -- ^ the last element of the input list
     last xs | conc ys [x] =:= xs  = x   where x,ys free
+    -- ^ this comment **will** be included in the documentation
     
-    --- This data type defines _polymorphic_ trees.
-    --- @cons Leaf - a leaf of the tree
-    --- @cons Node - an inner node of the tree
-    data Tree a = Leaf a | Node [Tree a]
+    -- | This data type defines _polymorphic_ trees.
+    data Tree a = Leaf a        -- ^ a leaf of the tree
+                | Node [Tree a] -- ^ an inner node of the tree
   
 If this program is contained in the file `Example.curry`,
 one can generate the documentation by executing the command
@@ -110,9 +109,15 @@ one can also execute the command
 
 where `docdir` is the directory for the documentation files.
 
+For a comprehensive example, refer to the [Guide](/examples/Guide.curry).
 
 Further Information
 -------------------
+
+The bachelor's thesis [An Automated Documentation Generation Tool for Curry Programs](https://www.michaelhanus.de/lehre/abschlussarbeiten/bsc/Prott.pdf) 
+(in German, by Kai-Oliver Prott, September 2018) describes the
+implementation details of the new CurryDoc overhaul that takes
+inspiration from Haddock's documentation style.
 
 More details on CurryDoc are described in the user manuals of the Curry systems
 [PAKCS](https://www.curry-lang.org/pakcs/) and

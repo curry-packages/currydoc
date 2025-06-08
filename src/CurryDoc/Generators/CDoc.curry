@@ -1,5 +1,4 @@
 {- |
-
     Description: Functions to generate documentation in "CDoc" format.
     Author: Sandra Dylus
     Version: May 2025
