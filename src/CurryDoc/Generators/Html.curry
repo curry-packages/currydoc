@@ -28,7 +28,7 @@ import AbstractCurry.Select
 import AbstractCurry.Build
 import AbstractCurry.Pretty
 import Analysis.TotallyDefined  ( Completeness(..) )
-import Language.Curry.Resources ( curryWikiURL, currygleURL, baseLibsURL
+import Language.Curry.Resources ( currygleURL, baseLibsURL
                                 , curryPackagesURL, curryHomeURL )
 import Text.Markdown
 import HTML.Base
@@ -607,7 +607,7 @@ allConsFuncsClassesMenu :: [[BaseHtml]]
 allConsFuncsClassesMenu =
   [[hrefNav "findex.html"   [htxt "All operations"]],
    [hrefNav "cindex.html"   [htxt "All constructors"]],
-   [hrefNav "clsindex.html" [htxt "All typeclasses"]]]
+   [hrefNav "clsindex.html" [htxt "All type classes"]]]
 
 indexPage :: [String] -> [BaseHtml]
 indexPage modnames =
@@ -690,12 +690,12 @@ genConsIndexPage opts docdir types = do
      concatMap consDecls types
 
 --------------------------------------------------------------------------
--- | Generates the typeclasses index page for the documentation directory.
+-- | Generates the type classes index page for the documentation directory.
 genClassesIndexPage :: DocOptions ->  String -> [CClassDecl] -> IO ()
 genClassesIndexPage opts docdir cls = do
-  putStrLn ("Writing typeclasses index page to \"" ++ docdir ++
+  putStrLn ("Writing type classes index page to \"" ++ docdir ++
             "/clsindex.html\"...")
-  simplePage (getHomeRef opts) "Index to all typeclasses" Nothing 
+  simplePage (getHomeRef opts) "Index to all type classes" Nothing 
              allConsFuncsClassesMenu (htmlIndex opts (sortNames expclasses))
     >>= writeFile (docdir++"/clsindex.html")
  where
@@ -732,7 +732,7 @@ syslibsLeftTopMenu =
 syslibsRightTopMenu :: [[BaseHtml]]
 syslibsRightTopMenu =
   [ curryHomeItem
-  , [ehrefNav (curryWikiURL ++ "/documentation/report")
+  , [ehrefNav "https://curry-lang.org/documentation/report/"
               [htxt "Curry Report"]]
   ]
 
