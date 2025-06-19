@@ -31,10 +31,13 @@ import ReadShowTerm
 --- Generates the documentation of a module in "CDoc" format.
 generateCDoc :: CurryDoc -> IO String
 generateCDoc cd@(CurryDoc mname mhead _ _) = do
-  let modInfo = ModuleInfo mname (author mhead) (description mhead)
-      decls     = allCurryDocDecls cd
+  let modInfo = ModuleInfo 
+                  mname 
+                  (removeNewlines $ author mhead)
+                  (cleanupBorder $ description mhead)
+      decls   = allCurryDocDecls cd
       (funcInfos, typeInfos) = partitionDecls $ translateDecls decls
-
+  putStrLn $ show decls
   putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
@@ -43,12 +46,12 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
 
   translateDecl :: CurryDocDecl -> Maybe DeclInfo
   translateDecl decl = case decl of
-    CurryDocFunctionDecl qn t _ anaInfo cs -> 
+    CurryDocFunctionDecl qn t msig anaInfo cs -> 
       Just $ FunctionInfo 
         (snd qn) 
         (ctypeExpr2typeExpr $ ACS.typeOfQualType t)
         (fst qn)
-        (declDescription cs) 
+        (funDescription msig cs) 
         (nondet anaInfo)
         UnknownFR -- TODO: flexRigid
     CurryDocDataDecl qn vs _ _ cons cs -> 
@@ -155,12 +158,12 @@ author = getFieldWithDefault "" Author
 description :: ModuleHeader -> String
 description mh@(ModuleHeader _ fd) = getFieldWithDefault fd Description mh
 
--- generate data and type constructors
+-- | Generates data and type constructors.
 consSignature :: ConsDecl -> (QName, [TypeExpr])
 consSignature (Cons (mName, cName) _ _ tExprList) =
   ((mName, cName), tExprList)
 
--- generate data and type constructors
+-- | Generates data and type constructors.
 newconsSignature :: NewConsDecl -> (QName, [TypeExpr])
 newconsSignature (NewCons (mName, cName) _ tExpr) =
   ((mName, cName), [tExpr])
@@ -198,5 +201,29 @@ allCurryDocTypes = filter isCurryDocTypeDecl . allCurryDocDecls
 allCurryDocFuncs :: CurryDoc -> [CurryDocDecl]
 allCurryDocFuncs = filter isCurryDocFuncDecl . allCurryDocDecls
 
+-- | Cleans up a multi-line comment string by replacing
+--   newlines with spaces. Because all information regarding
+--   indentation and structure is lost, this should only be
+--   used for header field comments without any markdown content.
+removeNewlines :: String -> String
+removeNewlines = unwords . lines
+
+-- | Removes newlines and empty lines from the beginning and end
+--   of a string.
+cleanupBorder :: String -> String
+cleanupBorder = removeWhitespace . reverse . removeWhitespace . reverse
+  where
+    removeWhitespace = dropWhile (`elem` [' ', '\n', '\t'])
+
+-- | Generates the declaration description from a list of comments.
 declDescription :: [Comment] -> String
 declDescription = unwords . map commentString
+
+-- | Generates the function description from a potentially
+-- | missing type signature and comments.
+funDescription :: Maybe CurryDocTypeSig -> [Comment] -> String
+funDescription msig cs = case msig of
+  Just (CurryDocTypeSig _ _ _ cs') 
+    -> declDescription (cs' ++ cs)
+  Nothing 
+    -> declDescription cs
