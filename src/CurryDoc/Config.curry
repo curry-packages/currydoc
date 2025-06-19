@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky
-     Version : May 2025
+     Version : June 2025
 
      This module contains some configuration parameters for the CurryDoc tool.
 -}
@@ -8,11 +8,11 @@ module CurryDoc.Config where
 
 import Curry.Compiler.Distribution ( curryCompiler )
 import CurryDoc.PackageConfig      ( packageVersion )
-import Language.Curry.Resources    ( curryWikiURL, pakcsURL, kics2URL )
+import Language.Curry.Resources    ( pakcsURL, kics2URL )
 
 -- | Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of May 15, 2025"
+currydocVersion = "Version " ++ packageVersion ++ " of June 18, 2025"
 
 -- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
@@ -32,4 +32,4 @@ currySystem | curryCompiler == "pakcs" = "PAKCS"
 
 -- | The URL of CurryDoc
 curryDocURL :: String
-curryDocURL = curryWikiURL ++ "/tools/currydoc"
+curryDocURL = "https://cpm.curry-lang.org/pkgs/currydoc.html"
