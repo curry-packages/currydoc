@@ -5,7 +5,8 @@
   --card-bg:     #e9ecef;
   --card-border: #f0f0f0;
   --hrule-color: #f3f3f3;
-  --sidebar-bg:  #f5f5f5;
+  --sidebar-bg:  #e9ecef;
+  --sidebar-border: #e2e2e2;
   --link-color:  #2196F3;
   --link-hover:  #064579;
 
@@ -41,7 +42,8 @@
   --card-bg:     #2d2d2d;
   --card-border: #2d2d2d;
   --hrule-color: #2f2f2f;
-  --sidebar-bg:  #3d3d3d;
+  --sidebar-bg:  #2d2d2d;
+  --sidebar-border: #3d3d3d;
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
 
@@ -113,15 +115,12 @@ section {
                  because the fixed card messes with bootstrap's grid system */
 }
 
-.list-group {
-  border-color: var(--card-border);
-}
-
 /* The sidebar menu */
 .list-group-item {
   z-index: 1;
   background-color: var(--sidebar-bg);
-  border-color: var(--card-border);
+  border-color: var(--sidebar-border);
+  border-width: 2px;
   overflow-x: hidden;
   
   /* Allow shrinking below 100px if content is small */
@@ -283,4 +282,50 @@ code {
 }
 [data-theme="light"] .theme-icon-dark {
   display: none;
+}
+
+/* **************************************************************** */
+/* Styling of the module header, specifically for the module fields */
+
+.info-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+
+.info-left {
+  flex: 1 1 auto;
+}
+
+.info-right {
+  flex: 0 0 auto;
+  max-width: 320px;
+  min-width: 0;
+}
+
+.info {
+  display: inline-grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.5em;
+  padding: 4px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  max-width: 320px;
+}
+
+.info-item {
+  display: contents;
+}
+
+.info-key {
+  font-weight: bold;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.info-value {
+  word-break: break-word;
+  overflow-wrap: break-word;
 }

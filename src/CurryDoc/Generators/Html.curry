@@ -223,10 +223,22 @@ genExportEntityList docopts es
 -- | Generates HTML documentation for a module.
 genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
-  docComment2HTML docopts maincmt ++
-  map fieldHtml fields
- where fieldHtml (typ, value) =
-        par [bold [htxt (show typ ++ ": ")], htxt value]
+  [ block [ block (docComment2HTML docopts maincmt)
+              `addClass` "info-left"
+          , block [ block (map fieldHtml fields) 
+                      `addClass` "info" 
+                  ]
+              `addClass` "info-right"
+          ] 
+      `addClass` "info-row" ]
+ where 
+  fieldHtml (typ, value) =
+    (block [ block [htxt $ show typ] 
+              `addClass` "info-key"
+           , block [htxt value]      
+              `addClass` "info-value"
+           ]) 
+      `addClass` "info-item"
 
 -- | Generates HTML documentation for a datatype.
 genHtmlType :: DocOptions -> CurryDocDecl -> [BaseHtml]
