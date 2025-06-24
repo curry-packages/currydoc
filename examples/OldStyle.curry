@@ -66,7 +66,7 @@ myFunH :: Int -- ^ The first argument
        -> Int -- ^ The result 
 myFunH x y = if x > y then x else y 
 
---- A simple datatype. 
+--- A simple datatype.
 --- @cons MyCons1 The first constructor 
 --- @cons MyCons2 The second constructor
 --- @cons MyCons3 The third constructor with an argument

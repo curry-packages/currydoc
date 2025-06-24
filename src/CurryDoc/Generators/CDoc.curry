@@ -23,29 +23,38 @@ import qualified AbstractCurry.Select as ACS
 import           FlatCurry.Types
 import           FlatCurry.Files
 import           FlatCurry.FlexRigid
+import           FlatCurry.Goodies   ( progFuncs )
 
 import Data.List
 import Data.Maybe (catMaybes)
 import ReadShowTerm
 
---- Generates the documentation of a module in "CDoc" format.
+import Data.Trie as T
+
+-- | Generates the documentation of a module in "CDoc" format.
 generateCDoc :: CurryDoc -> IO String
 generateCDoc cd@(CurryDoc mname mhead _ _) = do
-  let modInfo = ModuleInfo 
+  putStrLn $ "Reading flat curry for module \"" ++ mname ++ "\"..."
+  fcyProg <- getFlatCurryFileInLoadPath mname 
+              >>= readFlatCurryFile
+  let frMap = buildFRMap (progFuncs fcyProg)
+      modInfo = ModuleInfo 
                   mname 
                   (removeNewlines $ author mhead)
                   (cleanupBorder $ description mhead)
       decls   = allCurryDocDecls cd
-      (funcInfos, typeInfos) = partitionDecls $ translateDecls decls
-  putStrLn $ show decls
+      (funcInfos, typeInfos) = partitionDecls $ translateDecls frMap decls
+
+  putStrLn $ show frMap
+
   putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
-  translateDecls :: [CurryDocDecl] -> [DeclInfo]
-  translateDecls = catMaybes . map translateDecl
+  translateDecls :: FRMap -> [CurryDocDecl] -> [DeclInfo]
+  translateDecls frMap = catMaybes . map (translateDecl frMap)
 
-  translateDecl :: CurryDocDecl -> Maybe DeclInfo
-  translateDecl decl = case decl of
+  translateDecl :: FRMap -> CurryDocDecl -> Maybe DeclInfo
+  translateDecl frMap decl = case decl of
     CurryDocFunctionDecl qn t msig anaInfo cs -> 
       Just $ FunctionInfo 
         (snd qn) 
@@ -53,7 +62,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (fst qn)
         (funDescription msig cs) 
         (nondet anaInfo)
-        UnknownFR -- TODO: flexRigid
+        (lookupFR frMap qn)
     CurryDocDataDecl qn vs _ _ cons cs -> 
       Just $ TypeInfo 
         (snd qn)
@@ -87,6 +96,12 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (declDescription cs)
         True
     _ -> Nothing -- TODO: We ignore class declarations for now
+
+  lookupFR :: FRMap -> QName -> FlexRigidResult
+  lookupFR frMap qn =
+    case T.lookup (stringifyQName qn) frMap of
+      Just fr -> fr
+      Nothing -> UnknownFR
 
 --- The information about a Curry module.
 data CurryInfo = 
@@ -130,6 +145,25 @@ consInfo (CurryDocConsOp qn tExpr1 tExpr2 _ _) =
   (qn, [ctypeExpr2typeExpr tExpr1, ctypeExpr2typeExpr tExpr2])
 consInfo (CurryDocRecord qn tExprs _ _ _) = 
   (qn, map ctypeExpr2typeExpr tExprs)
+
+type FRMap = T.Trie FlexRigidResult
+
+-- | Converts a list of fcy `FuncDecl`s to a mapping from
+--   qualified names to `FlexRigidResult`s.
+buildFRMap :: [FuncDecl] -> FRMap
+buildFRMap = T.fromList . map buildFR
+  where
+    buildFR (Func qn _ _ _ rule) = (stringifyQName qn, flexRigid rule)
+
+-- | Converts a qualified name to a flat `String`
+--   by prepending the module name to the function name.
+stringifyQName :: QName -> String
+stringifyQName (m, n) = m ++ "." ++ n
+
+-- | Computes the flex/rigid status of a fcy `Rule` (i.e., of a function).
+flexRigid :: Rule -> FlexRigidResult
+flexRigid (Rule _ expr) = getFlexRigid expr
+flexRigid (External  _) = UnknownFR
 
 -- auxiliaties --------------------------------------------------------
 
