@@ -176,7 +176,7 @@ isPropFun fdecl = fst (funcName fdecl) /= easyCheckModule
                   || resultType ct =~~= CTCons (easyCheckModule,"Prop")
                   || resultType ct =~~= CTCons (propModule,"Prop")
     easyCheckModule = "Test.EasyCheck"
-    propModule      = "Test.Prop"
+    propModule      = "Test.Prop.Types"
     CQualType _ ty = funcType fdecl
 
 -- | Is a function definition part of a specification, i.e.,

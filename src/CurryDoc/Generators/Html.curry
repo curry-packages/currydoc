@@ -410,56 +410,72 @@ genFurtherInfos qn ai = case ai of
     PrecedenceInfo Nothing  -> []
     PrecedenceInfo (Just p) -> [dlist [([explainCat "Further infos:"],
                                          genPrecedenceText p)]]
-    ShortAnalysisInfo {}    -> concatMap (showProperty qn) (property ai) ++
+    ShortAnalysisInfo {}    -> properties ++
                                if null shortContent
                                  then []
                                  else [dlist [([explainCat "Further infos:"],
                                                 shortContent)]]
-    AnalysisInfo {}         -> concatMap (showProperty qn) (property ai) ++
+    AnalysisInfo {}         -> properties ++
                                if null content
                                  then []
                                  else [dlist [([explainCat "Further infos:"],
                                                 content)]]
   where
+    properties = showProperties "Precondition"  PreSpec
+              ++ showProperties "Postcondition" PostSpec
+              ++ showProperties "Specification" Spec
+              ++ showProperties "Properties"    Prop
+
+    showProperties :: String -> Property -> [BaseHtml]
+    showProperties title prop =
+      let ps = filter ((== prop) . fst) (property ai)
+      in if null ps
+           then []
+           else [dlist [( [explainCat $ title ++ ":"]
+                        , intercalate [breakline] 
+                            $ map (showProperty qn) ps
+                        )]]
+
     shortContent =
       maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
-      catMaybes [externalInfo]
+      [ulist $ map singleton $ catMaybes [externalInfo]]
 
     content =
       maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
-      catMaybes
-        [completenessInfo,
-         indeterminismInfo,
-         opcompleteInfo,
-         externalInfo]
+      [ulist $ map singleton $ catMaybes
+        [ completenessInfo
+        , indeterminismInfo
+        , opcompleteInfo
+        , externalInfo 
+        ]]
 
-    -- comment about partial/incomplete definition
+    -- Comment about partial/incomplete definition:
     completenessInfo = let ci = complete ai in
       if ci == Complete
        then Nothing
-       else Just (par [htxt
+       else Just (htxt
          (if ci == InComplete
-            then "partially defined"
+            then 
+              "partially defined"
             else
-              "partially defined in each disjunction (but might be complete)")])
+              "partially defined in each disjunction (but might be complete)"))
 
-    -- comment about the indeterminism of a function:
+    -- Comment about the indeterminism of a function:
     indeterminismInfo =
       if indet ai
-        then Just (par [htxt "might behave indeterministically"])
+        then Just (htxt "might behave indeterministically")
         else Nothing
 
-    -- comment about the solution completeness of a function:
+    -- Comment about the solution completeness of a function:
     opcompleteInfo =
        if opComplete ai
-         then Just (par
-               [htxt "solution complete, i.e., able to compute all solutions"])
+         then Just (htxt "solution complete, i.e., able to compute all solutions")
          else Nothing
 
-    -- comment about the external definition of a function:
+    -- Comment about the external definition of a function:
     externalInfo  =
       if ext ai
-        then Just (par [htxt "externally defined"])
+        then Just (htxt "externally defined")
         else Nothing
 
 -- | Generates a descriptive text for the given precedence.
@@ -475,29 +491,29 @@ showProperty :: QName -> (Property, CRule) -> [BaseHtml]
 showProperty qn (sp, rule) = case (sp, rule) of
   (PreSpec, CRule _ (CSimpleRhs _ _)) ->
      let (lhs,rhs) = break (=='=') prettyRule
-     in [par [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
          italic [htxt " requires "],
-         code [htxt (safeTail rhs)]]]
+         code [htxt (safeTail rhs)]]
   (PreSpec, _) -> -- we don't put much effort to format complex preconditions:
     [code [htxt prettyRule]]
   (PostSpec, CRule ps (CSimpleRhs _ _)) ->
     let (_,rhs) = break (=='=') prettyRule
-    in [par [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
+    in [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
                      prettyWith ppCPattern
                                  (CPComb qn (take (length ps - 1) ps)) ],
         italic [htxt " satisfies "],
-        code [htxt (safeTail rhs)]]]
+        code [htxt (safeTail rhs)]]
   (PostSpec, _) -> -- we don't put much effort to format complex postconditions:
-    [par [code [htxt prettyRule]]]
+    [code [htxt prettyRule]]
   (Spec, CRule _ (CSimpleRhs _ _)) ->
     let (lhs,rhs) = break (=='=') prettyRule
     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
         italic [htxt " is equivalent to "],
         code [htxt (safeTail rhs)]]
   (Spec, _) -> -- we don't put much effort to format complex specifications:
-    [par [code [htxt prettyRule]]]
+    [code [htxt prettyRule]]
   (Prop, _) ->
-    [par [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]]
+    [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]
  where
    safeTail xs      = if null xs then xs else tail xs
    prettyRule       = showWidth 78 (ppCRule prettyOpts qn rule)
@@ -514,8 +530,8 @@ genFuncPropIcons ai@AnalysisInfo      {} = [detPropIcon, nbsp]
    -- (non)deterministically defined property:
    detPropIcon =
     if nondet ai
-    then href "index.html#nondet_explain" [nondetIcon]
-    else href "index.html#det_explain"    [detIcon]
+     then href "index.html#nondet_explain" [nondetIcon]
+     else href "index.html#det_explain"    [detIcon]
 
 --------------------------------------------------------------------------
 -- Pretty printer for qualified types in Curry syntax:

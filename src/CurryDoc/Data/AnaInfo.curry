@@ -128,4 +128,4 @@ property x = case x of
 
 -- | Types of Properties of a Function.
 data Property = PreSpec | PostSpec | Spec | Prop
-  deriving (Show, Read)
+  deriving (Eq, Show, Read)

@@ -45,8 +45,6 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
       decls   = allCurryDocDecls cd
       (funcInfos, typeInfos) = partitionDecls $ translateDecls frMap decls
 
-  putStrLn $ show frMap
-
   putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
