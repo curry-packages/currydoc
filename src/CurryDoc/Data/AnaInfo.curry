@@ -7,7 +7,8 @@
 module CurryDoc.Data.AnaInfo
   ( AnaInfo(..), readAnaInfo, getNondetInfo, getCompleteInfo, getIndetInfo,
     getOpCompleteInfo, getFunctionInfo, AnalysisInfo(..), Property(..),
-    nondet, indet, opComplete, ext, complete, precedence, property )
+    nondet, indet, opComplete, ext, complete, precedence, property, 
+    QRule, unqualify, functionName )
  where
 
 import Analysis.Deterministic
@@ -68,6 +69,9 @@ getFunctionInfo fnis n =
 
 --------------------------------------------------------------------------
 
+-- | A qualified rule is a pair of a qualified (function) name and a rule.
+type QRule = (QName, CRule)
+
 -- | Datatype for storing different Analysis results.
 data AnalysisInfo
     = AnalysisInfo 
@@ -77,11 +81,11 @@ data AnalysisInfo
         Bool                   -- ^ `ext`: Denotes whether the analysis is external.
         Completeness           -- ^ `complete`: Specifies the completeness of the analysis.
         (Maybe (CFixity, Int)) -- ^ `precedence`: Optional precedence information.
-        [(Property, CRule)]    -- ^ `property`: List of properties and associated rules.
+        [(Property, QRule)]    -- ^ `property`: List of properties and associated rules.
     | ShortAnalysisInfo 
         Bool                   -- ^ `ext`: Denotes whether the analysis is external.
         (Maybe (CFixity, Int)) -- ^ `precedence`: Optional precedence information.
-        [(Property, CRule)]    -- ^ `property`: List of properties and associated rules.
+        [(Property, QRule)]    -- ^ `property`: List of properties and associated rules.
     | PrecedenceInfo 
         (Maybe (CFixity, Int)) -- ^ `precedence`: Optional precedence information.
     | NoAnalysisInfo
@@ -120,11 +124,17 @@ precedence x = case x of
     PrecedenceInfo         p   -> p
     _ -> error "precedence: Not available in this constructor"
 
-property :: AnalysisInfo -> [(Property, CRule)]
+property :: AnalysisInfo -> [(Property, QRule)]
 property x = case x of
     AnalysisInfo _ _ _ _ _ _ p -> p
     ShortAnalysisInfo    _ _ p -> p
     _ -> error "property: Not available in this constructor"
+
+unqualify :: (Property, QRule) -> (Property, CRule)
+unqualify (prop, (_, rule)) = (prop, rule)
+
+functionName :: (Property, QRule) -> QName
+functionName (_, (qn, _)) = qn
 
 -- | Types of Properties of a Function.
 data Property = PreSpec | PostSpec | Spec | Prop

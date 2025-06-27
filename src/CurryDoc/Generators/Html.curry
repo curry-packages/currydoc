@@ -38,7 +38,8 @@ import HTML.CategorizedList
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
 import CurryDoc.Info
-import CurryDoc.Info.Export ( flattenExport )
+import CurryDoc.Info.Export  ( flattenExport )
+import CurryDoc.Info.Goodies ( snoc )
 import CurryDoc.Options
 import CurryDoc.Config
 
@@ -372,7 +373,7 @@ genHtmlFunc cssclass docopts d = case d of
            genFuncPropIcons ai)] ++
     genSigComment docopts sig ++
     docComment2HTML docopts (concatCommentStrings (map commentString cs)) ++
-    genFurtherInfos (fmod, fname) ai
+    genFurtherInfos docopts (fmod, fname) ai
   _ -> []
 
 -- | Generates HTML for the given type signature, if one is present.
@@ -404,8 +405,8 @@ genParamComments docopts fmod sym ((ty, cs) : xs) =
     : genParamComments docopts fmod "->" xs
 
 -- | Generates HTML for any given `AnalysisInfo` of an entity.
-genFurtherInfos :: QName -> AnalysisInfo -> [BaseHtml]
-genFurtherInfos qn ai = case ai of
+genFurtherInfos :: DocOptions -> QName -> AnalysisInfo -> [BaseHtml]
+genFurtherInfos docopts qn ai = case ai of
     NoAnalysisInfo          -> []
     PrecedenceInfo Nothing  -> []
     PrecedenceInfo (Just p) -> [dlist [([explainCat "Further infos:"],
@@ -433,7 +434,7 @@ genFurtherInfos qn ai = case ai of
            then []
            else [dlist [( [explainCat $ title ++ ":"]
                         , intercalate [breakline] 
-                            $ map (showProperty qn) ps
+                            $ map (showProperty docopts qn) ps
                         )]]
 
     shortContent =
@@ -487,38 +488,41 @@ genPrecedenceText (fixity, prec) =
 
 -- | Generates HTML for a given property of a function.
 --   'Data.Type.GuardedRhs' are not formatted in any specific way.
-showProperty :: QName -> (Property, CRule) -> [BaseHtml]
-showProperty qn (sp, rule) = case (sp, rule) of
-  (PreSpec, CRule _ (CSimpleRhs _ _)) ->
-     let (lhs,rhs) = break (=='=') prettyRule
-     in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
-         italic [htxt " requires "],
-         code [htxt (safeTail rhs)]]
-  (PreSpec, _) -> -- we don't put much effort to format complex preconditions:
-    [code [htxt prettyRule]]
-  (PostSpec, CRule ps (CSimpleRhs _ _)) ->
-    let (_,rhs) = break (=='=') prettyRule
-    in [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
-                     prettyWith ppCPattern
-                                 (CPComb qn (take (length ps - 1) ps)) ],
-        italic [htxt " satisfies "],
-        code [htxt (safeTail rhs)]]
-  (PostSpec, _) -> -- we don't put much effort to format complex postconditions:
-    [code [htxt prettyRule]]
-  (Spec, CRule _ (CSimpleRhs _ _)) ->
-    let (lhs,rhs) = break (=='=') prettyRule
-    in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
-        italic [htxt " is equivalent to "],
-        code [htxt (safeTail rhs)]]
-  (Spec, _) -> -- we don't put much effort to format complex specifications:
-    [code [htxt prettyRule]]
-  (Prop, _) ->
-    [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]
- where
-   safeTail xs      = if null xs then xs else tail xs
-   prettyRule       = showWidth 78 (ppCRule prettyOpts qn rule)
-   prettyWith ppfun = showWidth 78 . ppfun prettyOpts
-   prettyOpts       = setNoQualification defaultOptions
+showProperty :: DocOptions -> QName -> (Property, QRule) -> [BaseHtml]
+showProperty docopts qn pr = showProperty' (unqualify pr)
+                          ++ [htxt "(", showCodeNameRef docopts (functionName pr), htxt ")"]
+ where 
+  showProperty' (sp, rule) = case (sp, rule) of
+    (PreSpec, CRule _ (CSimpleRhs _ _)) ->
+      let (lhs,rhs) = break (=='=') prettyRule
+      in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+          italic [htxt " requires "],
+          code [htxt (safeTail rhs)]]
+    (PreSpec, _) -> -- we don't put much effort to format complex preconditions:
+      [code [htxt prettyRule]]
+    (PostSpec, CRule ps (CSimpleRhs _ _)) ->
+      let (_,rhs) = break (=='=') prettyRule
+      in [code [htxt $ prettyWith ppCPattern (last ps) ++ " = " ++
+                      prettyWith ppCPattern
+                                  (CPComb qn (take (length ps - 1) ps)) ],
+          italic [htxt " satisfies "],
+          code [htxt (safeTail rhs)]]
+    (PostSpec, _) -> -- we don't put much effort to format complex postconditions:
+      [code [htxt prettyRule]]
+    (Spec, CRule _ (CSimpleRhs _ _)) ->
+      let (lhs,rhs) = break (=='=') prettyRule
+      in [code [htxt $ "(" ++ trimSpace lhs ++ ")"],
+          italic [htxt " is equivalent to "],
+          code [htxt (safeTail rhs)]]
+    (Spec, _) -> -- we don't put much effort to format complex specifications:
+      [code [htxt prettyRule]]
+    (Prop, _) ->
+      [code [htxt $ prettyWith (ppCRhs empty) (ruleRHS rule)]]
+  where
+    safeTail xs      = if null xs then xs else tail xs
+    prettyRule       = showWidth 78 (ppCRule prettyOpts qn rule)
+    prettyWith ppfun = showWidth 78 . ppfun prettyOpts
+    prettyOpts       = setNoQualification defaultOptions
 
 -- | Generates icons for particular properties of functions.
 genFuncPropIcons :: AnalysisInfo -> [BaseHtml]

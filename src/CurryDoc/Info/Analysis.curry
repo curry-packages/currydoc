@@ -131,25 +131,25 @@ genPrecedenceInfo (COp m fix prec : cop) n
 
 -- | Checks for properties of a function.
 --   (Code from Michael Hanus, modified by Kai Prott)
-genPropertyInfo :: [CFuncDecl] -> QName -> [(Property, CRule)]
+genPropertyInfo :: [CFuncDecl] -> QName -> [(Property, (QName, CRule))]
 genPropertyInfo funs n = getContracts ++ concatMap getProp props
   where
     fprops = takeWhile isPropSpecFun $
              tail $ dropWhile (not . (=~=n) . funcName) funs
     (specs, props) = partition isSpecFun fprops
 
-    getContracts = getContract (snd n ++ "'pre")  PreSpec  ++
-                   getContract (snd n ++ "'post") PostSpec ++
-                   getContract (snd n ++ "'spec") Spec
+    getContracts = getContract (snd n ++ "'pre")  PreSpec
+                ++ getContract (snd n ++ "'post") PostSpec
+                ++ getContract (snd n ++ "'spec") Spec
 
     getContract fn typ =
       maybe [] (getRule typ)
         (find (\fd -> snd (funcName fd) == fn) specs)
 
-    getRule typ (CFunc     _ ar _ (CQualType _ ftype) rules) =
-      map (\rule -> (typ, etaExpand ar (length (argTypes ftype)) rule)) rules
-    getRule typ (CmtFunc _ _ ar _ (CQualType _ ftype) rules) =
-      map (\rule -> (typ, etaExpand ar (length (argTypes ftype)) rule)) rules
+    getRule typ f@(CFunc     _ ar _ (CQualType _ ftype) rules) =
+      map (\rule -> (typ, (funcName f, etaExpand ar (length (argTypes ftype)) rule))) rules
+    getRule typ f@(CmtFunc _ _ ar _ (CQualType _ ftype) rules) =
+      map (\rule -> (typ, (funcName f, etaExpand ar (length (argTypes ftype)) rule))) rules
 
     etaExpand arity tarity rule = case rule of
       CRule ps (CSimpleRhs exp ldecls) ->
@@ -160,7 +160,7 @@ genPropertyInfo funs n = getContracts ++ concatMap getProp props
                          (CSimpleRhs (foldl CApply exp (map CVar evars)) ldecls)
       _ -> rule -- don't do it for complex rules
 
-    getProp propdecl = map (\rule -> (Prop, rule)) (funcRules propdecl)
+    getProp propdecl = map (\rule -> (Prop, (funcName propdecl, rule))) (funcRules propdecl)
 
 isPropSpecFun :: CFuncDecl -> Bool
 isPropSpecFun fdecl = isPropFun fdecl || isSpecFun fdecl

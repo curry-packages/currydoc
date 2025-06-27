@@ -158,3 +158,7 @@ dropSpaces = dropWhile (==' ')
 guard :: Bool -> Maybe ()
 guard True  = Just ()
 guard False = Nothing
+
+-- | Appends an element to the end of a list.
+snoc :: [a] -> a -> [a]
+snoc xs x = xs ++ [x]
