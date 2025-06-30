@@ -26,7 +26,7 @@ import           FlatCurry.FlexRigid
 import           FlatCurry.Goodies   ( progFuncs )
 
 import Data.List
-import Data.Maybe (catMaybes)
+import Data.Maybe ( catMaybes, fromMaybe )
 import ReadShowTerm
 
 import Data.Trie as T
@@ -97,9 +97,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
 
   lookupFR :: FRMap -> QName -> FlexRigidResult
   lookupFR frMap qn =
-    case T.lookup (stringifyQName qn) frMap of
-      Just fr -> fr
-      Nothing -> UnknownFR
+    fromMaybe UnknownFR $ T.lookup (stringifyQName qn) frMap
 
 --- The information about a Curry module.
 data CurryInfo = 

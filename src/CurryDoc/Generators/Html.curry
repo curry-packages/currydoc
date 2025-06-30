@@ -437,18 +437,31 @@ genFurtherInfos docopts qn ai = case ai of
                             $ map (showProperty docopts qn) ps
                         )]]
 
+    shortContent :: [BaseHtml]
     shortContent =
-      maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
-      [ulist $ map singleton $ catMaybes [externalInfo]]
+      buildList $ 
+          maybe [] (\p -> genPrecedenceText p) (precedence ai) 
+           ++
+          catMaybes [externalInfo] 
 
+    content :: [BaseHtml]
     content =
-      maybe [] (\p -> genPrecedenceText p) (precedence ai) ++
-      [ulist $ map singleton $ catMaybes
-        [ completenessInfo
-        , indeterminismInfo
-        , opcompleteInfo
-        , externalInfo 
-        ]]
+      buildList $ 
+          maybe [] (\p -> genPrecedenceText p) (precedence ai) 
+           ++
+          catMaybes
+            [ completenessInfo
+            , indeterminismInfo
+            , opcompleteInfo
+            , externalInfo 
+            ]
+    
+    -- | Builds an unordered list from a non-empty list of items.
+    --   If the list is empty, an empty list is returned instead.
+    buildList :: [BaseHtml] -> [BaseHtml]
+    buildList xs 
+      | null xs = []
+      | otherwise = [ulist $ map singleton xs]
 
     -- Comment about partial/incomplete definition:
     completenessInfo = let ci = complete ai in
@@ -482,9 +495,9 @@ genFurtherInfos docopts qn ai = case ai of
 -- | Generates a descriptive text for the given precedence.
 genPrecedenceText :: (CFixity, Int) -> [BaseHtml]
 genPrecedenceText (fixity, prec) =
-  [par [htxt ("defined as " ++ showFixity fixity ++
+  [htxt ("defined as " ++ showFixity fixity ++
               " infix operator with precedence " ++
-              show prec)]]
+              show prec)]
 
 -- | Generates HTML for a given property of a function.
 --   'Data.Type.GuardedRhs' are not formatted in any specific way.
