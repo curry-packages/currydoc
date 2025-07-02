@@ -42,14 +42,14 @@
   --card-bg:     #2d2d2d;
   --card-border: #2d2d2d;
   --hrule-color: #2f2f2f;
-  --sidebar-bg:  #2d2d2d;
-  --sidebar-border: #3d3d3d;
+  --sidebar-bg:  #272a2c;
+  --sidebar-border: #3d3d49;
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
 
-  --methods-block-color: #181818;
-  --methods-block-hover: #1c1c1c;
-  --methods-block-border: #252525;
+  --methods-block-color: #222222;
+  --methods-block-hover: #282828;
+  --methods-block-border: #373737;
   
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
