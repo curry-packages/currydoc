@@ -162,3 +162,8 @@ guard False = Nothing
 -- | Appends an element to the end of a list.
 snoc :: [a] -> a -> [a]
 snoc xs x = xs ++ [x]
+
+-- | Checks if a comment is empty (not visible and 
+-- | not meaningful content, i.e., contains only whitespace).
+isEmptyComment :: String -> Bool
+isEmptyComment = all isSpace

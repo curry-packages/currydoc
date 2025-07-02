@@ -15,7 +15,7 @@ import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, setHtmlDir, callFrontendWithParams )
 import System.FilePath     ( (</>), (<.>) )
 import System.Directory    ( getFileWithSuffix )
-import Text.Pretty   ( showWidth, empty )
+import Text.Pretty   ( showWidth, empty, isEmpty )
 import Data.List     ( sortBy, last, intersperse, intercalate, nub )
 import Data.Time     ( getLocalTime, calendarTimeToString, CalendarTime )
 import Data.Char     ( isSpace, toUpper, toLower )
@@ -39,7 +39,7 @@ import CurryDoc.Data.AnaInfo
 import CurryDoc.Data.CurryDoc
 import CurryDoc.Info
 import CurryDoc.Info.Export  ( flattenExport )
-import CurryDoc.Info.Goodies ( snoc )
+import CurryDoc.Info.Goodies ( snoc, isEmptyComment )
 import CurryDoc.Options
 import CurryDoc.Config
 
@@ -224,22 +224,38 @@ genExportEntityList docopts es
 -- | Generates HTML documentation for a module.
 genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
-  [ block [ block (docComment2HTML docopts maincmt)
-              `addClass` "info-left"
-          , block [ block (map fieldHtml fields) 
-                      `addClass` "info" 
-                  ]
+  [ block
+      ( [ block (docComment2HTML docopts maincmt)
+            `addClass` "info-left"
+        ]
+        ++ 
+        fieldBox
+      )
+      `addClass` "info-row"
+  ]
+  where
+    fieldHtml :: (HeaderField, String) -> BaseHtml
+    fieldHtml (field, value) =
+      block
+        [ block [htxt $ show field]
+            `addClass` "info-key",
+          block [htxt value]
+            `addClass` "info-value"
+        ]
+        `addClass` "info-item"
+    
+    -- If existing, the field box contains a list of fields
+    -- formatted as a table.
+    fieldBox 
+      | null fields
+        = []
+      | otherwise
+        = [ block
+              [ block (map fieldHtml fields)
+                  `addClass` "info"
+              ]
               `addClass` "info-right"
-          ] 
-      `addClass` "info-row" ]
- where 
-  fieldHtml (typ, value) =
-    (block [ block [htxt $ show typ] 
-              `addClass` "info-key"
-           , block [htxt value]      
-              `addClass` "info-value"
-           ]) 
-      `addClass` "info-item"
+          ]
 
 -- | Generates HTML documentation for a datatype.
 genHtmlType :: DocOptions -> CurryDocDecl -> [BaseHtml]
