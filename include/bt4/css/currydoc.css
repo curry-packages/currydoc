@@ -5,8 +5,14 @@
   --card-bg:     #e9ecef;
   --card-border: #f0f0f0;
   --hrule-color: #f3f3f3;
-  --sidebar-bg:  #e9ecef;
+  --sidebar-bg:  #ffffff;
+  --sidebar-modulename-color: #333333;
+  --sidebar-modulename-bg: #f7f7f7;
+  --sidebar-navlink-color: #4a5568;
+  --sidebar-navvlink-hover: #2d3748;
+  --sidebar-hline: #e2e8f0;
   --sidebar-border: #e2e2e2;
+  --sidebar-shadow: rgba(0, 0, 0, 0.1);
   --link-color:  #2196F3;
   --link-hover:  #064579;
 
@@ -42,8 +48,15 @@
   --card-bg:     #2d2d2d;
   --card-border: #2d2d2d;
   --hrule-color: #2f2f2f;
-  --sidebar-bg:  #272a2c;
+  --sidebar-bg:  #ffffff;
+  --sidebar-modulename-color: #e2e2e2;
+  --sidebar-modulename-bg: #333333;
+  --sidebar-navlink-color: #ccd6e7;
+  --sidebar-navvlink-hover: #778bad;
+  --sidebar-hline: #494949;
+  --sidebar-bg:  #2a2c2e;
   --sidebar-border: #3d3d49;
+  --sidebar-shadow: rgb(41, 48, 58);
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
 
@@ -107,53 +120,15 @@ section {
 
 /* ***************************************** */
 
+/* Completely hide cards and only use them for positioning.
+   Cards are only used for the left sidebar (navigation), and all
+   styling is done in `nav-card` */
 .card {
   position: fixed;
-  border-color: var(--card-border);
+  border-color: transparent;
   background-color: transparent;
   width: 23%; /* 23% of the screen width, 
                  because the fixed card messes with bootstrap's grid system */
-}
-
-/* The sidebar menu */
-.list-group-item {
-  z-index: 1;
-  background-color: var(--sidebar-bg);
-  border-color: var(--sidebar-border);
-  border-width: 2px;
-  overflow-x: hidden;
-  
-  /* Allow shrinking below 100px if content is small */
-  min-height: auto;
-  height: auto;
-
-  overflow-y: auto;  
-  max-height: calc(100vh - 130px);
-
-  /* When content is scrollable, enforce min-height */
-  @supports (overflow-y: overlay) or (overflow-y: auto) {
-    &:not(:-webkit-scrollbar) {
-      min-height: 100px;
-    }
-  }
-}
-
-@media (max-width: 1199px) {
-  .list-group {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 991px) {
-  .list-group {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 767px) {
-  .card {
-    display: none;
-  }
 }
 
 /* ****************************************** */
@@ -180,19 +155,19 @@ section {
 }
 
 .indent1 {
-  text-indent: 15px;
+  text-indent: 0px;
 }
 
 .indent2 {
-  text-indent: 30px;
+  text-indent: 15px;
 }
 
 .indent3 {
-  text-indent: 45px;
+  text-indent: 30px;
 }
 
 .indent4 {
-  text-indent: 60px;
+  text-indent: 45px;
 }
 
 .explaincat {
@@ -328,4 +303,94 @@ code {
 .info-value {
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+/* *************************************************************** */
+/*           Styling of the left navigation panel                  */
+
+/* The sidebar menu */
+.list-group-item {
+  z-index: 1;
+  background-color: var(--sidebar-bg);
+  border-color: var(--sidebar-border);
+  border-width: 2px;
+  overflow-x: hidden;
+  
+  /* Allow shrinking below 100px if content is small */
+  min-height: auto;
+  height: auto;
+  border: none;
+  padding: 0;
+
+  overflow-y: auto;  
+  max-height: calc(100vh - 130px);
+
+  /* When content is scrollable, enforce min-height */
+  @supports (overflow-y: overlay) or (overflow-y: auto) {
+    &:not(:-webkit-scrollbar) {
+      min-height: 100px;
+    }
+  }
+}
+
+@media (max-width: 1199px) {
+  .list-group {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 991px) {
+  .list-group {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 767px) {
+  .card {
+    display: none;
+  }
+}
+
+.nav-card {
+  border: none;
+  border-radius: 2px;
+  box-shadow: 0 4px 6px -1px var(--sidebar-shadow);
+  overflow: hidden;
+  background-color: var(--sidebar-bg);
+}
+
+.nav-link {
+  color: var(--sidebar-navlink-color) !important;
+  text-decoration: none;
+  padding: 6px 16px;
+  transition: color 0.15s ease;
+  font-weight: 400;
+}
+
+.nav-link:hover {
+  color: var(--sidebar-navvlink-hover) !important;
+}
+
+/* Module title styling */
+.module-title {
+  color: var(--sidebar-modulename-color);
+  background: var(--sidebar-modulename-bg);
+  text-decoration: none;
+  font-size: 1.1em;
+  font-weight: 600;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sidebar-hline);
+  display: block;
+}
+
+.module-title:hover {
+  color: #1a202c;
+  text-decoration: none;
+}
+
+.imported-modules {
+  padding: 8px 16px;
+  font-weight: bold;
+  border-top: 1px solid var(--sidebar-hline);
+  color: var(--sidebar-modulename-color);
 }

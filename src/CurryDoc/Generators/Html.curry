@@ -51,11 +51,13 @@ infixl 0 `addTitle`
 generateHtmlDocs :: DocOptions -> CurryDoc -> IO String
 generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
   let
-    moduleHeaderLink = block [jumpToTop $ htxt title]
+    moduleHeaderLink = block [jumpToTop (htxt title) `addClass` "module-title"]
     navigation =
-      [ ulistWithClass "list-group" "list-group-item" $
-          [moduleHeaderLink, genHtmlExportIndex ex] 
-            : [importedModules | not (null imps)]
+      [ block 
+          [ ulistWithClass "list-group" "list-group-item" $
+            [moduleHeaderLink, genHtmlExportIndex ex] 
+              : [importedModules | not (null imps)]
+          ] `addClass` "nav-card" 
       ]
     content = [anchored "moduleheader" (genHtmlModule opts mhead ++ genExportEntityList opts ex)] ++ [hrule] ++
               snd (genHtmlForExport 0 opts ex)
@@ -69,9 +71,11 @@ generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
                    , href (mname ++ "_curry.html") [htxt mname]
                    ]
     importedModules 
-      = [anchored "imported_modules" [h5 [htxt "Imported modules:"]],
-          ulistWithClass "nav flex-column" "nav-item"
-                (map (\i -> [href (docURL opts i ++ ".html") [htxt i]])
+      = [anchored 
+          "imported_modules" 
+          [block [htxt "Imported modules:"] `addClass` "imported-modules"]
+        , ulistWithClass "nav flex-column" "nav-item"
+                (map (\i -> [href (docURL opts i ++ ".html") [htxt i] `addClass` "nav-link"])
                      imps)]
 
 -- | Generates HTML for the given export structure.
