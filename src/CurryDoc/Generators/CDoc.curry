@@ -37,13 +37,17 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
   putStrLn $ "Reading flat curry for module \"" ++ mname ++ "\"..."
   fcyProg <- getFlatCurryFileInLoadPath mname 
               >>= readFlatCurryFile
-  let frMap = buildFRMap (progFuncs fcyProg)
-      modInfo = ModuleInfo 
-                  mname 
-                  (removeNewlines $ author mhead)
-                  (cleanupBorder $ description mhead)
-      decls   = allCurryDocDecls cd
-      (funcInfos, typeInfos) = partitionDecls $ translateDecls frMap decls
+  let frMap 
+        = buildFRMap (progFuncs fcyProg)
+      modInfo 
+        = ModuleInfo 
+            mname 
+            (cleanupBorder $ removeNewlines $ author mhead)
+            (cleanupBorder $ description mhead)
+      decls 
+        = allCurryDocDecls cd
+      (funcInfos, typeInfos) 
+        = partitionDecls $ translateDecls frMap decls
 
   putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
