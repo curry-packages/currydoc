@@ -9,7 +9,8 @@
   --sidebar-modulename-color: #333333;
   --sidebar-modulename-bg: #f7f7f7;
   --sidebar-navlink-color: #4a5568;
-  --sidebar-navvlink-hover: #2d3748;
+  --sidebar-navlink-hover: #2d3748;
+  --sidebar-navlink-hover-bg: #fafafa;
   --sidebar-hline: #e2e8f0;
   --sidebar-border: #e2e2e2;
   --sidebar-shadow: rgba(0, 0, 0, 0.1);
@@ -57,7 +58,8 @@
   --sidebar-modulename-color: #e2e2e2;
   --sidebar-modulename-bg: #333333;
   --sidebar-navlink-color: #ccd6e7;
-  --sidebar-navvlink-hover: #778bad;
+  --sidebar-navlink-hover: #778bad;
+  --sidebar-navlink-hover-bg: rgba(100, 100, 100, 0.1);
   --sidebar-hline: #494949;
   --sidebar-bg:  #2a2c2e;
   --sidebar-border: #3d3d49;
@@ -378,7 +380,8 @@ code {
 }
 
 .nav-link:hover {
-  color: var(--sidebar-navvlink-hover) !important;
+  color: var(--sidebar-navlink-hover) !important;
+  background-color: var(--sidebar-navlink-hover-bg);
 }
 
 /* Styling of active section, based on scroll */
@@ -403,11 +406,13 @@ code {
 }
 
 .module-title:hover {
-  color: #1a202c;
+  color: var(--sidebar-navlink-color) !important;
   text-decoration: none;
 }
 
+/* Styling of the "imported modules:" title text */
 .imported-modules {
+  margin-top: 10px;
   padding: 8px 16px;
   font-weight: bold;
   border-top: 1px solid var(--sidebar-hline);
