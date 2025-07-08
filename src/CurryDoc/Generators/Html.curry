@@ -878,9 +878,10 @@ cssIncludes = map (\n -> styleBaseURL </> "css" </> n ++ ".css")
 -- | The javascript includes.
 jsIncludes :: [String]
 jsIncludes = 
-  ["https://code.jquery.com/jquery-3.4.1.slim.min.js",
-   styleBaseURL </> "js" </> "bootstrap.bundle.min.js",
-   styleBaseURL </> "js" </> "theme.js"]
+  [ "https://code.jquery.com/jquery-3.4.1.slim.min.js"
+  , styleBaseURL </> "js" </> "bootstrap.bundle.min.js"
+  , styleBaseURL </> "js" </> "theme.js"
+  , styleBaseURL </> "js" </> "scroll.js" ]
 
 -- | Generates a page with the default documentation style.
 showPageWithDocStyle :: String    -- ^ The title of the page

@@ -1,10 +1,10 @@
 :root {
-  /* Light theme (default) */
   --body-bg:     #ffffff;
   --body-color:  #212529;
   --card-bg:     #e9ecef;
   --card-border: #f0f0f0;
   --hrule-color: #f3f3f3;
+  
   --sidebar-bg:  #ffffff;
   --sidebar-modulename-color: #333333;
   --sidebar-modulename-bg: #f7f7f7;
@@ -13,6 +13,11 @@
   --sidebar-hline: #e2e8f0;
   --sidebar-border: #e2e2e2;
   --sidebar-shadow: rgba(0, 0, 0, 0.1);
+
+  --sidebar-highlight-text: #384966;
+  --sidebar-highlight-bg: rgba( 140, 140, 140, 0.1);
+  --sidebar-highlight-border: #95a8bd;
+
   --link-color:  #2196F3;
   --link-hover:  #064579;
 
@@ -42,12 +47,12 @@
 }
 
 [data-theme="dark"] {
-  /* Dark theme */
   --body-bg:     #111111;
   --body-color:  #f0f0f0;
   --card-bg:     #2d2d2d;
   --card-border: #2d2d2d;
   --hrule-color: #2f2f2f;
+
   --sidebar-bg:  #ffffff;
   --sidebar-modulename-color: #e2e2e2;
   --sidebar-modulename-bg: #333333;
@@ -57,6 +62,11 @@
   --sidebar-bg:  #2a2c2e;
   --sidebar-border: #3d3d49;
   --sidebar-shadow: rgb(41, 48, 58);
+
+  --sidebar-highlight-text: #8eb7ff;
+  --sidebar-highlight-bg: rgba(202, 202, 202, 0.1);
+  --sidebar-highlight-border: #1f5796;
+
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
 
@@ -369,6 +379,15 @@ code {
 
 .nav-link:hover {
   color: var(--sidebar-navvlink-hover) !important;
+}
+
+/* Styling of active section, based on scroll */
+.nav-link.active {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--sidebar-highlight-text) !important;
+  background-color: var(--sidebar-highlight-bg) !important;
+  border-left: 3px solid var(--sidebar-highlight-border);
 }
 
 /* Module title styling */
