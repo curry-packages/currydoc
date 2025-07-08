@@ -1,12 +1,10 @@
 // Handles scrolling and active link highlighting for section navigation.
-//
-// TODO: Because of the nested nature of sections, we can't properly
-//       calculate bounding boxes for each section seperately, and 
-//       therefore scrolling up will not highlight the correct link 
-//       until the section title is visible.
 document.addEventListener('DOMContentLoaded', () => {
   const navLinks = document.querySelectorAll('.nav-link');
   const sections = document.querySelectorAll('section[id]');
+  
+  let recentlyClickedSection = null;
+  let clickTimeout = null;
 
   const activateLink = (id) => {
     navLinks.forEach(link => {
@@ -14,14 +12,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const onScroll = () => {
-    let currentSectionId = null;
-    let minOffset = window.innerHeight;
+  // Pixels from top of viewport before section becomes active
+  // TODO: It might be a good idea to either make this configurable
+  //       or use a more dynamic approach (e.g., based on ratios) 
+  //       to determine when a section should be considered active.
+  const ACTIVATION_OFFSET = 500; 
 
+  const onScroll = () => {
+    // Check if recently clicked section is still active
+    if (recentlyClickedSection) {
+      const clickedSection = document.getElementById(recentlyClickedSection);
+      if (clickedSection) {
+        const rect = clickedSection.getBoundingClientRect();
+        // Keep the clicked section active if it's still visible
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          return;
+        }
+      }
+
+      recentlyClickedSection = null;
+      if (clickTimeout) {
+        clearTimeout(clickTimeout);
+        clickTimeout = null;
+      }
+    }
+
+    let currentSectionId = null;
+    
+    // Find the section that should be active based on scroll position
+    // A section becomes active when it crosses the activation threshold
     sections.forEach(section => {
       const rect = section.getBoundingClientRect();
-      if (rect.top >= 0 && rect.top < minOffset) {
-        minOffset = rect.top;
+      
+      if (rect.top <= ACTIVATION_OFFSET && rect.bottom > ACTIVATION_OFFSET) {
         currentSectionId = section.id;
       }
     });
@@ -30,6 +53,26 @@ document.addEventListener('DOMContentLoaded', () => {
       activateLink(currentSectionId);
     }
   };
+
+  // Handle nav link clicks
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        const sectionId = href.substring(1);
+        recentlyClickedSection = sectionId;
+        activateLink(sectionId);
+        
+        if (clickTimeout) {
+          clearTimeout(clickTimeout);
+        }
+        
+        clickTimeout = setTimeout(() => {
+          recentlyClickedSection = null;
+        }, 2000);
+      }
+    });
+  });
 
   onScroll();
 
