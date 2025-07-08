@@ -1,4 +1,8 @@
 :root {
+  /* Because the jumbotron has a fixed color for both,
+     light and dark theme, this color is fixed for both themes: */
+  --top-navbar-navlink-color: #a2a2a7;
+
   --body-bg:     #ffffff;
   --body-color:  #212529;
   --card-bg:     #e9ecef;
@@ -377,6 +381,12 @@ code {
   padding: 6px 16px;
   transition: color 0.15s ease;
   font-weight: 400;
+}
+
+/* The top navbar has a fixed color for both light and dark theme,
+   so we use a fixed color for styling these specific `nav-link`s */
+#topnavbar .nav-link {
+  color: var(--top-navbar-navlink-color) !important;
 }
 
 .nav-link:hover {
