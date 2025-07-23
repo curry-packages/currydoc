@@ -8,7 +8,7 @@
 module CurryDoc.Read where
 
 import Data.Char
-import Data.List (isSuffixOf)
+import Data.List ( intercalate, isSuffixOf )
 import System.IO
 
 import FlatCurry.Types
@@ -103,13 +103,13 @@ classifyLine line
  | take 7 line == "module "  = ModDef
  | take 7 line == "import "  = ModDef
  | otherwise = let id1 = getFirstId line
-                in if null id1
+               in if null id1
                     then OtherLine
                     else if id1 == "data" || id1 == "type" || id1 == "newtype"
-                          then DataDef (getDatatypeName line)
-                          else if "'default" `isSuffixOf` id1
-                                then OtherLine -- ignore default rules
-                                else FuncDef id1
+                           then DataDef (getDatatypeName line)
+                           else if "'default" `isSuffixOf` id1
+                                  then OtherLine -- ignore default rules
+                                  else FuncDef id1
  where
    getDatatypeName = takeWhile isIdChar . dropWhile (==' ') . dropWhile isIdChar
 
@@ -137,14 +137,14 @@ infixIDs =  "~!@#$%^&*+-=<>?./|\\:"
 groupLines :: [SourceLine] -> (String,[(SourceLine,String)])
 groupLines sls =
   let (modcmts,progcmts) = break (==ModDef) sls
-   in if progcmts == []
-      then ("", groupProgLines sls)
-      else (concatMap getComment modcmts,
-            groupProgLines (filter (/=ModDef) (tail progcmts)))
+  in if null progcmts
+       then ("", groupProgLines sls)
+       else (intercalate "\n" (map getComment modcmts),
+             groupProgLines (filter (/=ModDef) (tail progcmts)))
  where
-   getComment src = case src of
-      Comment cmt -> cmt ++ "\n"
-      _           -> "" -- this case should usually not occur
+  getComment src = case src of
+    Comment cmt -> cmt
+    _           -> "" -- this case should usually not occur
 
 groupProgLines :: [SourceLine] -> [(SourceLine,String)]
 groupProgLines []                  = []
@@ -156,7 +156,7 @@ groupProgLines (OtherLine   : sls) = groupProgLines sls
 
 groupComment :: String -> [SourceLine] -> [(SourceLine,String)]
 groupComment _ [] = []  -- comment not followed by definition -> ignore
-groupComment cmt (Comment cmt1 : sls) = groupComment (cmt++"\n"++cmt1) sls
+groupComment cmt (Comment cmt1 : sls) = groupComment (cmt ++ "\n" ++ cmt1) sls
 groupComment cmt (FuncDef f    : sls) = (FuncDef f, cmt) : skipFuncDefs f sls
 groupComment cmt (DataDef d    : sls) = (DataDef d, cmt) : skipDataDefs d sls
 groupComment cmt (ModDef       : sls) = groupComment cmt sls
@@ -224,22 +224,23 @@ splitComment :: String -> (String,[(String,String)])
 splitComment cmt = splitCommentMain (lines cmt)
 
 splitCommentMain :: [String] -> (String,[(String,String)])
-splitCommentMain [] = ("",[])
+splitCommentMain []     = ("",[])
 splitCommentMain (l:ls) =
-  if l == "" || head l /= '@'
-  then let (maincmt,rest) = splitCommentMain ls
-        in (l++('\n':maincmt),rest)
-  else ([],splitCommentParams (takeWhile isAlpha (tail l))
-                              (dropWhile isAlpha (tail l)) ls)
+  if null l || head l /= '@'
+    then let (maincmt,rest) = splitCommentMain ls
+         in if null maincmt then (l, rest)
+                            else (l ++ '\n':maincmt, rest)
+    else ([], splitCommentParams (takeWhile isAlpha (tail l))
+                                 (dropWhile isAlpha (tail l)) ls)
 
 splitCommentParams :: String -> String -> [String] -> [(String,String)]
 splitCommentParams param paramcmt [] = [(param,skipWhiteSpace paramcmt)]
 splitCommentParams param paramcmt (l:ls) =
-  if l == "" || head l /= '@'
-  then splitCommentParams param (paramcmt++('\n':l)) ls
-  else ((param,skipWhiteSpace paramcmt)
-        : splitCommentParams (takeWhile isAlpha (tail l))
-                             (dropWhile isAlpha (tail l)) ls)
+  if null l || head l /= '@'
+    then splitCommentParams param (paramcmt++('\n':l)) ls
+    else ((param,skipWhiteSpace paramcmt)
+          : splitCommentParams (takeWhile isAlpha (tail l))
+                               (dropWhile isAlpha (tail l)) ls)
 
 -----------------------------------------------------------------------
 -- auxiliaries:

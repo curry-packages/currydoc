@@ -2,7 +2,7 @@
 --- Functions to generate documentation in "CDoc" format.
 ---
 --- @author Sandra Dylus
---- @version December 2024
+--- @version July 2025
 ----------------------------------------------------------------------
 
 module CurryDoc.CDoc where
@@ -59,17 +59,19 @@ generateCDoc modName modCmts progCmts anaInfo = do
 
       (mCmts, avCmts) = splitComment modCmts
 
-      funcInfos = map funcInfo
-                      (filter (\ (Func _ _ vis _ _) -> vis == Public) functions)
+      funcInfos = map funcInfo (filter isPublicFunc functions)
 
       typeInfos = map typeInfo (concatMap filterT types)
 
   putStrLn $ "Writing " ++ modName ++ ".cdoc file"
   return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
  where
-   filterT f@(Type _    vis _ _) = if vis == Public then [f] else []
-   filterT f@(TypeSyn _ vis _ _) = if vis == Public then [f] else []
-   filterT f@(TypeNew _ vis _ _) = if vis == Public then [f] else []
+  -- is the function public and not a class function?
+  isPublicFunc (Func (_,f) _ vis _ _) = vis == Public && '#' `notElem` f
+
+  filterT f@(Type _    vis _ _) = if vis == Public then [f] else []
+  filterT f@(TypeSyn _ vis _ _) = if vis == Public then [f] else []
+  filterT f@(TypeNew _ vis _ _) = if vis == Public then [f] else []
 
 -- Strip forall type quantifiers in order to keep compatibility
 -- with Currygle 0.3.0:
@@ -92,12 +94,12 @@ flexRigid (External _)  = UnknownFR
 
 --- The information about a Curry module contains
 --- * the module information
---- * the corresponding functions
---- * the corresponding data and type declaration
+--- * information about the function defined in the module
+--- * information about types (also newtypes and classes) defined in the module
 data CurryInfo = CurryInfo ModuleInfo [FunctionInfo] [TypeInfo]
   deriving (Read, Show)
 
---- The basic information about some module contains
+--- The base information about some module contains
 --- * the name
 --- * the author
 --- * the description
@@ -109,18 +111,17 @@ data ModuleInfo = ModuleInfo String String String
 --- * the signature
 --- * the corresponding module
 --- * the description
---- * True if property ist defined non-deterministically
---- * the flex/rigid status
+--- * `True` if the function is non-deterministically defined
+--- * the flex/rigid status of the function
 data FunctionInfo =
   FunctionInfo String TypeExpr String String Bool FlexRigidResult
   deriving (Read, Show)
 
 --- The information about types defined in a Curry module contains
---- * the name
---- * the signature (true indicates a type synonym, false a data type)
---- * a list of constructors and their argument types (or the type name
+--- * the name (which has `_Dict#` as a prefix if it is a class)
+--- * a list of constructor names and their argument types (or the type name
 ---   and the type expression in case of type synonyms)
---- * a list of type variables (i.e., non-empty for a polymoprhic type)
+--- * a list of type variables (which is non-empty for a polymorphic type)
 --- * the corresponding module
 --- * the description
 --- * a flag which is `True` if it is a type synonym
