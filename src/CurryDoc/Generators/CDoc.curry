@@ -1,7 +1,7 @@
 {- |
     Description: Functions to generate documentation in "CDoc" format.
     Author: Sandra Dylus
-    Version: May 2025
+    Version: July 2025
 
     Converts the CurryDoc representation of a module into a
     slim CDoc representation which can be used to generate
@@ -46,19 +46,20 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
             (cleanupBorder $ description mhead)
       decls 
         = allCurryDocDecls cd
-      (funcInfos, typeInfos) 
-        = partitionDecls $ translateDecls frMap decls
+      curryInfo
+        = buildCurryInfo frMap modInfo decls
 
   putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
-  return $ showTerm (CurryInfo modInfo funcInfos typeInfos)
+  return $ showTerm curryInfo
  where
-  translateDecls :: FRMap -> [CurryDocDecl] -> [DeclInfo]
-  translateDecls frMap = catMaybes . map (translateDecl frMap)
+  buildCurryInfo :: FRMap -> ModuleInfo -> [CurryDocDecl] -> CurryInfo
+  buildCurryInfo frMap modInfo =
+    foldr (flip (addDecl frMap)) (CurryInfo modInfo [] [])
 
-  translateDecl :: FRMap -> CurryDocDecl -> Maybe DeclInfo
-  translateDecl frMap decl = case decl of
+  addDecl :: FRMap -> CurryInfo -> CurryDocDecl -> CurryInfo
+  addDecl frMap ci decl = case decl of
     CurryDocFunctionDecl qn t msig anaInfo cs -> 
-      Just $ FunctionInfo 
+      addFunctionInfo ci $ FunctionInfo 
         (snd qn) 
         (ctypeExpr2typeExpr $ ACS.typeOfQualType t)
         (fst qn)
@@ -66,7 +67,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (nondet anaInfo)
         (lookupFR frMap qn)
     CurryDocDataDecl qn vs _ _ cons cs -> 
-      Just $ TypeInfo 
+      addTypeInfo ci $ TypeInfo 
         (snd qn)
         (map consInfo cons)
         (map fst vs)
@@ -74,7 +75,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (declDescription cs)
         False
     CurryDocNewtypeDecl qName vs _ (Just cons) cs ->
-      Just $ TypeInfo 
+      addTypeInfo ci $ TypeInfo 
         (snd qName)
         [consInfo cons]
         (map fst vs)
@@ -82,7 +83,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (declDescription cs)
         False
     CurryDocNewtypeDecl qName vs@(v:_) _ Nothing cs ->
-      Just $ TypeInfo 
+      addTypeInfo ci $ TypeInfo 
         (snd qName)
         [(qName, [TVar $ fst v])]
         (map fst vs)
@@ -90,14 +91,22 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
         (declDescription cs)
         False
     CurryDocTypeDecl qName vs tExpr cs ->
-      Just $ TypeInfo 
+      addTypeInfo ci $ TypeInfo 
         (snd qName)
         [(qName, [ctypeExpr2typeExpr tExpr])]
         (map fst vs)
         (fst qName)
         (declDescription cs)
         True
-    _ -> Nothing -- TODO: We ignore class declarations for now
+    CurryDocClassDecl qName _ vs _ _ cs ->
+      addTypeInfo ci $ TypeInfo 
+        ("_Dict#" ++ snd qName)
+        []
+        (map fst vs)
+        (fst qName)
+        (declDescription cs)
+        False
+    _ -> ci
 
   lookupFR :: FRMap -> QName -> FlexRigidResult
   lookupFR frMap qn =
@@ -105,33 +114,38 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
 
 --- The information about a Curry module.
 data CurryInfo = 
-  CurryInfo ModuleInfo -- ^ the module information 
-            [DeclInfo] -- ^ the corresponding functions
-            [DeclInfo] -- ^ the corresponding data and type declaration
+  CurryInfo ModuleInfo     -- ^ The module information 
+            [FunctionInfo] -- ^ The corresponding functions
+            [TypeInfo]     -- ^ The corresponding data and type declaration
  deriving (Read, Show)
 
 --- The basic information about some module.
 data ModuleInfo = 
-  ModuleInfo String -- ^ the name 
-             String -- ^ the author
-             String -- ^ the description
+  ModuleInfo String -- ^ The name 
+             String -- ^ The author
+             String -- ^ The description
  deriving (Read, Show)
 
 -- | The information about functions defined in a Curry module.
-data DeclInfo
-  = FunctionInfo String          -- ^ the name
-                 TypeExpr        -- ^ the signature
-                 String          -- ^ the corresponding module
-                 String          -- ^ the description
-                 Bool            -- ^ True if property is defined non-deterministically
-                 FlexRigidResult -- ^ the flex/rigid status
-  | TypeInfo String                -- ^ the name
-             [(QName, [TypeExpr])] -- ^ a list of constructors and their argument types (or the type name
-                                   --   and the type expression in case of type synonyms)
-             [TVarIndex]           -- ^ a list of type variables (i.e., non-empty for a polymoprhic type)
-             String                -- ^ the corresponding module 
-             String                -- ^ the description
-             Bool                  -- ^ a flag which is `True` if it is a type synonym
+data FunctionInfo
+  = FunctionInfo String          -- ^ The name.
+                 TypeExpr        -- ^ The signature.
+                 String          -- ^ The corresponding module.
+                 String          -- ^ The description.
+                 Bool            -- ^ True if property is defined non-deterministically.
+                 FlexRigidResult -- ^ The flex/rigid status.
+  deriving (Read, Show)
+
+-- | The information about data and type declarations in a Curry module.
+data TypeInfo
+  = TypeInfo String                -- ^ The name (which has `_Dict#` prefix 
+                                   --   if it is a type class).
+             [(QName, [TypeExpr])] -- ^ A list of constructors and their argument types (or the type name
+                                   --   and the type expression in case of type synonyms).
+             [TVarIndex]           -- ^ A list of type variables (i.e., non-empty for a polymoprhic type).
+             String                -- ^ The corresponding module. 
+             String                -- ^ The description.
+             Bool                  -- ^ A flag which is `True` if it is a type synonym.
  deriving (Read, Show)
 
 -- Conversions --------------------------------------------------------
@@ -167,19 +181,15 @@ flexRigid (External  _) = UnknownFR
 
 -- auxiliaties --------------------------------------------------------
 
--- | Partitions a list of `DeclInfo` into function declarations
---   and type declarations.
-partitionDecls :: [DeclInfo] -> ([DeclInfo], [DeclInfo])
-partitionDecls decls = 
-  (filter isFunctionDecl decls, filter isTypeDecl decls)
-  where
-    isFunctionDecl decl = case decl of
-      FunctionInfo {} -> True
-      _               -> False
+-- | Prepends a `FunctionInfo` to the list of function information.
+addFunctionInfo :: CurryInfo -> FunctionInfo -> CurryInfo
+addFunctionInfo (CurryInfo mi fis tis) fi =
+  CurryInfo mi (fi : fis) tis
 
-    isTypeDecl decl = case decl of
-      TypeInfo {} -> True
-      _           -> False 
+-- | Prepends a `TypeInfo` to the list of type information.
+addTypeInfo :: CurryInfo -> TypeInfo -> CurryInfo
+addTypeInfo (CurryInfo mi fis tis) ti =
+  CurryInfo mi fis (ti : tis)
 
 -- | Retrieves the author from the module header.
 author :: ModuleHeader -> String
@@ -230,7 +240,8 @@ allCurryDocDecls (CurryDoc _ _ ex _) =
     collectExports (ExportSection _ _ es) = concatMap collectExports es
 
 allCurryDocTypes :: CurryDoc -> [CurryDocDecl]
-allCurryDocTypes = filter isCurryDocTypeDecl . allCurryDocDecls
+allCurryDocTypes = filter (liftM2 (||) isCurryDocTypeDecl isCurryDocClassDecl)
+                 . allCurryDocDecls
 
 allCurryDocFuncs :: CurryDoc -> [CurryDocDecl]
 allCurryDocFuncs = filter isCurryDocFuncDecl . allCurryDocDecls
