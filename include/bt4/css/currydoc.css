@@ -134,6 +134,12 @@ section {
   padding-top: 30px;
 }
 
+/* Controls margin between property and function href
+   in pre-/postconditions and property definitions */
+.mprop {
+  margin-left: 5px;
+}
+
 /* ***************************************** */
 
 /* Completely hide cards and only use them for positioning.
@@ -216,7 +222,6 @@ table tr:hover {
 
 code {
   color: var(--code-color);
-  padding: 0.2em 0.4em;
   border-radius: 3px;
 }
 

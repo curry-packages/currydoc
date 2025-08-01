@@ -522,8 +522,14 @@ genPrecedenceText (fixity, prec) =
 -- | Generates HTML for a given property of a function.
 --   'Data.Type.GuardedRhs' are not formatted in any specific way.
 showProperty :: DocOptions -> QName -> (Property, QRule) -> [BaseHtml]
-showProperty docopts qn pr = showProperty' (unqualify pr)
-                          ++ [htxt "(", showCodeNameRef docopts (functionName pr), htxt ")"]
+showProperty docopts qn pr 
+  = showProperty' (unqualify pr) 
+     ++
+    [ htmlStruct 
+      "span" 
+      [("class", "mprop")] 
+      [htxt "(", showCodeNameRef docopts (functionName pr), htxt ")"]
+    ]
  where 
   showProperty' (sp, rule) = case (sp, rule) of
     (PreSpec, CRule _ (CSimpleRhs _ _)) ->
