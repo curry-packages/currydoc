@@ -29,7 +29,22 @@
   --methods-block-color: #f6f6f6;
   --methods-block-hover: #f3f3f3;
   --methods-block-border: #e0e0e0;
+
+  --export-overview-bg: #ffffff;
+  --export-overview-border: #dee2e6;
   
+  --export-class-badge-bg: #e2e3e5;
+  --export-class-badge-color: #6c757d;
+  --export-class-badge-border: #d6d8db;
+
+  --export-function-badge-bg: #bcdbff;
+  --export-function-badge-color: #0157c2;
+  --export-function-badge-border: #c8cfff;
+
+  --export-datatype-badge-bg: #d1ecf1;
+  --export-datatype-badge-color: #0c5460;
+  --export-datatype-badge-border: #bee5eb;
+
   /* Syntax highlighting - light theme */
   --code-bg:          #f5f5f5;
   --code-color:       #1b1b1b;
@@ -79,6 +94,21 @@
   --methods-block-color: #222222;
   --methods-block-hover: #282828;
   --methods-block-border: #373737;
+
+  --export-overview-bg: #383838;
+  --export-overview-border: #444444;
+
+  --export-class-badge-bg: #495057;
+  --export-class-badge-color: #e9ecef;
+  --export-class-badge-border: #585d61;
+
+  --export-function-badge-bg: #1e3a8a;
+  --export-function-badge-color: #bfdbfe;
+  --export-function-badge-border: #305798;
+
+  --export-datatype-badge-bg: #134e4a;
+  --export-datatype-badge-color: #a7f3d0;
+  --export-datatype-badge-border: #14664b;
   
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
@@ -177,19 +207,16 @@ section {
 }
 
 .indent1 {
-  text-indent: 0px;
+  padding-left: 0px;
 }
-
 .indent2 {
-  text-indent: 15px;
+  padding-left: 15px;
 }
-
 .indent3 {
-  text-indent: 30px;
+  padding-left: 30px;
 }
-
 .indent4 {
-  text-indent: 45px;
+  padding-left: 45px;
 }
 
 .explaincat {
@@ -354,24 +381,6 @@ code {
   }
 }
 
-@media (max-width: 1199px) {
-  .list-group {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 991px) {
-  .list-group {
-    font-size: 10px;
-  }
-}
-
-@media (max-width: 767px) {
-  .card {
-    display: none;
-  }
-}
-
 .nav-card {
   border: none;
   border-radius: 2px;
@@ -432,4 +441,100 @@ code {
   font-weight: bold;
   border-top: 1px solid var(--sidebar-hline);
   color: var(--sidebar-modulename-color);
+}
+
+
+/* *********************************************************************** */
+/* Styling of the export overview (exported datatypes, classes, functions) */
+
+.export-overview {
+  background: var(--export-overview-bg);
+  border: 1px solid var(--export-overview-border);
+  border-radius: 0.375rem;
+  padding: 0.8rem;
+  margin-top: 10px;
+}
+
+.export-section {
+  margin-bottom: 0.75rem;
+}
+
+.export-section:last-child {
+  margin-bottom: 0;
+}
+
+.export-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.export-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.export-item {
+  font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.datatype-badge {
+  background-color: var(--export-datatype-badge-bg);
+  color: var(--export-datatype-badge-color);
+  border: 1px solid var(--export-datatype-badge-border);
+}
+
+.function-badge {
+  background-color: var(--export-function-badge-bg);
+  color: var(--export-function-badge-color);
+  border: 1px solid var(--export-function-badge-border);
+}
+
+.class-badge {
+  background-color: var(--export-class-badge-bg);
+  color: var(--export-class-badge-color);
+  border: 1px solid var(--export-class-badge-border);
+}
+
+.export-item:hover {
+  text-decoration: none;
+}
+
+.datatype-badge:hover {
+  filter: brightness(0.9);
+}
+
+.function-badge:hover {
+  filter: brightness(0.9);
+}
+
+.class-badge:hover {
+  filter: brightness(0.9);
+}
+
+/* We hide the sidebar when it becomes too narrow, so here
+   we expand the main body (which has grid size 9) to full page
+   width. 
+
+   TODO: It's cleaner to this in HTML, instead. Because the Curry
+         Bootstrap4 library (`bootstrapPage`) handles the column widths 
+         in a fixed way, we can't influence the page layout like this
+         during HTML generation.
+*/
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .col-sm-9 {
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* Hide the small navbar card because we force full width
+   for the bigger one */
+@media (max-width: 767px) {
+  .card {
+    display: none;
+  }
 }

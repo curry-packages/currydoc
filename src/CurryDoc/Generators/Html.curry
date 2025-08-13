@@ -59,7 +59,7 @@ generateHtmlDocs opts (CurryDoc mname mhead ex is) = do
               : [importedModules | not (null imps)]
           ] `addClass` "nav-card" 
       ]
-    content = [anchored "moduleheader" (genHtmlModule opts mhead ++ genExportEntityList opts ex)] ++ [hrule] ++
+    content = [anchored "moduleheader" (genHtmlModule opts mhead ++ genExportEntityList opts ex)] ++
               snd (genHtmlForExport 0 opts ex)
   mainPage ("?", [htxt title]) title [htmltitle] [] rightTopMenu navigation content
    where
@@ -196,15 +196,15 @@ genHtmlExportSections = genHtmlExportSections' 0
 genExportEntityList :: DocOptions -> [ExportEntry CurryDocDecl] -> [BaseHtml]
 genExportEntityList docopts es 
   | null allEntities 
-    = []
+    = [ hrule ]
   | otherwise 
-    =  [ hrule ] 
-    ++ singletonIf (not $ null types)
-        (par $ [bold [htxt ("Exported Datatypes: ")]] ++ listIdentifiers types)
-    ++ singletonIf (not $ null ops) 
-        (par $ [bold [htxt ("Exported Functions: ")]] ++ listIdentifiers ops)
-    ++ singletonIf (not $ null classes)
-        (par $ [bold [htxt ("Exported Classes: "  )]] ++ listIdentifiers classes)
+    =  [ exportOverview 
+          $ singletonIf (not $ null types)
+              (exportSection [exportLabel "Exported Datatypes: ", exportItems "datatype-badge" types])
+          ++ singletonIf (not $ null ops) 
+              (exportSection [exportLabel "Exported Functions: ", exportItems "function-badge" ops])
+          ++ singletonIf (not $ null classes)
+              (exportSection [exportLabel "Exported Classes: ",   exportItems "class-badge" classes])]
  where
   collectExportEntities :: CurryDocDecl
                         -> ([CurryDocDecl], [CurryDocDecl], [CurryDocDecl])
@@ -220,10 +220,21 @@ genExportEntityList docopts es
   (types, ops, classes) = foldr collectExportEntities ([], [], [])
                         $ allEntities
 
-  listIdentifiers = intersperse (htxt ", ") 
-                  . map (showRef docopts)
-                  . sortBy ((<) `on` (map toLower . snd))
-                  . map curryDocDeclName
+  exportItems t decl = block content `addClass` "export-items"
+   where
+    content = map (exportItem t . showRef docopts)
+                $ sortBy ((<) `on` (map toLower . snd))
+                $ map curryDocDeclName
+                $ decl
+
+  exportOverview c = block c
+                      `addClass` "export-overview"
+  exportSection c  = block c
+                      `addClass` "export-section"
+  exportLabel str  = block [htxt str]
+                      `addClass` "export-labels"
+  exportItem t d   = d 
+                      `addClass` ("badge export-item " ++ t)
 
 -- | Generates HTML documentation for a module.
 genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
@@ -860,7 +871,7 @@ genHtmlLibCat mods =
 -- | Generates the main page with the default documentation style.
 mainPage :: (String, [BaseHtml])
          -> String      -- ^ The title of the page
-         -> [BaseHtml]   -- ^ The title of the pagethe title in HTML format
+         -> [BaseHtml]   -- ^ The title of the page in HTML format
          -> [[BaseHtml]] -- ^ The menu shown at left of the top
          -> [[BaseHtml]] -- ^ The menu shown at left of the top
          -> [BaseHtml]   -- ^ The menu shown at the left-hand side

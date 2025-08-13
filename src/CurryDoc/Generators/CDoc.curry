@@ -112,7 +112,7 @@ generateCDoc cd@(CurryDoc mname mhead _ _) = do
   lookupFR frMap qn =
     fromMaybe UnknownFR $ T.lookup (stringifyQName qn) frMap
 
---- The information about a Curry module.
+-- | The information about a Curry module.
 data CurryInfo =
   CurryInfo ModuleInfo     -- ^ The module information
             [FunctionInfo] -- ^ Information about the functions
@@ -121,7 +121,7 @@ data CurryInfo =
                            --   and classes) defined in the module
  deriving (Read, Show)
 
---- The base information about some module.
+-- | The base information about some module.
 data ModuleInfo =
   ModuleInfo String -- ^ The name
              String -- ^ The author
