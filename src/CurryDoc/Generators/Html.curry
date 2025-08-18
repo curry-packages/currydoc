@@ -880,9 +880,10 @@ mainPage :: (String, [BaseHtml])
 mainPage homeref title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPage favIcon cssIncludes jsIncludes title homeref
-                    lefttopmenu righttopmenu 3 sidemenu htmltitle maindoc
-                    (curryDocFooter time)
+      bootstrapPageExtended 
+        favIcon cssIncludes jsIncludes title homeref lefttopmenu righttopmenu 
+        (BodyOptions { leftCols = 3, hideNavbar = True, container = "container-xl" })
+        sidemenu htmltitle maindoc (curryDocFooter time)
 
 favIcon :: String
 favIcon = styleBaseURL </> "img" </> "favicon.ico"

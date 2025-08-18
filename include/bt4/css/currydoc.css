@@ -1,4 +1,6 @@
 :root {
+  --container-width: 1440px;
+
   /* Because the jumbotron has a fixed color for both,
      light and dark theme, this color is fixed for both themes: */
   --top-navbar-navlink-color: #a2a2a7;
@@ -135,6 +137,11 @@
   filter: invert(100%) brightness(150%);
 }
 
+/* Override Bootstrap's 1140px because container-xxl is not available in bt4 */
+.container-xl {
+  max-width: var(--container-width) !important;
+}
+
 hr {
   background-color: var(--hrule-color);
 }
@@ -179,8 +186,8 @@ section {
   position: fixed;
   border-color: transparent;
   background-color: transparent;
-  width: 23%; /* 23% of the screen width, 
-                 because the fixed card messes with bootstrap's grid system */
+  width: min(23vw, calc(var(--container-width) * 0.23)); /* workaround to make fixed positioning
+                                                            work with bootstrap grid */
 }
 
 /* ****************************************** */
@@ -512,29 +519,4 @@ code {
 
 .class-badge:hover {
   filter: brightness(0.9);
-}
-
-/* We hide the sidebar when it becomes too narrow, so here
-   we expand the main body (which has grid size 9) to full page
-   width. 
-
-   TODO: It's cleaner to this in HTML, instead. Because the Curry
-         Bootstrap4 library (`bootstrapPage`) handles the column widths 
-         in a fixed way, we can't influence the page layout like this
-         during HTML generation.
-*/
-@media (min-width: 576px) and (max-width: 767.98px) {
-  .col-sm-9 {
-    width: 100% !important;
-    flex: 0 0 100% !important;
-    max-width: 100% !important;
-  }
-}
-
-/* Hide the small navbar card because we force full width
-   for the bigger one */
-@media (max-width: 767px) {
-  .card {
-    display: none;
-  }
 }
