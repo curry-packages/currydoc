@@ -880,7 +880,7 @@ mainPage :: (String, [BaseHtml])
 mainPage homeref title htmltitle lefttopmenu righttopmenu sidemenu maindoc = do
     time <- getLocalTime
     return $ showHtmlPage $
-      bootstrapPageExtended 
+      bootstrapPageWithBodyOpts
         favIcon cssIncludes jsIncludes title homeref lefttopmenu righttopmenu 
         (BodyOptions { leftCols = 3, hideNavbar = True, container = "container-xl" })
         sidemenu htmltitle maindoc (curryDocFooter time)
