@@ -32,6 +32,7 @@ import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
                            , inCurrySubdir, stripCurrySuffix )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
                            , rcParams, setQuiet, callFrontendWithParams )
+import System.IO
 import System.Process      ( system )
 import System.FilePath
 import Data.Time           ( compareClockTime )
@@ -350,14 +351,16 @@ readOrGenerateCurryDoc docopts modname =
            htime <- getModificationTime doc
            if compareClockTime ctime htime == GT
              then do regenerate "outdated"
-             else do content <- readFile doc
-                     return (modname, readUnqualifiedTerm [ "Prelude"
-                                                          , "CurryDoc.Data.CurryDoc" 
-                                                          , "CurryDoc.Data.AnaInfo"
-                                                          , "CurryDoc.Info.Header"
-                                                          , "CurryDoc.Info.Comments"
-                                                          , "AbstractCurry.Types"
-                                                          , "Analysis.TotallyDefined"] content)
+             else do content <- openFile doc ReadMode >>= hGetContents
+                     return (modname,
+                             readUnqualifiedTerm
+                               [ "Prelude"
+                               , "CurryDoc.Data.CurryDoc" 
+                               , "CurryDoc.Data.AnaInfo"
+                               , "CurryDoc.Info.Header"
+                               , "CurryDoc.Info.Comments"
+                               , "AbstractCurry.Types"
+                               , "Analysis.TotallyDefined"] content)
        Nothing -> do regenerate "missing"
   where regenerate reason = do
          putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++

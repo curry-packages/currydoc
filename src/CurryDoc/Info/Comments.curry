@@ -35,6 +35,7 @@ import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
                            , inCurrySubdir, stripCurrySuffix )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, callFrontend, callFrontendWithParams )
+import System.IO
 import Curry.Span
 import Curry.SpanInfo
 import Curry.Types
@@ -106,13 +107,15 @@ readCommentsFileRaw :: String -> IO String
 readCommentsFileRaw filename = do
   extfcy <- doesFileExist filename
   if extfcy
-   then readFile filename
+   then readFileContents filename
    else do let subdirfilename = inCurrySubdir filename
            exdirtfcy <- doesFileExist subdirfilename
            if exdirtfcy
-            then readFile subdirfilename
+            then readFileContents subdirfilename
             else error ("EXISTENCE ERROR: Comment file '" ++ filename ++
                         "' does not exist")
+ where
+  readFileContents fn = openFile fn ReadMode >>= hGetContents
 
 -- | Associates given comments with declarations from given module
 --   based on the source code positions
