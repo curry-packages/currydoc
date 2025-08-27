@@ -12,7 +12,7 @@ import Language.Curry.Resources    ( pakcsURL, kics2URL )
 
 -- | Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of August 01, 2025"
+currydocVersion = "Version " ++ packageVersion ++ " of August 27, 2025"
 
 -- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
