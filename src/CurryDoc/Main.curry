@@ -3,7 +3,7 @@
     Description : Implementation of CurryDoc, a utility for the automatic
                   generation of HTML documentation from Curry programs.
     Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-    Version     : March 2025
+    Version     : August 2025
 -}
 --  * All comments prefixed by a CurryDoc comment ("-- |", "{- |",
 --    "-- ^" or "{- ^") are are considered for documentation.
@@ -221,19 +221,21 @@ makeAbsolute f =
 -- | Compiles to the specified targets.
 prepareWithTargets :: [FrontendTarget] -> [String] -> IO ()
 prepareWithTargets targets modnames = do
-    putStrLn "Compiling modules..."
-    flip mapM_ modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
-      maybe (error $ "Source code of module '"++modpath++"' not found!")
-        (\ (moddir,_) -> do
-          let modname = takeFileName modpath
-          setCurrentDirectory moddir
-          -- parsing source program
-          callFrontendFor modname targets))
-  where callFrontendFor _       []             = return ()
-        callFrontendFor modname (target:other) = do
-          params <- rcParams
-          let paramsTargets = foldr addTarget params other
-          callFrontendWithParams target (setQuiet True paramsTargets) modname
+  putStrLn $ "Compiling module" ++ (if length modnames > 1 then "s" else "") ++
+             concatMap (" " ++) modnames ++ "..."
+  flip mapM_ modnames (\modpath -> lookupModuleSourceInLoadPath modpath >>=
+    maybe (error $ "Source code of module '"++modpath++"' not found!")
+      (\ (moddir,_) -> do
+        let modname = takeFileName modpath
+        setCurrentDirectory moddir
+        -- parsing source program
+        callFrontendFor modname targets))
+ where
+  callFrontendFor _       []             = return ()
+  callFrontendFor modname (target:other) = do
+    params <- rcParams
+    let paramsTargets = foldr addTarget params other
+    callFrontendWithParams target (setQuiet True paramsTargets) modname
 
 -- | Generates only the index pages for a list of (already compiled!) modules.
 genIndexPages :: DocOptions -> String -> [String] -> IO ()
