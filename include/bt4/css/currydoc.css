@@ -317,21 +317,26 @@ code {
 /* **************************************************************** */
 /* Styling of the module header, specifically for the module fields */
 
-.info-row {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  flex-wrap: nowrap;
+.info-row::after {
+  content: "";
+  display: table;
+  clear: both;
 }
+
+/* This justifies the text. Might be a nice addition and improvement
+ * regarding text flow and alignment, but needs to be tested with
+ * various screen sizes and module header texts.
 
 .info-left {
-  flex: 1 1 auto;
+  text-align: justify;
 }
+*/
 
 .info-right {
-  flex: 0 0 auto;
+  float: right;
   max-width: 320px;
-  min-width: 0;
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .info {

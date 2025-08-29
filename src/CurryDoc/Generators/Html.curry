@@ -240,11 +240,11 @@ genExportEntityList docopts es
 genHtmlModule :: DocOptions -> ModuleHeader -> [BaseHtml]
 genHtmlModule docopts (ModuleHeader fields maincmt) =
   [ block
-      ( [ block (docComment2HTML docopts maincmt)
+      ( fieldBox 
+         ++
+        [ block (docComment2HTML docopts maincmt)
             `addClass` "info-left"
         ]
-        ++ 
-        fieldBox
       )
       `addClass` "info-row"
   ]
