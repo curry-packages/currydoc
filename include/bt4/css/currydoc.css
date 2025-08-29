@@ -1,7 +1,7 @@
 :root {
-  --container-width: 1440px;
+  --container-width: 1440px; /* 1890px for FHD screen fill */
 
-  /* Because the jumbotron has a fixed color for both,
+  /* Because the jumbotron has a fixed color for both
      light and dark theme, this color is fixed for both themes: */
   --top-navbar-navlink-color: #a2a2a7;
 
