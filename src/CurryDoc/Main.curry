@@ -3,7 +3,7 @@
     Description : Implementation of CurryDoc, a utility for the automatic
                   generation of HTML documentation from Curry programs.
     Author      : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-    Version     : August 2025
+    Version     : September 2025
 -}
 --  * All comments prefixed by a CurryDoc comment ("-- |", "{- |",
 --    "-- ^" or "{- ^") are are considered for documentation.
@@ -23,13 +23,17 @@
 
 module CurryDoc.Main ( main, debug ) where
 
-import System.Directory    ( findFileWithSuffix, getFileWithSuffix
+import System.Directory    ( createDirectoryIfMissing
+                           , findFileWithSuffix, getFileWithSuffix
+                           , getHomeDirectory
                            , getCurrentDirectory, setCurrentDirectory
                            , doesDirectoryExist, doesFileExist
                            , getModificationTime )
 import System.Environment  ( getArgs )
-import System.CurryPath    ( lookupModuleSourceInLoadPath, getLoadPathForModule
-                           , inCurrySubdir, stripCurrySuffix )
+import System.CurryPath    ( getPackageVersionOfDirectory
+                           , lookupModuleSourceInLoadPath, getLoadPathForModule
+                           , inCurrySubdir, setCurryPathIfNecessary
+                           , stripCurrySuffix )
 import System.FrontendExec ( FrontendParams, FrontendTarget (..), addTarget
                            , rcParams, setQuiet, callFrontendWithParams )
 import System.IO
@@ -50,7 +54,7 @@ import FlatCurry.Files
 import FlatCurry.Types (Prog(..))
 import Curry.Types
 import Curry.Files
-import System.Console.ANSI.Codes ( red, blue )
+import System.Console.ANSI.Codes ( red, green )
 
 import CurryDoc.Data.AnaInfo
 import CurryDoc.Files         ( generateModuleDocMapping )
@@ -317,58 +321,40 @@ makeDoc docopts docdir modname = do
 -- | Generates abstract CurryDoc for a single module.
 makeAbstractDoc :: DocOptions -> MName -> IO CurryDoc
 makeAbstractDoc docopts modname = do
-  putStrLn ("Reading comments for module \"" ++ modname ++ "\"...")
+  putStrLn $ "Reading comments for module '" ++ modname ++ "'..."
   cmts <- readComments modname
   when (any (isOldStyleComment . snd) cmts) $
-    putStrLn (red "Warning: The CurryDoc comment-style \"--- \" is deprecated")
-  putStrLn ("Reading short-ast for module \"" ++ modname ++ "\"...")
+    putStrLn $ red "Warning: The CurryDoc comment-style \"--- \" is deprecated"
+  putStrLn $ "Reading short-ast for module '" ++ modname ++ "'..."
   prog <- readShortAST modname
-  putStrLn ("Reading abstract curry for module \"" ++ modname ++ "\"...")
-  acyname <- getLoadPathForModule modname >>=
-             getFileWithSuffix (abstractCurryFileName modname) [""]
-  acy <- readAbstractCurryFile acyname
-  putStrLn ("Recursively reading imported modules of \"" ++ modname ++ "\"...")
-  allProg <- readCurryWithImports modname
-  importsDoc <- mapM (readOrGenerateCurryDoc docopts . progName) $ tail allProg
+  putStrLn $ "Reading AbstractCurry for module '" ++ modname ++ "'..."
+  acy <- readCurry modname
+  putStrLn $ "Recursively reading imported modules of '" ++ modname ++ "'..."
+  impprogs <- mapM (\mn -> putStr (mn ++ "...") >> readCurry mn) (imports acy)
+  unless (null impprogs) $ putStrLn ""
+  importsDoc <- mapM (readOrGenerateCurryDoc docopts . progName) $ impprogs
   res <- if withAnalysis docopts
-         then do putStrLn ("Reading analysis information for module \""
-                           ++ modname ++ "\"...")
-                 ana <- readAnaInfo modname
-                 return $ generateCurryDocInfosWithAnalysis
-                            ana modname cmts prog acy importsDoc
-         else do return $ generateCurryDocInfos
-                            modname cmts prog acy importsDoc
-  putStrLn ("Generating abstract CurryDoc for module \"" ++ modname ++ "\"...")
-  writeFile (replaceExtension acyname "cydoc") (show res)
+           then do putStrLn $ "Getting analysis information for module '" ++
+                              modname ++ "'..."
+                   ana <- readAnaInfo modname
+                   return $ generateCurryDocInfosWithAnalysis
+                               ana modname cmts prog acy importsDoc
+           else return $ generateCurryDocInfos modname cmts prog acy importsDoc
+  putStrLn $ "Generating abstract CurryDoc for module '" ++ modname ++ "'..."
+  tryWriteCurryDocToCache modname res
   return res
 
 -- | Returns the abstract CurryDoc for a file or generate it if necessary.
 readOrGenerateCurryDoc :: DocOptions -> String -> IO (String, CurryDoc)
 readOrGenerateCurryDoc docopts modname =
-  do cydoc <- getLoadPathForModule modname >>=
-              findFileWithSuffix (curryDocFileName modname) [""]
-     case cydoc of
-       Just doc -> do
-           ctime <- getModificationTime (replaceExtension doc "fcy")
-           htime <- getModificationTime doc
-           if compareClockTime ctime htime == GT
-             then do regenerate "outdated"
-             else do content <- openFile doc ReadMode >>= hGetContents
-                     return (modname,
-                             readUnqualifiedTerm
-                               [ "Prelude"
-                               , "CurryDoc.Data.CurryDoc" 
-                               , "CurryDoc.Data.AnaInfo"
-                               , "CurryDoc.Info.Header"
-                               , "CurryDoc.Info.Comments"
-                               , "AbstractCurry.Types"
-                               , "Analysis.TotallyDefined"] content)
-       Nothing -> do regenerate "missing"
-  where regenerate reason = do
-         putStrLn (blue ("Note: Abstract CurryDoc for \"" ++ modname ++
-                         "\" is " ++ reason ++ " and will be regenerated..."))
-         res <- makeAbstractDoc docopts modname
-         return (modname, res)
+ tryReadCurryDocFromCache modname >>=
+   either regenerate (\cdoc -> return (modname,cdoc))
+ where
+  regenerate reason = do
+    putStrLn $ green $ "Note: Abstract CurryDoc for '" ++ modname ++
+                      "' is " ++ reason ++ " and will be regenerated..."
+    res <- makeAbstractDoc docopts modname
+    return (modname, res)
 
 -- | Converts abstract CurryDoc to the respective target type.
 makeDocForType :: DocType -> DocOptions -> String -> String
@@ -477,9 +463,91 @@ writeOutfile :: DocOptions -> String -> String -> IO String -> IO ()
 writeOutfile docopts docdir modname generate = do
   doc     <- generate
   let outfile = docdir </> modname <.> fileExtension (docType docopts)
-  putStrLn ("Writing documentation to \"" ++ outfile ++ "\"...")
+  putStrLn $ "Writing documentation to '" ++ outfile ++ "'..."
   writeFile outfile doc
 
--- | Transforms the path of a curry programm to the path of the abstract CurryDoc.
-curryDocFileName :: FilePath -> FilePath
-curryDocFileName modname = inCurrySubdir (stripCurrySuffix modname) <.> "cydoc"
+------------------------------------------------------------------------------
+-- Operations to read/write abstract CurryDoc into the CurryDoc cache.
+-- The abstract CurryDoc of module `M` is stored in cache file
+-- * `$HOME/.curry_doc_cache/packages/PKG-VERS/M.cydoc` if module `M`
+--   is defined in package `PKG` with version `VERS`
+-- * otherwise in the local directory `.curry_doc_cache/M.cydoc`
+--   (which is typically inside the directory `src` in local packages)
+
+-- Gets the name of the cache file for a module defined in a package version.
+getCurryDocCache4PkgMod :: String -> String -> String -> IO (Maybe FilePath)
+getCurryDocCache4PkgMod pname vers mname = do
+  homedir <- getHomeDirectory
+  if null homedir
+    then return Nothing
+    else return $ Just $ homedir </> ".curry_doc_cache" </> "packages" </>
+                         pname ++ "-" ++ vers </> mname <.> ".cydoc"
+
+-- Gets the name of the cache file for a module not defined in a package.
+getCurryDocCache4Mod :: String -> IO (Maybe FilePath)
+getCurryDocCache4Mod mname = do
+  curdir <- getCurrentDirectory
+  if null curdir
+    then return Nothing
+    else return $ Just $ curdir </> ".curry_doc_cache" </> mname <.> ".cydoc"
+
+-- Try to write the abstract CurryDoc for a module into the CurryDoc cache.
+tryWriteCurryDocToCache :: String -> CurryDoc -> IO ()
+tryWriteCurryDocToCache modname cdoc = do
+  setCurryPathIfNecessary
+  mbsrc <- lookupModuleSourceInLoadPath modname
+  case mbsrc of
+    Nothing          -> return ()
+    Just (dirname,_) ->
+      getPackageVersionOfDirectory dirname >>= maybe
+        (getCurryDocCache4Mod modname >>= maybe (return ()) writeCDocFile)
+        (\(pname,vers) -> getCurryDocCache4PkgMod pname vers modname >>=
+                            maybe (return ()) writeCDocFile )
+ where
+  writeCDocFile cdocfile = do
+    createDirectoryIfMissing True (dropFileName cdocfile)
+    putStrLn $ "Writing abstract CurryDoc to " ++ cdocfile ++ "..."
+    writeFile cdocfile (show cdoc)
+
+-- Try to read the abstract CurryDoc for a module fromthe CurryDoc cache.
+-- The result is either a short reason why there is no actual CurryDoc file
+-- or the actual CurryDoc file.
+tryReadCurryDocFromCache :: String -> IO (Either String CurryDoc)
+tryReadCurryDocFromCache modname = do
+  setCurryPathIfNecessary
+  mbsrc <- lookupModuleSourceInLoadPath modname
+  case mbsrc of
+    Nothing -> return (Left "missing")
+    Just (dirname,srcname) ->
+      getPackageVersionOfDirectory dirname >>= maybe
+        (getCurryDocCache4Mod modname >>= tryReadCDocFile srcname)
+        (\(pname,vers) ->
+         getCurryDocCache4PkgMod pname vers modname >>= tryReadCDocFile srcname)
+ where
+  tryReadCDocFile _       Nothing         = return (Left "missing")
+  tryReadCDocFile srcfile (Just cdocfile) = do
+    excdoc <- doesFileExist cdocfile
+    if not excdoc
+      then return (Left "missing")
+      else do
+        stime <- getModificationTime srcfile
+        ctime <- getModificationTime cdocfile
+        if compareClockTime stime ctime == GT
+          then return (Left "outdated")
+          else fmap Right (readCurryDocFile cdocfile)
+
+  -- Reads a file containing an abstract CurryDoc term.
+  readCurryDocFile :: FilePath -> IO CurryDoc
+  readCurryDocFile fname = do
+    putStrLn $ "Reading abstract CurryDoc from '" ++ fname ++ "'..."
+    content <- openFile fname ReadMode >>= hGetContents
+    return (readUnqualifiedTerm
+              [ "Prelude"
+              , "CurryDoc.Data.CurryDoc" 
+              , "CurryDoc.Data.AnaInfo"
+              , "CurryDoc.Info.Header"
+              , "CurryDoc.Info.Comments"
+              , "AbstractCurry.Types"
+              , "Analysis.TotallyDefined"] content)
+
+------------------------------------------------------------------------------

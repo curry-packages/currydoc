@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Kai-Oliver Prott
-     Version : March 2025
+     Version : September 2025
 
      Datatype and operations to handle analysis information in CurryDoc.
 -}
@@ -34,13 +34,15 @@ data AnaInfo =
 readAnaInfo :: String -> IO AnaInfo
 readAnaInfo modname = do
   initializeAnalysisSystem
-  nondet'   <- analyzeAndCheck nondetAnalysis
-  complete' <- analyzeAndCheck patCompAnalysis
-  indet'    <- analyzeAndCheck indetAnalysis
-  solcomp'  <- analyzeAndCheck solcompAnalysis
+  nondet'   <- analyzeAndCheck "non-determinism"   nondetAnalysis
+  complete' <- analyzeAndCheck "pattern complete"  patCompAnalysis
+  indet'    <- analyzeAndCheck "indeterminism"     indetAnalysis
+  solcomp'  <- analyzeAndCheck "solution complete" solcompAnalysis
+  putStrLn ""
   return (AnaInfo (\qn -> nondet' qn == NDet) complete' indet' solcomp')
  where
-   analyzeAndCheck ana =
+   analyzeAndCheck aname ana = do
+     putStr $ aname ++ "..."
      analyzeInterface ana modname >>= either
        (\results -> return (\q -> getFunctionInfo results q))
        (\err -> error $ "Analysis error: " ++ err)
