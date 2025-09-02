@@ -1,6 +1,6 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : May 2025
+     Version : September 2025
 
      Operations to parse the module comments into a usable format.
 -}
@@ -46,8 +46,8 @@ readFullDesc strs = readFullDesc' (ModuleHeader [] "") (getIndentation strs) str
  where
   readFullDesc' h _    []    = h
   readFullDesc' h intd (s:ss)
-     -- Skip empty lines: 
-     | all isSpace s      = readFullDesc' (addComment h "\n") (getIndentation ss) ss
+     -- Skip empty lines and continue with existing indentation:
+     | all isSpace s      = readFullDesc' (addComment h "\n") intd ss
      -- Read indented paragraph:
      | spaceAmount > intd = readFullDesc' (addComment h $ drop intd s ++ "\n") intd ss
      -- Read either a field or a comment:

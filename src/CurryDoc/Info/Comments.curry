@@ -1,6 +1,6 @@
 {- |
      Author  : Kai-Oliver Prott
-     Version : March 2025
+     Version : September 2025
 
      Operations and datatypes to read comment files and
      match comments to declarations.
@@ -673,8 +673,8 @@ isExportSection e = case e of
 
 classifyComment :: Comment -> CDocComment
 classifyComment (NestedComment s)
-  | "{- |" `isPrefixOf` s = Pre     $ NestedComment $ dropLast2 $ drop 4 s
-  | "{- ^" `isPrefixOf` s = Post    $ NestedComment $ dropLast2 $ drop 4 s
+  | "{- |" `isPrefixOf` s = Pre     $ NestedComment $ dropLast2 $ dropWithPadding 4 2 s
+  | "{- ^" `isPrefixOf` s = Post    $ NestedComment $ dropLast2 $ dropWithPadding 4 2 s
   | "{- *" `isPrefixOf` s = Section ( NestedComment $ dropLast2 $ drop 3 s ) n
   | otherwise             = None    $ NestedComment $ dropLast2 $ drop 2 s
   where n = length $ takeWhile (=='*') $ drop 3 s
@@ -682,11 +682,19 @@ classifyComment (NestedComment s)
 classifyComment (LineComment   s)
   | "---"      ==       s = Pre     $ LineComment               $ drop 3 s
   | "--- " `isPrefixOf` s = Pre     $ LineComment               $ drop 4 s
-  | "-- |" `isPrefixOf` s = Pre     $ LineComment               $ drop 4 s
-  | "-- ^" `isPrefixOf` s = Post    $ LineComment               $ drop 4 s
+  | "-- |" `isPrefixOf` s = Pre     $ LineComment               $ dropWithPadding 4 2 s
+  | "-- ^" `isPrefixOf` s = Post    $ LineComment               $ dropWithPadding 4 2 s
   | "-- *" `isPrefixOf` s = Section ( LineComment               $ drop 3 s ) n
   | otherwise             = None    $ LineComment               $ drop 2 s
   where n = length $ takeWhile (=='*') $ drop 3 s
+
+-- | Drops the first `n` characters from a string and adds `p` spaces.
+--   This can be needed to keep the indentation of subsequent lines
+--   in multi-line comments. For example, when filtering/omitting the " |"
+--   in the first line, one might want to replace it with spaces instead of
+--   just dropping it.
+dropWithPadding :: Int -> Int -> String -> String
+dropWithPadding n p s = replicate p ' ' ++ drop n s
 
 commentString :: Comment -> String
 commentString (LineComment   s) = s
