@@ -13,17 +13,6 @@
 
 module OldStyle where 
 
--- | A simple constant with a markdown code block:
---   
---       x :: Int
---       x = 42
--- 
---   @return The answer to the ultimate question of life, the universe, and everything.
---
---   Text behind the code block.
-code :: Int
-code = 42
-
 --- A nondeterministic value.
 nondet :: Int
 nondet = 42 ? 73

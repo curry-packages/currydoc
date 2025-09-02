@@ -27,6 +27,8 @@ module Guide (
   Monoid(..),
   -- *** Re-exported typclasses 
   Num(..),
+  -- * Auxiliary definitions
+  code,
   -- * Re-exported modules
   module Data.List
 ) where
@@ -114,3 +116,14 @@ infixl 5 `mplus`
 
 -- Default declarations cannot be documented
 default (Int)
+
+-- | A simple constant with a markdown code block:
+--
+--       x :: Int
+--       x = 42
+-- 
+--   @return The answer to the ultimate question of life, the universe, and everything.
+--
+--   Text behind the code block.
+code :: Int
+code = 42
