@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-     Version : May 2025
+     Version : September 2025
 
      Operations to generate documentation in HTML format.
 -}
@@ -15,12 +15,13 @@ import System.FrontendExec ( FrontendParams, FrontendTarget (..), defaultParams
                            , setQuiet, setHtmlDir, callFrontendWithParams )
 import System.FilePath     ( (</>), (<.>) )
 import System.Directory    ( getFileWithSuffix )
-import Text.Pretty   ( showWidth, empty, isEmpty )
-import Data.List     ( sortBy, last, intersperse, intercalate, nub )
-import Data.Time     ( getLocalTime, calendarTimeToString, CalendarTime )
-import Data.Char     ( isSpace, toUpper, toLower )
-import Data.Maybe    ( catMaybes )
-import Data.Function ( on )
+import Data.Tuple.Extra ( first )
+import Text.Pretty      ( showWidth, empty, isEmpty )
+import Data.List        ( sortBy, last, intersperse, intercalate, nub )
+import Data.Time        ( getLocalTime, calendarTimeToString, CalendarTime )
+import Data.Char        ( isSpace, toUpper, toLower )
+import Data.Maybe       ( catMaybes )
+import Data.Function    ( on )
 
 import AbstractCurry.Types
 import AbstractCurry.Files
@@ -143,34 +144,69 @@ replaceIdLinksHtml opts = replaceIdLinks idCon otherCon
                                        [htxt fun]]
         otherCon = (:[]) . htxt
 
--- TODO: not working correctly, may be ambigous
 -- | Replaces identifier hyperlinks in a string (i.e., enclosed in single quotes)
---   according to the given function.
+--   according to the given function, skipping indented code blocks.
 replaceIdLinks :: (String -> String -> [a]) ->
                   (String ->           [a]) ->
                   String -> [a]
-replaceIdLinks idCon otherCon str = case str of
-  [] -> []
-  ('\\':'\'':cs) -> otherCon "'" ++ replaceIdLinks idCon otherCon cs
-  (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else otherCon (c:"") ++ replaceIdLinks idCon otherCon cs
+replaceIdLinks idCon otherCon = processLinesWithPrev False . lines
  where
-  tryReplaceIdLink ltxt [] = otherCon ('\'' : reverse ltxt)
-  tryReplaceIdLink ltxt (c:cs)
-   | isSpace c -- no space in id
-   = otherCon ('\'' : reverse ltxt ++ [c]) ++ replaceIdLinks idCon otherCon cs
-   | c == '\''
-   = checkId ltxt ++ replaceIdLinks idCon otherCon cs
-   | otherwise
-   = tryReplaceIdLink (c:ltxt) cs
+  processLinesWithPrev prevWasEmpty ls = case ls of
+    [] -> []
+    (l:rest) ->
+      let isEmpty = all isSpace l
+          isCode = prevWasEmpty && isCodeLine l
+      in if isCode
+        then 
+          let (codeLines, remaining) = spanCodeBlock (l:rest)
+          in concatMap (otherCon . (++"\n")) codeLines ++ processLinesWithPrev False remaining
+        else 
+          processLine l ++ otherCon "\n" ++ processLinesWithPrev isEmpty rest
+  
+  -- Checks if the given line is an indented code line (4+ spaces, not empty).
+  isCodeLine line = 
+       all isSpace (take 4 line) 
+    && length line > 4 
+    && not (all isSpace line)
+  
+  -- Spans all lines of an indented code block and collects the
+  -- content without trying to replace any links, possibly breaking
+  -- the layout.
+  spanCodeBlock ls = case ls of
+    [] -> ([], [])
+    (l:rest) 
+      | isCodeLine l || all isSpace l -> 
+          first (l:) (spanCodeBlock rest)
+      | otherwise -> 
+          ([], l:rest)
+  
+  -- Process a single line, replacing identifier links.
+  processLine cs = case cs of
+    []               -> []
+    ('\\':'\'':rest) -> otherCon "\'" ++ processLine rest
+    (c:rest)         -> case c of
+      '\'' -> tryReplaceIdLink [] rest
+      -- If we find a backtick, we look for the closing backtick
+      -- and do not replace anything in between (code spans). 
+      -- TODO: The closing backtick might be missing in this line,
+      --       so we should search in the next line(s).
+      '`'  -> let (l, r) = break (== '`') rest in
+                otherCon ('`' : l ++ ['`']) ++ processLine (drop 1 r)
+      _    -> otherCon [c] ++ processLine rest
+  
+  tryReplaceIdLink ltxt cs = case cs of
+    []       -> otherCon ('\'' : reverse ltxt)
+    (c:rest) -> case () of
+      _ | isSpace c -> otherCon ('\'' : reverse ltxt ++ [c]) ++ processLine rest
+      _ | c == '\'' -> checkId ltxt ++ processLine rest
+      _ -> tryReplaceIdLink (c:ltxt) rest
 
-  checkId s =
-    if ' ' `elem` s
-    then otherCon ('\'' : (reverse s) ++ ['\''])
-    else let (revfun, revmd) = break (=='.') s
-          in if null revmd
-               then idCon ""                     (reverse revfun)
-               else idCon (reverse $ tail revmd) (reverse revfun)
+  checkId s = if ' ' `elem` s
+    then otherCon ('\'' : reverse s ++ ['\''])
+    else case break (=='.') s of
+      (revfun, revmd) -> case revmd of
+        []     -> idCon "" (reverse revfun)
+        (_:md) -> idCon (reverse md) (reverse revfun)
 
 genHtmlExportIndex :: [ExportEntry a] -> BaseHtml
 genHtmlExportIndex es = ulistWithClass "nav flex-column" "nav-item"
