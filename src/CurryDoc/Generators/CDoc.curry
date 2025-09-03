@@ -34,22 +34,14 @@ import Data.Trie as T
 -- | Generates the documentation of a module in "CDoc" format.
 generateCDoc :: CurryDoc -> IO String
 generateCDoc cd@(CurryDoc mname mhead _ _) = do
-  putStrLn $ "Reading flat curry for module \"" ++ mname ++ "\"..."
-  fcyProg <- getFlatCurryFileInLoadPath mname
-              >>= readFlatCurryFile
-  let frMap
-        = buildFRMap (progFuncs fcyProg)
-      modInfo
-        = ModuleInfo
-            mname
-            (cleanupBorder $ removeNewlines $ author mhead)
-            (cleanupBorder $ description mhead)
-      decls
-        = allCurryDocDecls cd
-      curryInfo
-        = buildCurryInfo frMap modInfo decls
-
-  putStrLn $ "Writing " ++ mname ++ ".cdoc file..."
+  putStrLn $ "Reading FlatCurry of module '" ++ mname ++ "'..."
+  fcyProg <- getFlatCurryFileInLoadPath mname >>= readFlatCurryFile
+  let frMap     = buildFRMap (progFuncs fcyProg)
+      modInfo   = ModuleInfo mname
+                    (cleanupBorder $ removeNewlines $ author mhead)
+                    (cleanupBorder $ description mhead)
+      decls     = allCurryDocDecls cd
+      curryInfo = buildCurryInfo frMap modInfo decls
   return $ showTerm curryInfo
  where
   buildCurryInfo :: FRMap -> ModuleInfo -> [CurryDocDecl] -> CurryInfo
