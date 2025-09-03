@@ -28,8 +28,14 @@
     },
     "configModule": "CurryDoc.PackageConfig",
     "executable": {
-        "name": "curry-doc2",
-        "main": "CurryDoc.Main"
+        "name": "curry-doc",
+        "main": "CurryDoc.Main",
+        "options": { "kics2" : ":set rts -T",
+                     "kmcc"  : ":set rts -T" }
+    },
+    "documentation": {
+        "src-dir": "docs",
+        "main": "main.tex"
     },
     "source": {
         "git": "https://github.com/curry-packages/currydoc.git",
