@@ -16,16 +16,16 @@
         2. and this!
  
      The supported markdown syntax can be found at 
-     <https://www.informatik.uni-kiel.de/~pakcs/markdown_syntax.html>.
+     <https://github.com/curry-packages/markdown/blob/main/docs/markdown-syntax.md>.
 -}
 module Guide (
   -- * Some datatypes
   List(..), Tree(..), MyExternal, MyInt, MyString,
   -- ** Operations on those datatypes
   nullL, nullT, (:++:), (:+:),
-  -- ** Typeclasses
+  -- ** Type classes
   Monoid(..),
-  -- *** Re-exported typclasses 
+  -- *** Re-exported type classes 
   Num(..),
   -- * Auxiliary definitions
   code,
@@ -100,7 +100,7 @@ Empty :+: Empty = Empty
 -- | Reference to another documented entity: 'Prelude.String'
 type MyString = List Char
 
--- | Typeclasses can be documented!
+-- | Type classes can be documented!
 class Monoid a where
   mempty :: a
   mplus :: a -> a -> a
