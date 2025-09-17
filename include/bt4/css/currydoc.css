@@ -47,6 +47,8 @@
   --export-datatype-badge-color: #0c5460;
   --export-datatype-badge-border: #bee5eb;
 
+  --export-entity-header-bg: #e9ecef;
+
   /* Syntax highlighting - light theme */
   --code-bg:          #f5f5f5;
   --code-color:       #1b1b1b;
@@ -93,9 +95,9 @@
   --link-color:  #4dabf7;
   --link-hover:  #a5d8ff;
 
-  --methods-block-color: #222222;
-  --methods-block-hover: #282828;
-  --methods-block-border: #373737;
+  --methods-block-color: #1b1b1b;
+  --methods-block-hover: #1e1e1e;
+  --methods-block-border: #292929;
 
   --export-overview-bg: #383838;
   --export-overview-border: #444444;
@@ -111,6 +113,8 @@
   --export-datatype-badge-bg: #134e4a;
   --export-datatype-badge-color: #a7f3d0;
   --export-datatype-badge-border: #14664b;
+
+  --export-entity-header-bg: #252525;
 
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
@@ -204,7 +208,7 @@ section {
   font-size: 24px;
   font-weight: bold;
 
-  background-color: var(--card-bg);
+  background-color: var(--export-entity-header-bg);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -213,14 +217,14 @@ section {
   font-size: 24px;
   font-weight: bold;
 
-  background-color: var(--card-bg);
-  padding: 2px 6px;
+  background-color: var(--export-entity-header-bg);
+  padding: 3px 6px;
   border-radius: 4px;
 }
 
 .functionheader {
-  background-color: var(--card-bg);
-  padding: 2px 6px;
+  background-color: var(--export-entity-header-bg);
+  padding: 3px 6px;
   border-radius: 4px;
 }
 
@@ -247,6 +251,10 @@ section {
 
 .explaincat {
   font-style: italic;
+  color: var(--body-color);
+}
+
+dd {
   color: var(--body-color);
 }
 
