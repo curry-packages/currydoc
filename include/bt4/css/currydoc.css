@@ -10,7 +10,7 @@
   --card-bg:     #e9ecef;
   --card-border: #f0f0f0;
   --hrule-color: #f3f3f3;
-  
+
   --sidebar-bg:  #ffffff;
   --sidebar-modulename-color: #333333;
   --sidebar-modulename-bg: #f7f7f7;
@@ -28,13 +28,13 @@
   --link-color:  #2196F3;
   --link-hover:  #064579;
 
-  --methods-block-color: #f6f6f6;
-  --methods-block-hover: #f3f3f3;
-  --methods-block-border: #e0e0e0;
+  --methods-block-color: #fcfcfc;
+  --methods-block-hover: #f9f9f9;
+  --methods-block-border: #ececec;
 
   --export-overview-bg: #ffffff;
   --export-overview-border: #dee2e6;
-  
+
   --export-class-badge-bg: #e2e3e5;
   --export-class-badge-color: #6c757d;
   --export-class-badge-border: #d6d8db;
@@ -111,7 +111,7 @@
   --export-datatype-badge-bg: #134e4a;
   --export-datatype-badge-color: #a7f3d0;
   --export-datatype-badge-border: #14664b;
-  
+
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
   --code-color:       #f0f0f0;
@@ -203,6 +203,25 @@ section {
 .typeheader {
   font-size: 24px;
   font-weight: bold;
+
+  background-color: var(--card-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.classheader {
+  font-size: 24px;
+  font-weight: bold;
+
+  background-color: var(--card-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.functionheader {
+  background-color: var(--card-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .opname {
@@ -375,14 +394,14 @@ code {
   border-color: var(--sidebar-border);
   border-width: 2px;
   overflow-x: hidden;
-  
+
   /* Allow shrinking below 100px if content is small */
   min-height: auto;
   height: auto;
   border: none;
   padding: 0;
 
-  overflow-y: auto;  
+  overflow-y: auto;
   max-height: calc(100vh - 130px);
 
   /* When content is scrollable, enforce min-height */
