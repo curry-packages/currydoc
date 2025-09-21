@@ -176,7 +176,7 @@ genTexClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v _ ds cs
     -> "\\curryclassstart{" ++ cname ++ " " ++
        (if null cxString then "" else cxString ++ " ") ++
-       unwords (map snd v) ++ "}{" ++
+       unwords (map snd v) ++ "}" ++
        docStringToTex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
        concatMap (genTexFunc docopts) ds ++
