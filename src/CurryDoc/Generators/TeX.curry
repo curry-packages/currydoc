@@ -97,7 +97,7 @@ genTexFunc docopts d = case d of
 genTexType :: DocOptions -> CurryDocDecl -> String
 genTexType docopts d = case d of
   CurryDocDataDecl (tcmod,tcons) vs insts _ constrs cs ->
-    "\\currydatastart{" ++ "data " ++ tcons ++ "}\n" ++
+    "\\currydatastart{" ++ tcons ++ "}\n" ++
     docStringToTex docopts
       (concatCommentStrings (map commentString cs)) ++
     (if null constrs
@@ -111,7 +111,7 @@ genTexType docopts d = case d of
            concatMap (genTexInst docopts tcmod) insts ++
            "\n\\currydatainstsstop")
   CurryDocNewtypeDecl (tcmod,tcons) vs insts cons cs ->
-    "\\currydatastart{" ++ "newtype " ++ tcons ++ "}\n" ++
+    "\\currynewtypestart{" ++ tcons ++ "}\n" ++
     docStringToTex docopts
       (concatCommentStrings (map commentString cs)) ++
     (maybe "\n\\currynocons"
