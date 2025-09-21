@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-     Version : August 2018
+     Version : September 2025
 
      Operations to generate documentation in LaTeX format.
 -}
@@ -36,17 +36,17 @@ generateTexDocs docopts (CurryDoc mname mhead ex _) =
 docStringToTex :: DocOptions -> String -> String
 docStringToTex docopts cmt =
   if withMarkdown docopts
-  then markdownText2LaTeX (replaceIdLinks cmt)
-  else replaceIdLinks cmt
+    then markdownText2LaTeX (replaceIdLinks cmt)
+    else replaceIdLinks cmt
 
 -- replace identifier hyperlinks in a string (i.e., enclosed in single quotes)
 -- by code markdown:
 replaceIdLinks :: String -> String
 replaceIdLinks str = case str of
-  [] -> []
+  []             -> []
   ('\\':'\'':cs) -> '\'' : replaceIdLinks cs
-  (c:cs) -> if c=='\'' then tryReplaceIdLink [] cs
-                       else c : replaceIdLinks cs
+  (c:cs)          -> if c=='\'' then tryReplaceIdLink [] cs
+                                else c : replaceIdLinks cs
  where
   tryReplaceIdLink ltxt [] = '\'' : reverse ltxt
   tryReplaceIdLink ltxt (c:cs)
@@ -55,8 +55,8 @@ replaceIdLinks str = case str of
    | otherwise = tryReplaceIdLink (c:ltxt) cs
 
   checkId s = if ' ' `elem` s
-              then '\'' : s ++ ['\'']
-              else "<code>"++s++"</code>"
+                then '\'' : s ++ ['\'']
+                else "`" ++ s ++ "`"
 
 genTexForExport :: DocOptions -> [ExportEntry CurryDocDecl] -> String
 genTexForExport _   []                                  = ""
@@ -176,7 +176,7 @@ genTexClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v _ ds cs
     -> "\\curryclassstart{" ++ cname ++ " " ++
        (if null cxString then "" else cxString ++ " ") ++
-       unwords (map snd v) ++ "}" ++
+       unwords (map snd v) ++ "}\n" ++
        docStringToTex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
        concatMap (genTexFunc docopts) ds ++
