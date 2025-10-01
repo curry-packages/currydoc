@@ -49,6 +49,8 @@
 
   --export-entity-header-bg: #e9ecef;
 
+  --constructor-comment-color: #666;
+
   /* Syntax highlighting - light theme */
   --code-bg:          #f5f5f5;
   --code-color:       #1b1b1b;
@@ -115,6 +117,8 @@
   --export-datatype-badge-border: #14664b;
 
   --export-entity-header-bg: #252525;
+
+  --constructor-comment-color: #a4a8b1;
 
   /* Syntax highlighting - dark theme */
   --code-bg:          #2a2a2a;
@@ -551,4 +555,20 @@ code {
 
 .class-badge:hover {
   filter: brightness(0.9);
+}
+
+/* Styling of constructor overview inside datatype details */
+.constructor-list {
+  margin-bottom: 0.75em;
+}
+
+.constructor-comment {
+  margin-top: 0.25em;
+  color: var(--constructor-comment-color);
+  font-style: italic;
+}
+
+.constructor-comment code {
+  color: inherit;
+  font-style: normal;
 }

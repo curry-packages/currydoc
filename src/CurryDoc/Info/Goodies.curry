@@ -127,7 +127,7 @@ isFunctionType t = case t of
 
 -- | Combines multiple comment strings to a single string.
 concatCommentStrings :: [String] -> String
-concatCommentStrings ss = unlines ss
+concatCommentStrings = unlines
 
 -- | Trims leading and trailing whitespace.
 trimSpace :: String -> String
@@ -163,7 +163,7 @@ guard False = Nothing
 snoc :: [a] -> a -> [a]
 snoc xs x = xs ++ [x]
 
--- | Checks if a comment is empty (not visible and 
+-- | Checks if a comment is empty (not visible and
 -- | not meaningful content, i.e., contains only whitespace).
 isEmptyComment :: String -> Bool
 isEmptyComment = all isSpace
