@@ -1,6 +1,6 @@
 {- |
      Author  : Michael Hanus, Jan Tikovsky, Kai-Oliver Prott
-     Version : September 2025
+     Version : October 2025
 
      Operations to generate documentation in LaTeX format.
 -}
@@ -64,12 +64,13 @@ genTexForExport doc (ExportSection c nesting ex : rest) =
   let innerTex = genTexForExport doc ex
       outerTex = genTexForExport doc rest
   in getSubsectionCommand nesting ++
-     docStringToTex doc (commentString c) ++ "\n\n" ++
+     docStringToTex doc (commentString c) ++
+     (if nesting > 1 then "~\\\\" else "") ++ "\n\n" ++
      innerTex ++ "\n\n" ++ outerTex
-  where getSubsectionCommand n = case n of
-                    1 -> "\\subsubsection*"
-                    2 -> "\\paragraph*"
-                    _ -> "\\subparagraph*"
+ where
+  getSubsectionCommand n = case n of 1 -> "\\subsubsection*"
+                                     2 -> "\\paragraph*"
+                                     _ -> "\\subparagraph*"
 genTexForExport doc (ExportEntryModule _ : rest) =
   genTexForExport doc rest -- TODO: show export of modules
 genTexForExport doc (ExportEntry decl : rest)
@@ -140,7 +141,8 @@ genTexInst docopts modname d = case d of
     "\n" ++
     (if null cxString then "" else cxString ++ " ") ++
     "\\textbf{" ++ cname ++ "} " ++
-    unwords (map (\ty -> showTexType docopts modname (isApplyType ty || isFunctionType ty) ty) ts) ++
+    unwords (map (\ty -> showTexType docopts modname
+                           (isApplyType ty || isFunctionType ty) ty) ts) ++
     "\n\n"
     where cxString = showTexContext docopts cmod cx
 
@@ -174,9 +176,9 @@ genTexField docopts (CurryDocField (fmod,fname) ty _ cs) =
 genTexClass :: DocOptions -> CurryDocDecl -> String
 genTexClass docopts d = case d of
   CurryDocClassDecl (cmod, cname) cx v _ ds cs
-    -> "\\curryclassstart{" ++ cname ++ " " ++
+    -> "\\curryclassstart{" ++ cname ++ "}{" ++
        (if null cxString then "" else cxString ++ " ") ++
-       unwords (map snd v) ++ "}\n" ++
+       "\\textbf{" ++ cname ++ "} " ++ unwords (map snd v) ++ "}\n" ++
        docStringToTex docopts
          (concatCommentStrings (map commentString cs)) ++ "\n" ++
        concatMap (genTexFunc docopts) ds ++
@@ -200,15 +202,16 @@ showQualTexType opts mod (CQualType ctxt texp) =
 showTexContext :: DocOptions -> String -> CContext -> String
 showTexContext _ _ (CContext []) = ""
 showTexContext opts mod (CContext [clscon]) =
-  showTexConstraint opts mod clscon ++ " =>"
+  showTexConstraint opts mod clscon ++ " $\\Rightarrow$"
 showTexContext opts mod (CContext ctxt@(_:_:_)) =
   bracketsIf True (intercalate ", " (map (showTexConstraint opts mod) ctxt))
-    ++ " =>"
+    ++ " $\\Rightarrow$"
 
 -- Pretty-print a single class constraint.
 showTexConstraint :: DocOptions -> String -> CConstraint -> String
 showTexConstraint opts mod (cn,texps) =
-  "\\textbf{" ++ snd cn ++ "} " ++ unwords (map (showTexType opts mod True) texps)
+  "\\textbf{" ++ snd cn ++ "} " ++
+  unwords (map (showTexType opts mod True) texps)
 
 -- Pretty printer for types in Curry syntax as TeX string.
 -- first argument is True iff brackets must be written around complex types
