@@ -11,6 +11,14 @@ body {
 
 .jumbotron h1 {
   text-align: center;
+  font-size: 54px;
+}
+
+/* On smaller screens, remove sidebar*/
+@media (max-width: 991px) {
+    .jumbotron h1 {
+        font-size: 40px;
+    }
 }
 
 /* padding for in-page bookmarks and fixed navbar */
@@ -18,10 +26,56 @@ section {
   padding-top: 30px;
 }
 
-.nav-sidebar > li > a {
-  padding-top: 5px;
-  padding-bottom: 5px;
-  line-height: 15px;
+/* The sidebar menu */
+.nav-sidebar {
+    position: fixed;
+    z-index: 1;
+    top: 100px;
+    left: 10px;
+    background-color: #eee;
+    overflow-x: hidden;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    line-height: 15px;
+}
+
+.nav-sidebar > div > a:hover {
+    color: #064579;
+}
+
+/* The navigation menu links */
+.nav-sidebar > div > a {
+    padding: 6px 8px 6px 16px;
+    text-decoration: none;
+    font-size: 18px;
+    color: #2196F3;
+    display: block;
+}
+
+/* When you mouse over the navigation links, change their color */
+.nav-sidebar > div > a:hover {
+    color: #064579;
+}
+
+/* On middle screens, make sidebar smaller*/
+@media (max-width: 1199px) {
+    .nav-sidebar > div > a {
+       font-size: 14px;
+    }
+}
+
+/* On smaller screens, make sidebar even smaller*/
+@media (max-width: 991px) {
+    .nav-sidebar > div > a {
+       font-size: 10px;
+    }
+}
+
+/* On even smaller screens, remove sidebar*/
+@media (max-width: 767px) {
+    .nav-sidebar {
+        display: none;
+    }
 }
 
 .anchored {
@@ -30,8 +84,26 @@ section {
 
 /* type name at header positions */
 .typeheader {
-  font-size: 24px;
-  font-weight: bold;
+  font-size: 18px;
+}
+
+/* module export at header positions */
+.moduleexport {
+  font-size: 18px;
+}
+
+/* class signature at header positions */
+.classheader {
+  font-size: 18px;
+}
+
+/* class signature at header positions */
+.functionheader {
+  font-size: 18px;
+}
+
+.classfunctionheader {
+  font-size: 16px;
 }
 
 /* function name in the documentation of a exported functions */
@@ -49,7 +121,27 @@ section {
   font-style: italic;
 }
 
-code { color:black }
+.indent1 {
+  text-indent: 15px;
+}
+
+.indent2 {
+  text-indent: 30px;
+}
+
+.indent3 {
+  text-indent: 45px;
+}
+
+.indent4 {
+  text-indent: 60px;
+}
+
+code {
+  color:black;
+  background-color: #f0f0f0
+}
+
 
 .keyword { color:blue }
 .constructorname_constrpattern { color : #ff00ff }

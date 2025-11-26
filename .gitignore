@@ -9,3 +9,5 @@ docs/*.synctex.gz
 .curry
 .cpm
 src/CurryDoc/PackageConfig.curry
+DOC_*/
+examples/.curry_doc_cache/

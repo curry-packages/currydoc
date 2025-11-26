@@ -1,12 +1,173 @@
-/* Changes to default bootstrap style: */
+:root {
+  --container-width: 1440px; /* 1890px for FHD screen fill */
 
+  /* Because the jumbotron has a fixed color for both
+     light and dark theme, this color is fixed for both themes: */
+  --top-navbar-navlink-color: #a2a2a7;
+
+  --body-bg:     #ffffff;
+  --body-color:  #212529;
+  --card-bg:     #e9ecef;
+  --card-border: #f0f0f0;
+  --hrule-color: #f3f3f3;
+
+  --sidebar-bg:  #ffffff;
+  --sidebar-modulename-color: #333333;
+  --sidebar-modulename-bg: #f7f7f7;
+  --sidebar-navlink-color: #4a5568;
+  --sidebar-navlink-hover: #2d3748;
+  --sidebar-navlink-hover-bg: #fafafa;
+  --sidebar-hline: #e2e8f0;
+  --sidebar-border: #e2e2e2;
+  --sidebar-shadow: rgba(0, 0, 0, 0.1);
+
+  --sidebar-highlight-text: #384966;
+  --sidebar-highlight-bg: rgba( 140, 140, 140, 0.1);
+  --sidebar-highlight-border: #95a8bd;
+
+  --link-color:  #2196F3;
+  --link-hover:  #064579;
+
+  --methods-block-color: #fcfcfc;
+  --methods-block-hover: #f9f9f9;
+  --methods-block-border: #ececec;
+
+  --export-overview-bg: #ffffff;
+  --export-overview-border: #dee2e6;
+
+  --export-class-badge-bg: #e2e3e5;
+  --export-class-badge-color: #6c757d;
+  --export-class-badge-border: #d6d8db;
+
+  --export-function-badge-bg: #bcdbff;
+  --export-function-badge-color: #0157c2;
+  --export-function-badge-border: #c8cfff;
+
+  --export-datatype-badge-bg: #d1ecf1;
+  --export-datatype-badge-color: #0c5460;
+  --export-datatype-badge-border: #bee5eb;
+
+  --export-entity-header-bg: #e9ecef;
+
+  --constructor-comment-color: #666;
+
+  /* Syntax highlighting - light theme */
+  --code-bg:          #f5f5f5;
+  --code-color:       #1b1b1b;
+  --keyword:          #0000ff;
+  --constructor:      #ff00ff;
+  --type-constructor: #ff7f50;
+  --function:         #800080;
+  --module:           #800000;
+  --comment:          #008000;
+  --number:           #008080;
+  --string:           #800000;
+  --char:             #800000;
+  --symbol:           #666666;
+  --identifier:       #000000;
+  --warning:          #ff0000;
+  --error:            #a52a2a;
+  --not-parsed:       #c0c0c0;
+
+  --md-code-color:    #6b6b6b;
+}
+
+[data-theme="dark"] {
+  --body-bg:     #111111;
+  --body-color:  #f0f0f0;
+  --card-bg:     #2d2d2d;
+  --card-border: #2d2d2d;
+  --hrule-color: #2f2f2f;
+
+  --sidebar-bg:  #ffffff;
+  --sidebar-modulename-color: #e2e2e2;
+  --sidebar-modulename-bg: #333333;
+  --sidebar-navlink-color: #ccd6e7;
+  --sidebar-navlink-hover: #778bad;
+  --sidebar-navlink-hover-bg: rgba(100, 100, 100, 0.1);
+  --sidebar-hline: #494949;
+  --sidebar-bg:  #2a2c2e;
+  --sidebar-border: #3d3d49;
+  --sidebar-shadow: rgb(41, 48, 58);
+
+  --sidebar-highlight-text: #8eb7ff;
+  --sidebar-highlight-bg: rgba(202, 202, 202, 0.1);
+  --sidebar-highlight-border: #1f5796;
+
+  --link-color:  #4dabf7;
+  --link-hover:  #a5d8ff;
+
+  --methods-block-color: #1b1b1b;
+  --methods-block-hover: #1e1e1e;
+  --methods-block-border: #292929;
+
+  --export-overview-bg: #383838;
+  --export-overview-border: #444444;
+
+  --export-class-badge-bg: #495057;
+  --export-class-badge-color: #e9ecef;
+  --export-class-badge-border: #585d61;
+
+  --export-function-badge-bg: #1e3a8a;
+  --export-function-badge-color: #bfdbfe;
+  --export-function-badge-border: #305798;
+
+  --export-datatype-badge-bg: #134e4a;
+  --export-datatype-badge-color: #a7f3d0;
+  --export-datatype-badge-border: #14664b;
+
+  --export-entity-header-bg: #252525;
+
+  --constructor-comment-color: #a4a8b1;
+
+  /* Syntax highlighting - dark theme */
+  --code-bg:          #2a2a2a;
+  --code-color:       #f0f0f0;
+  --keyword:          #569cd6;
+  --constructor:      #b57edc;
+  --type-constructor: #ce9178;
+  --function:         #c586c0;
+  --module:           #d16969;
+  --comment:          #6a9955;
+  --number:           #b5cea8;
+  --string:           #ce9178;
+  --char:             #ce9178;
+  --symbol:           #858585;
+  --identifier:       #dcdcdc;
+  --warning:          #f44747;
+  --error:            #d86c6c;
+  --not-parsed:       #7a7a7a;
+
+  --md-code-color:    #adadad;
+}
+
+[data-theme="dark"] img.svg-icon {
+  filter: invert(100%) brightness(150%);
+}
+
+/* Override Bootstrap's 1140px because container-xxl is not available in bt4 */
+.container-xl {
+  max-width: var(--container-width) !important;
+}
+
+hr {
+  background-color: var(--hrule-color);
+}
+
+/* Changes to default bootstrap style: */
 body {
-  padding-top: 100px;
-  padding-bottom: 40px;
+  padding-top: 80px;
+  background-color: var(--body-bg);
+  color: var(--body-color);
+}
+
+pre {
+  color: var(--md-code-color);
 }
 
 .jumbotron {
   padding: 10px 20px;
+  background-color: var(--card-bg);
 }
 
 .jumbotron h1 {
@@ -18,61 +179,396 @@ section {
   padding-top: 30px;
 }
 
-.sidebar-nav > li > a {
-  padding-top: 5px;
-  padding-bottom: 5px;
-  line-height: 15px;
+/* Controls margin between property and function href
+   in pre-/postconditions and property definitions */
+.mprop {
+  margin-left: 5px;
 }
+
+/* ***************************************** */
+
+/* Completely hide cards and only use them for positioning.
+   Cards are only used for the left sidebar (navigation), and all
+   styling is done in `nav-card` */
+.card {
+  position: fixed;
+  border-color: transparent;
+  background-color: transparent;
+  width: min(23vw, calc(var(--container-width) * 0.23)); /* workaround to make fixed positioning
+                                                            work with bootstrap grid */
+}
+
+/* ****************************************** */
 
 .anchored {
   padding-top: 40px;
 }
 
-/* type name at header positions */
+.jump-offset {
+  scroll-margin-top: 48px; /* Adjust for the fixed navbar */
+}
+
 .typeheader {
   font-size: 24px;
   font-weight: bold;
+
+  background-color: var(--export-entity-header-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-/* function name in the documentation of a exported functions */
+.classheader {
+  font-size: 24px;
+  font-weight: bold;
+
+  background-color: var(--export-entity-header-bg);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.functionheader {
+  background-color: var(--export-entity-header-bg);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
 .opname {
   font-weight: bold;
 }
 
-/* style for constructor comments" */
 .conscomment {
   padding: 5px 0px 0px 20px;
 }
 
-/* style for explanation categories like "Constructors:" */
+.indent1 {
+  padding-left: 0px;
+}
+.indent2 {
+  padding-left: 15px;
+}
+.indent3 {
+  padding-left: 30px;
+}
+.indent4 {
+  padding-left: 45px;
+}
+
 .explaincat {
+  font-style: italic;
+  color: var(--body-color);
+}
+
+dd {
+  color: var(--body-color);
+}
+
+p {
+  color: var(--body-color);
+}
+
+table-bordered {
+  border: 1px solid var(--card-border);
+}
+
+.table-bordered th,
+.table-bordered td {
+  border-color: var(--methods-block-border);
+}
+tr {
+  background-color: var(--methods-block-color);
+}
+
+table tr:hover {
+  background-color: var(--methods-block-hover) !important;
+}
+
+/* ****************************************** */
+/* syntax highlighting */
+
+code {
+  color: var(--code-color);
+  border-radius: 3px;
+}
+
+.keyword { color: var(--keyword); }
+.constructorname_constrpattern,
+.constructorname_constrcall,
+.constructorname_constrdecla,
+.constructorname_otherconstrkind { color: var(--constructor); }
+.typeconstructor_typedecla,
+.typeconstructor_typeuse,
+.typeconstructor_typeexport { color: var(--type-constructor); }
+.function_infixfunction,
+.function_typsig,
+.function_fundecl,
+.function_functioncall,
+.function_otherfunctionkind { color: var(--function); }
+.moduleName { color: var(--module); }
+.commentary { color: var(--comment); }
+.numberCode { color: var(--number); }
+.stringCode,
+.charCode { color: var(--string); }
+.symbol { color: var(--symbol); }
+.identifier_iddecl,
+.identifier_idoccur,
+.identifier_unknownid { color: var(--identifier); }
+.codeWarning { font-weight: bold; font-style: italic; color: var(--warning); }
+.codeError { font-style: italic; color: var(--error); }
+.notParsed { font-style: italic; color: var(--not-parsed); }
+
+/* ****************************************** */
+/* Theme toggle button styles */
+
+#theme-toggle {
+  position: relative;
+  top: 6px;
+  border-color: transparent;
+  background-color: transparent;
+}
+
+#theme-toggle:hover,
+#theme-toggle:focus {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .theme-icon-light {
+  display: none;
+}
+[data-theme="dark"] .theme-icon-dark {
+  display: inline;
+}
+[data-theme="light"] .theme-icon-light {
+  display: inline;
+}
+[data-theme="light"] .theme-icon-dark {
+  display: none;
+}
+
+/* **************************************************************** */
+/* Styling of the module header, specifically for the module fields */
+
+.info-row::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* This justifies the text. Might be a nice addition and improvement
+ * regarding text flow and alignment, but needs to be tested with
+ * various screen sizes and module header texts.
+
+.info-left {
+  text-align: justify;
+}
+*/
+
+.info-right {
+  float: right;
+  max-width: 320px;
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.info {
+  display: inline-grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.5em;
+  padding: 4px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  max-width: 320px;
+}
+
+.info-item {
+  display: contents;
+}
+
+.info-key {
+  font-weight: bold;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.info-value {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* *************************************************************** */
+/*           Styling of the left navigation panel                  */
+
+/* The sidebar menu */
+.list-group-item {
+  z-index: 1;
+  background-color: var(--sidebar-bg);
+  border-color: var(--sidebar-border);
+  border-width: 2px;
+  overflow-x: hidden;
+
+  /* Allow shrinking below 100px if content is small */
+  min-height: auto;
+  height: auto;
+  border: none;
+  padding: 0;
+
+  overflow-y: auto;
+  max-height: calc(100vh - 130px);
+
+  /* When content is scrollable, enforce min-height */
+  @supports (overflow-y: overlay) or (overflow-y: auto) {
+    &:not(:-webkit-scrollbar) {
+      min-height: 100px;
+    }
+  }
+}
+
+.nav-card {
+  border: none;
+  border-radius: 2px;
+  box-shadow: 0 4px 6px -1px var(--sidebar-shadow);
+  overflow: hidden;
+  background-color: var(--sidebar-bg);
+}
+
+.nav-link {
+  color: var(--sidebar-navlink-color) !important;
+  text-decoration: none;
+  padding: 6px 16px;
+  transition: color 0.15s ease;
+  font-weight: 400;
+}
+
+/* The top navbar has a fixed color for both light and dark theme,
+   so we use a fixed color for styling these specific `nav-link`s */
+#topnavbar .nav-link {
+  color: var(--top-navbar-navlink-color) !important;
+}
+
+.nav-link:hover {
+  color: var(--sidebar-navlink-hover) !important;
+  background-color: var(--sidebar-navlink-hover-bg);
+}
+
+/* Styling of active section, based on scroll */
+.nav-link.active {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--sidebar-highlight-text) !important;
+  background-color: var(--sidebar-highlight-bg) !important;
+  border-left: 3px solid var(--sidebar-highlight-border);
+}
+
+/* Module title styling */
+.module-title {
+  color: var(--sidebar-modulename-color);
+  background: var(--sidebar-modulename-bg);
+  text-decoration: none;
+  font-size: 1.1em;
+  font-weight: 600;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sidebar-hline);
+  display: block;
+}
+
+.module-title:hover {
+  color: var(--sidebar-navlink-color) !important;
+  text-decoration: none;
+}
+
+/* Styling of the "imported modules:" title text */
+.imported-modules {
+  margin-top: 10px;
+  padding: 8px 16px;
+  font-weight: bold;
+  border-top: 1px solid var(--sidebar-hline);
+  color: var(--sidebar-modulename-color);
+}
+
+
+/* *********************************************************************** */
+/* Styling of the export overview (exported datatypes, classes, functions) */
+
+.export-overview {
+  background: var(--export-overview-bg);
+  border: 1px solid var(--export-overview-border);
+  border-radius: 0.375rem;
+  padding: 0.8rem;
+  margin-top: 10px;
+}
+
+.export-section {
+  margin-bottom: 0.75rem;
+}
+
+.export-section:last-child {
+  margin-bottom: 0;
+}
+
+.export-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.export-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.export-item {
+  font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.875rem;
+}
+
+.datatype-badge {
+  background-color: var(--export-datatype-badge-bg);
+  color: var(--export-datatype-badge-color);
+  border: 1px solid var(--export-datatype-badge-border);
+}
+
+.function-badge {
+  background-color: var(--export-function-badge-bg);
+  color: var(--export-function-badge-color);
+  border: 1px solid var(--export-function-badge-border);
+}
+
+.class-badge {
+  background-color: var(--export-class-badge-bg);
+  color: var(--export-class-badge-color);
+  border: 1px solid var(--export-class-badge-border);
+}
+
+.export-item:hover {
+  text-decoration: none;
+}
+
+.datatype-badge:hover {
+  filter: brightness(0.9);
+}
+
+.function-badge:hover {
+  filter: brightness(0.9);
+}
+
+.class-badge:hover {
+  filter: brightness(0.9);
+}
+
+/* Styling of constructor overview inside datatype details */
+.constructor-list {
+  margin-bottom: 0.75em;
+}
+
+.constructor-comment {
+  margin-top: 0.25em;
+  color: var(--constructor-comment-color);
   font-style: italic;
 }
 
-code { color:black }
-
-.keyword { color:blue }
-.constructorname_constrpattern { color : #ff00ff }
-.constructorname_constrcall { color : #ff00ff }
-.constructorname_constrdecla { color : #ff00ff }
-.constructorname_otherconstrkind { color : #ff00ff }
-.typeconstructor_typedecla  { color : #ff7f50 }
-.typeconstructor_typeuse  { color : #ff7f50 }
-.typeconstructor_typeexport  { color : #ff7f50 }
-.function_infixfunction  { color : #800080 }
-.function_typsig  { color : #800080 }
-.function_fundecl  { color : #800080 }
-.function_functioncall  { color : #800080 }
-.function_otherfunctionkind  { color : #800080 }
-.moduleName  { color : #800000 }
-.commentary  { color : green }
-.numberCode  { color : #008080 }
-.stringCode  { color : #800000 }
-.charCode  { color : #800000 }
-.symbol  { color : #666666 }
-.identifier_iddecl   { color : black }
-.identifier_idoccur   { color : black }
-.identifier_unknownid   { color : black }
-.codeWarning  {font-weight: bold;font-style:italic; color : red }
-.codeError  { font-style:italic; color : #a52a2a }
-.notParsed  { font-style:italic; color : #C0C0C0 }
+.constructor-comment code {
+  color: inherit;
+  font-style: normal;
+}

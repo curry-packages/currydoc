@@ -1,36 +1,35 @@
-----------------------------------------------------------------------
---- This module contains some configuration parameters for
---- the CurryDoc tool.
----
---- @author Michael Hanus, Jan Tikovsky
---- @version July 2025
-----------------------------------------------------------------------
+{- |
+     Author  : Michael Hanus, Jan Tikovsky
+     Version : October 2025
 
+     This module contains some configuration parameters for the CurryDoc tool.
+-}
 module CurryDoc.Config where
 
 import Curry.Compiler.Distribution ( curryCompiler )
 import CurryDoc.PackageConfig      ( packageVersion )
-import Language.Curry.Resources    ( curryWikiURL, kics2URL, pakcsURL )
+import Language.Curry.Resources    ( pakcsURL, kics2URL )
 
---- Version of currydoc
+-- | Version of currydoc
 currydocVersion :: String
-currydocVersion = "Version " ++ packageVersion ++ " of July 23, 2025"
+currydocVersion = "Version " ++ packageVersion ++ " of October 13, 2025"
 
---- The URL of the base directory containing the styles, images, etc.
+-- | The URL of the base directory containing the styles, images, etc.
 styleBaseURL :: String
 styleBaseURL = "bt4"
 
---- The URL of the base directory containing the styles, images, etc.
+-- | The URL of the base directory containing the styles, images, etc.
 currySystemURL :: String
-currySystemURL = if curryCompiler=="pakcs" then pakcsURL
-                                           else kics2URL
+currySystemURL = if curryCompiler=="pakcs"
+                  then pakcsURL
+                  else kics2URL
 
---- The name of this Curry system.
+-- | The name of this Curry system.
 currySystem :: String
 currySystem | curryCompiler == "pakcs" = "PAKCS"
             | curryCompiler == "kics2" = "KiCS2"
             | otherwise                = "???"
 
---- The URL of the Curry Wiki
+-- | The URL of CurryDoc
 curryDocURL :: String
-curryDocURL = curryWikiURL ++ "/tools/currydoc"
+curryDocURL = "https://cpm.curry-lang.org/pkgs/currydoc.html"
