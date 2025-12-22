@@ -109,7 +109,9 @@ one can also execute the command
 
 where `docdir` is the directory for the documentation files.
 
-For a comprehensive example, refer to the [Guide](/examples/Guide.curry).
+A comprehensive example of a Curry program containing various
+documentation comments can be found in the program
+`Guide.curry` in the `examples` folder of this package.
 
 Further Information
 -------------------
@@ -122,11 +124,11 @@ inspiration from Haddock's documentation style.
 More details on CurryDoc are described in the user manuals of the Curry systems
 [PAKCS](https://www.curry-lang.org/pakcs/) and
 [KiCS2](https://www.curry-lang.org/kics2/).
-There is also a paper describing the basic ideas of CurryDoc:
+There is also a paper describing the basic ideas of the original
+CurryDoc system:
 
-M. Hanus:
-CurryDoc : A Documentation Tool for Declarative Programs.
-Proc. of the 11th International Workshop on Functional and (Constraint)
-Logic Programming (WFLP 2002),
-Research Report UDMI/18/2002/RR, Università degli Studi di Udine,
-pp. 225-228, 2002 
+> M. Hanus: CurryDoc : A Documentation Tool for Declarative Programs.
+> Proc. of the 11th International Workshop on Functional and (Constraint)
+> Logic Programming (WFLP 2002),
+> Research Report UDMI/18/2002/RR, Università degli Studi di Udine,
+> pp. 225-228, 2002 
